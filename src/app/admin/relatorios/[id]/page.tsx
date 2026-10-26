@@ -10,6 +10,8 @@ import { ConteudoRelatorio, type DadosConteudo } from "@/components/relatorio/co
 import { Mudancas } from "@/components/relatorio/mudancas";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { chamadosSuporte } from "@/lib/config-suporte";
+import { buscarResumoSuporte } from "@/lib/suporte";
 import { AcoesRascunho } from "./acoes-rascunho";
 
 export default function RelatorioPage({ params, searchParams }: PageProps<"/admin/relatorios/[id]">) {
@@ -64,6 +66,8 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
           deOutroPeriodo: [...c.deOutroPeriodo],
           minutosPresenciais: c.minutosPresenciais,
           minutosOnline: c.minutosOnline,
+          // Prévia, buscada agora; na emissão estes números são congelados na versão.
+          suporte: chamadosSuporte() ? await buscarResumoSuporte(cliente, r.de, r.ate) : null,
         };
 
   return (

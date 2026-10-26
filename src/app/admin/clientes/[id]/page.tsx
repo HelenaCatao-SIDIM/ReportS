@@ -86,6 +86,11 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/cliente
                 </span>
               </Item>
               <Item rotulo="CPF dos participantes">{cliente.exigeCpf ? "Exigido" : "Não exigido"}</Item>
+              <div className="sm:col-span-2">
+                <Item rotulo="Nome no Fortics (chamados de suporte)">
+                  {cliente.nomesFortics.length ? cliente.nomesFortics.join(" · ") : <span className="text-muted-foreground">Não informado</span>}
+                </Item>
+              </div>
             </dl>
           </CardContent>
         </Card>

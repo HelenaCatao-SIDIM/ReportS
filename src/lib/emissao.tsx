@@ -1,6 +1,8 @@
 import "server-only";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { enviarEmail } from "@/lib/email";
+import { chamadosSuporte, chamadosSuportePdf } from "@/lib/config-suporte";
+import { buscarResumoSuporte } from "@/lib/suporte";
 import { formatarDataCurta } from "@/lib/visitas";
 import { RelatorioPdf, type ImagensPdf } from "@/lib/pdf/relatorio-pdf";
 import { lerImagemPorUrl, salvarArquivo } from "@/lib/repo/arquivos";
@@ -49,7 +51,11 @@ export async function emitirRelatorio(id: string) {
   const conteudo = congelar(c);
   const numero = c.relatorio.versoes.length + 1;
   const emitidoEm = new Date().toISOString();
-  const pdf = await renderToBuffer(<RelatorioPdf conteudo={conteudo} versao={numero} emitidoEm={emitidoEm} imagens={await carregarImagens(conteudo)} />);
+  // Chamados de suporte congelados junto com a versão: PDF, página do aprovador e versões antigas mostram o mesmo número.
+  if (chamadosSuporte()) conteudo.suporte = await buscarResumoSuporte(c.cliente, c.relatorio.de, c.relatorio.ate);
+  const pdf = await renderToBuffer(
+    <RelatorioPdf conteudo={conteudo} versao={numero} emitidoEm={emitidoEm} imagens={await carregarImagens(conteudo)} mostrarSuporte={chamadosSuportePdf()} />,
+  );
   const arquivo = await salvarArquivo(pdf, "application/pdf");
 
   const { versao, links } = await registrarEmissao(id, { conteudo, pdfUrl: arquivo.url, pdfTamanho: pdf.length, emitidoEm });
