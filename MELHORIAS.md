@@ -29,8 +29,9 @@ Registradas em 26/10/2026. Legenda: ✅ definido · ⚠ ponto de atenção · *E
    - **Hoje no código:** o `Usuario` (`src/lib/types.ts`) **não tem campo de telefone**; ele precisa ser incluído no cadastro do técnico.
 - **10. Registro pelo celular e pelo computador, com o meio identificado.** O técnico registra pelos dois, e a visita grava por onde foi feita, aparecendo no relatório. No computador, aviso em tela quando o tipo for presencial. Modo específico de treinamento online fica como *evolutiva*.
 - **11. Nada se perde, com rascunho local.** Cada item é salvo no servidor quando registrado, e o que está sendo digitado fica guardado no próprio aparelho — aba aberta, celular travado ou bateria no fim, o técnico volta e encontra tudo como estava.
-- ✅ **12. "Liberado para faturar" passa a "Aprovado".**
-  - **Hoje no código:** o texto está em `src/lib/visitas.ts` (rótulo do status aprovado) e há um comentário com a expressão em `src/lib/repo/relatorios.ts`.
+- ✅ **12. "Liberado para faturar" passa a "Aprovado".** **Feito em 26/10/2026 (`805693d`).**
+  - O rótulo está em `src/lib/visitas.ts` e aparece no selo de status, na lista e no detalhe do relatório (Administração).
+  - **Ficou como estava, a decidir:** a mensagem ao aprovador na página de aprovação (`src/app/aprovacao/[token]/decisao.tsx`: "A aprovação libera o faturamento dos serviços…"), a frase do README ("que libera o faturamento") e o cabeçalho "Status / faturamento" da lista de relatórios. Falam do faturamento como conceito, não do rótulo.
 
 ### Para alinhar com o time de desenvolvimento
 
