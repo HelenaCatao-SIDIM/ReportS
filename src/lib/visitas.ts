@@ -23,7 +23,7 @@ export const ROTULO_STATUS_RELATORIO = {
   rascunho: "Rascunho",
   enviado: "Enviado",
   ajuste_solicitado: "Ajuste solicitado",
-  aprovado: "Liberado para faturar",
+  aprovado: "Aprovado",
 } as const;
 
 /** 135 → "2h 15min" */

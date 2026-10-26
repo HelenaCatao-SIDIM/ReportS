@@ -19,7 +19,7 @@ export default function RelatoriosPage({ searchParams }: PageProps<"/admin/relat
   return (
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <PageHeader titulo="Relatórios" descricao="Relatórios por cliente e período. Aprovado pelo cliente = liberado para faturar." />
+        <PageHeader titulo="Relatórios" descricao="Relatórios por cliente e período." />
         <Button nativeButton={false} render={<Link href="/admin/relatorios/novo" />} className="h-9">
           <Plus />
           Novo relatório
@@ -119,7 +119,7 @@ async function Lista({ searchParams }: Pick<PageProps<"/admin/relatorios">, "sea
         </div>
       </Card>
       <p className="mt-3 text-xs text-muted-foreground">
-        {relatorios.length} {relatorios.length === 1 ? "relatório" : "relatórios"}. O status muda sozinho para &quot;Liberado para faturar&quot; quando o cliente aprova.
+        {relatorios.length} {relatorios.length === 1 ? "relatório" : "relatórios"}. O status muda sozinho para &quot;Aprovado&quot; quando o cliente aprova.
       </p>
     </>
   );

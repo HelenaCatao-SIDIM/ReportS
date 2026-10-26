@@ -112,7 +112,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
         <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
           <Lock />
           <AlertDescription className="text-emerald-800">
-            Liberado para faturar: aprovado por {ultima?.decisao?.aprovadorNome} em {ultima?.decisao ? formatarDataHora(ultima.decisao.em) : "—"}. O
+            Aprovado por {ultima?.decisao?.aprovadorNome} em {ultima?.decisao ? formatarDataHora(ultima.decisao.em) : "—"}. O
             relatório e as visitas estão travados.
           </AlertDescription>
         </Alert>
