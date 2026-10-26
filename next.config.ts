@@ -1,8 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async redirects() {
+    return [{ source: "/", destination: "/login", permanent: false }];
+  },
   cacheComponents: true,
+  experimental: {
+    // Fotos chegam comprimidas (~500 KB cada); folga para algumas por envio.
+    serverActions: { bodySizeLimit: "4mb" },
+  },
   partialPrefetching: true,
   turbopack: {
     rules: {

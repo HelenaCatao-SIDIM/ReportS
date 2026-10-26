@@ -1,36 +1,32 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SIDIM Visitas
 
-## Getting Started
+Registro de visitas e treinamentos da SIDIM (Next.js 16 + TypeScript + Tailwind + shadcn/ui).
 
-First, run the development server:
+## Rodar localmente
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abra http://localhost:3000. O arquivo `.env.local` precisa de `SESSION_SECRET` (qualquer texto aleatório longo).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Fase atual: mockup com dados em memória
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Os dados ficam em `src/lib/repo/*` (mock em memória). Na fase de banco, só essa camada é trocada por Prisma/Postgres.
 
-## Learn More
+Usuários de teste (senha de todos em `src/lib/repo/usuarios.ts`):
 
-To learn more about Next.js, take a look at the following resources:
+| E-mail | Perfil |
+|---|---|
+| gestor@sidim.com.br | Gestor |
+| ana@sidim.com.br | Técnico |
+| carlos@sidim.com.br | Técnico |
+| paulo@sidim.com.br | Técnico inativo (não entra) |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Estrutura
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `src/proxy.ts` — redireciona por perfil (checagem otimista do cookie)
+- `src/lib/session.ts` / `src/lib/dal.ts` — sessão (JWT em cookie httpOnly) e verificação de acesso
+- `src/app/admin/*` — Administração (gestor)
+- `src/app/tecnico/*` — App do Técnico (celular)
