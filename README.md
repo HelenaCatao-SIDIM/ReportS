@@ -41,6 +41,25 @@ node -e "console.log('SESSION_SECRET=' + require('crypto').randomBytes(32).toStr
 - `SESSION_SECRET`: chave usada para assinar a sessão de login (qualquer texto aleatório longo).
 - `APP_URL`: endereço usado nos links dos e-mails de aprovação.
 
+Opcional — **localização por CEP** (desligada por padrão; com ela desligada, nada muda):
+
+```bash
+LOCALIZACAO_POR_CEP=true
+CARIMBO_FOTO=true
+GEOCODING_USER_AGENT=SIDIM-Visitas/1.0 (contato@sidimsistemas.com.br)
+```
+
+- `LOCALIZACAO_POR_CEP`: converte a coordenada do check-in/check-out em **CEP + endereço** e mostra o CEP
+  no lugar da latitude/longitude em todas as telas (técnico, gestor e aprovador). A coordenada continua gravada.
+- `CARIMBO_FOTO`: escreve data/hora e CEP no rodapé da foto do ambiente (nunca coordenadas).
+- `GEOCODING_USER_AGENT`: nome do sistema e um e-mail de contato, exigidos pelo Nominatim.
+
+A conversão usa duas APIs gratuitas, sem chave, chamadas só pelo servidor (`src/lib/cep.ts`):
+[Nominatim/OpenStreetMap](https://operations.osmfoundation.org/policies/nominatim/) (no máximo 1 consulta por segundo,
+com cache) e, quando ele não traz o CEP, o [ViaCEP](https://viacep.com.br) pela rua — nesse caso o CEP aparece como
+"aproximado". Falha nas APIs nunca bloqueia o check-in: o CEP é buscado de novo depois. Roteiro de teste em
+`docs/teste-localizacao-cep.md`.
+
 Inicie o servidor de desenvolvimento:
 
 ```bash

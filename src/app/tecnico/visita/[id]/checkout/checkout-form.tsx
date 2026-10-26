@@ -9,6 +9,8 @@ import { chaveRascunho } from "@/lib/regras-visita";
 import { fazerCheckout, type CheckoutState } from "../../checkout-actions";
 import { useAcao } from "@/components/form/use-acao";
 import { useGps } from "@/components/tecnico/use-gps";
+import { usePreviaCep } from "@/components/tecnico/use-previa-cep";
+import { TextoLocal } from "@/components/tecnico/texto-local";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,16 +38,19 @@ export function CheckoutForm({
   presencial,
   resumo,
   faltaParticipantes,
+  porCep = false,
 }: {
   visitaId: string;
   entrada: string;
   presencial: boolean;
   resumo: Resumo;
   faltaParticipantes: boolean;
+  porCep?: boolean;
 }) {
   const [state, onSubmit, pending] = useAcao<CheckoutState>(fazerCheckout.bind(null, visitaId), {});
   const e = state.erros ?? {};
   const { estado: gps, capturar } = useGps();
+  const previa = usePreviaCep(gps, porCep);
   const [agora, setAgora] = useState<number | null>(null);
   const form = useRef<HTMLFormElement>(null);
 
@@ -157,6 +162,8 @@ export function CheckoutForm({
         <div className="rounded-lg border bg-background p-3">
           <input type="hidden" name="latitude" value={gps.fase === "ok" ? gps.latitude : ""} />
           <input type="hidden" name="longitude" value={gps.fase === "ok" ? gps.longitude : ""} />
+          <input type="hidden" name="precisao" value={gps.fase === "ok" ? gps.precisao : ""} />
+          <input type="hidden" name="capturadoEm" value={gps.fase === "ok" ? gps.capturadoEm : ""} />
           <div className="flex items-start gap-3">
             <div
               className={cn(
@@ -169,11 +176,7 @@ export function CheckoutForm({
             <div className="min-w-0 flex-1 text-sm">
               <div className="font-medium">Localização do check-out</div>
               {gps.fase === "buscando" && <p className="text-xs text-muted-foreground">Obtendo a localização…</p>}
-              {gps.fase === "ok" && (
-                <p className="font-mono text-xs text-muted-foreground">
-                  {gps.latitude.toFixed(5)}, {gps.longitude.toFixed(5)} · ±{Math.round(gps.precisao)} m
-                </p>
-              )}
+              {gps.fase === "ok" && <TextoLocal gps={gps} porCep={porCep} previa={previa} />}
               {gps.fase === "erro" && <p className="text-xs text-destructive">{gps.mensagem}</p>}
               {e.gps && gps.fase !== "ok" && <p className="text-xs text-destructive">{e.gps}</p>}
             </div>

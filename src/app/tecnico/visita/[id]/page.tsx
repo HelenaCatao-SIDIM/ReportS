@@ -14,6 +14,9 @@ import { LimparRascunho } from "@/components/tecnico/limpar-rascunho";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DetalheVisita } from "@/components/visita/detalhe-visita";
+import { LocalVisita } from "@/components/visita/local-visita";
+import { localizacaoPorCep } from "@/lib/config";
+import { agendarCepPendente } from "@/lib/cep-visitas";
 import { SelosVisita } from "@/components/visita/selos";
 import { Card } from "@/components/ui/card";
 import { TemasVisita } from "./temas-visita";
@@ -33,6 +36,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/tecnico/visit
   const v = await buscarVisita(id);
   // O técnico só vê as próprias visitas.
   if (!v || !usuario || v.tecnicoId !== usuario.id) notFound();
+  agendarCepPendente(v);
   return v.status === "em_andamento" ? <EmAndamento v={v} /> : <Leitura v={v} acabouDeEncerrar={sp.ok === "encerrada"} />;
 }
 
@@ -52,12 +56,17 @@ function Cabecalho({ v }: { v: VisitaDetalhada }) {
             {v.unidadeNome} · {v.setorNome}
           </div>
           <div className="text-sm text-muted-foreground">{rotuloTipo(v.tipo)}</div>
-          {v.checkin && (
-            <div className="mt-0.5 flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
-              <MapPin className="size-3" />
-              {v.checkin.latitude.toFixed(5)}, {v.checkin.longitude.toFixed(5)}
-            </div>
-          )}
+          {v.checkin &&
+            (localizacaoPorCep() ? (
+              <div className="mt-0.5 flex text-[11px] text-muted-foreground">
+                <LocalVisita local={v.checkin} compacto />
+              </div>
+            ) : (
+              <div className="mt-0.5 flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
+                <MapPin className="size-3" />
+                {v.checkin.latitude.toFixed(5)}, {v.checkin.longitude.toFixed(5)}
+              </div>
+            ))}
         </div>
       </div>
     </Card>

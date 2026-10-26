@@ -5,7 +5,7 @@ import { useCallback, useState } from "react";
 export type EstadoGps =
   | { fase: "parado" }
   | { fase: "buscando" }
-  | { fase: "ok"; latitude: number; longitude: number; precisao: number }
+  | { fase: "ok"; latitude: number; longitude: number; precisao: number; /** Hora do celular na captura (ISO). */ capturadoEm: string }
   | { fase: "erro"; mensagem: string };
 
 const MENSAGENS: Record<number, string> = {
@@ -25,7 +25,14 @@ export function useGps() {
     }
     setEstado({ fase: "buscando" });
     navigator.geolocation.getCurrentPosition(
-      (p) => setEstado({ fase: "ok", latitude: p.coords.latitude, longitude: p.coords.longitude, precisao: p.coords.accuracy }),
+      (p) =>
+        setEstado({
+          fase: "ok",
+          latitude: p.coords.latitude,
+          longitude: p.coords.longitude,
+          precisao: p.coords.accuracy,
+          capturadoEm: new Date(p.timestamp || Date.now()).toISOString(),
+        }),
       (e) => setEstado({ fase: "erro", mensagem: MENSAGENS[e.code] ?? "Erro ao obter a localização." }),
       { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
     );

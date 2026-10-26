@@ -63,3 +63,12 @@ export function cpfValido(valor: string) {
 
 /** Código CBO 411010 → 4110-10 */
 export const formatarCbo = (codigo: string) => codigo.replace(/^(\d{4})(\d{2})$/, "$1-$2");
+
+/** 87020000 → 87020-000 */
+export const formatarCep = (cep: string) => soDigitos(cep).replace(/^(\d{5})(\d{3})$/, "$1-$2");
+
+/** Partes do endereço em uma linha: "Rua X, Bairro, Cidade/UF" (só o que existir). */
+export function textoEndereco(e: { logradouro: string | null; bairro: string | null; cidade: string | null; uf: string | null }) {
+  const cidade = [e.cidade, e.uf].filter(Boolean).join("/");
+  return [e.logradouro, e.bairro, cidade].filter(Boolean).join(", ");
+}
