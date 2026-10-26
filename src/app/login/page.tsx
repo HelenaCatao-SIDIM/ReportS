@@ -14,7 +14,7 @@ export default function LoginPage() {
             <ClipboardCheck className="size-6" />
           </div>
           <h1 className="text-xl font-semibold">SIDIM Visitas</h1>
-          <p className="text-sm text-muted-foreground">Teste de acompanhamento (Claude)</p>
+          <p className="text-sm text-muted-foreground">Registro de visitas e treinamentos</p>
         </div>
         <Card>
           <CardHeader>
