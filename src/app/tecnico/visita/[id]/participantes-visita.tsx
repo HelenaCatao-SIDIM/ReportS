@@ -26,7 +26,7 @@ interface Config {
 }
 
 function AvisoLgpd({ clienteNome, exigeCpf, exigeAssinatura }: Pick<Config, "clienteNome" | "exigeCpf" | "exigeAssinatura">) {
-  const dados = ["nome", "cargo", "ocupação (CBO)", "setor", ...(exigeCpf ? ["CPF"] : []), ...(exigeAssinatura ? ["assinatura"] : [])];
+  const dados = ["nome", "ocupação (CBO)", "setor", ...(exigeCpf ? ["CPF"] : []), ...(exigeAssinatura ? ["assinatura"] : [])];
   return (
     <div className="flex gap-2 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
       <ShieldCheck className="mt-0.5 size-4 shrink-0" />
@@ -117,7 +117,7 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
                   >
                     <span className="block text-sm font-medium">{s.nome}</span>
                     <span className="block text-xs text-muted-foreground">
-                      {s.cargo} · {s.setor}
+                      {s.cbo.titulo} · {s.setor}
                     </span>
                   </button>
                 </li>
@@ -139,9 +139,7 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 text-sm">
               <div className="font-medium">{escolhido.nome}</div>
-              <div className="text-muted-foreground">
-                {escolhido.cargo} · {escolhido.setor}
-              </div>
+              <div className="text-muted-foreground">{escolhido.setor}</div>
               <div className="text-xs text-muted-foreground">
                 <span className="font-mono">{formatarCbo(escolhido.cbo.codigo)}</span> {escolhido.cbo.titulo}
               </div>
@@ -182,13 +180,6 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
                 <input type="checkbox" name="homonimo" className="size-4 accent-primary" />É outra pessoa com o mesmo nome
               </label>
             )}
-          </div>
-          <div>
-            <Label htmlFor="n-cargo" className="mb-1.5">
-              Cargo
-            </Label>
-            <Input id="n-cargo" name="cargo" className="h-11 text-base" aria-invalid={!!e.cargo} />
-            <Erro msg={e.cargo} />
           </div>
           <div>
             <Label htmlFor="n-cbo" className="mb-1.5">
@@ -255,7 +246,7 @@ function LinhaPresenca({ visitaId, p }: { visitaId: string; p: PresencaVisita })
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{p.nome}</div>
         <div className="truncate text-xs text-muted-foreground">
-          {p.cargo} · {p.setor}
+          {p.cbo.titulo} · {p.setor}
           {p.cpf && ` · ${mascararCpf(p.cpf)}`}
         </div>
       </div>

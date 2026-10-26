@@ -154,7 +154,6 @@ export function DetalheVisita({ visita: v, cpf = "mascarado" }: { visita: Visita
               <TableHeader>
                 <TableRow>
                   <TableHead className="pl-4">Nome</TableHead>
-                  <TableHead>Cargo</TableHead>
                   <TableHead>CBO</TableHead>
                   <TableHead>Setor</TableHead>
                   <TableHead>CPF</TableHead>
@@ -165,7 +164,6 @@ export function DetalheVisita({ visita: v, cpf = "mascarado" }: { visita: Visita
                 {v.presencas.map((p) => (
                   <TableRow key={p.participanteId}>
                     <TableCell className="pl-4 font-medium">{p.nome}</TableCell>
-                    <TableCell>{p.cargo}</TableCell>
                     <TableCell className="text-xs">
                       <span className="font-mono text-muted-foreground">{formatarCbo(p.cbo.codigo)}</span> {p.cbo.titulo}
                     </TableCell>

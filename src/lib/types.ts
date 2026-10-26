@@ -70,7 +70,6 @@ export interface Participante {
   id: string;
   clienteId: string;
   nome: string;
-  cargo: string;
   cbo: Cbo;
   setor: string;
   /** Somente dígitos; preenchido só quando o cliente exige CPF. */
@@ -97,7 +96,6 @@ export interface Foto {
 export interface PresencaVisita {
   participanteId: string;
   nome: string;
-  cargo: string;
   cbo: Cbo;
   setor: string;
   cpf: string | null;

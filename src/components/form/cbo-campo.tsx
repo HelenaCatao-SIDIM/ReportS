@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 /**
- * Escolha da ocupação (CBO) buscando pelo nome do cargo.
+ * Escolha da ocupação (CBO) buscando pelo nome da ocupação.
  * Envia o código no campo oculto `name`; o servidor busca o título na tabela.
  */
 export function CboCampo({ id, name, inicial, invalido }: { id: string; name: string; inicial: Cbo | null; invalido?: boolean }) {
@@ -76,7 +76,7 @@ export function CboCampo({ id, name, inicial, invalido }: { id: string; name: st
         aria-controls={listaId}
         aria-invalid={invalido}
         autoComplete="off"
-        placeholder="Digite o cargo, ex.: enfermeiro"
+        placeholder="Digite a ocupação, ex.: enfermeiro"
         value={termo}
         onChange={(e) => buscar(e.target.value)}
         onKeyDown={(e) => {

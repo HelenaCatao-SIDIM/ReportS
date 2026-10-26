@@ -46,7 +46,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/participantes">
 
   const [participantes, unidades] = await Promise.all([listarParticipantes(cliente.id, q), listarUnidades(cliente.id)]);
   const setores = [...new Set(unidades.flatMap((u) => u.setores.map((s) => s.nome)))].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  const colunas = cliente.exigeCpf ? 7 : 6;
+  const colunas = cliente.exigeCpf ? 6 : 5;
 
   return (
     <>
@@ -60,7 +60,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/participantes">
         <form className="relative w-full sm:max-w-xs">
           <input type="hidden" name="cliente" value={cliente.id} />
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input name="q" defaultValue={q} placeholder="Buscar nome, cargo ou setor" className="h-9 bg-background pl-8" />
+          <Input name="q" defaultValue={q} placeholder="Buscar nome, ocupação ou setor" className="h-9 bg-background pl-8" />
         </form>
         <span className="text-xs text-muted-foreground sm:ml-auto">
           {cliente.exigeCpf ? "Este cliente exige CPF." : "Este cliente não exige CPF."}
@@ -73,7 +73,6 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/participantes">
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-4">Nome</TableHead>
-                <TableHead>Cargo</TableHead>
                 <TableHead>CBO</TableHead>
                 <TableHead>Setor</TableHead>
                 {cliente.exigeCpf && <TableHead>CPF</TableHead>}
@@ -92,7 +91,6 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/participantes">
               {participantes.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell className="pl-4 font-medium">{p.nome}</TableCell>
-                  <TableCell>{p.cargo}</TableCell>
                   <TableCell className="max-w-56">
                     <span className="font-mono text-xs text-muted-foreground">{formatarCbo(p.cbo.codigo)}</span>
                     <span className="block truncate text-xs">{p.cbo.titulo}</span>

@@ -10,10 +10,10 @@ import type { Cbo } from "@/lib/types";
 
 export interface ParticipanteFormState {
   ok?: boolean;
-  erros?: Partial<Record<"nome" | "cargo" | "cbo" | "setor" | "cpf", string>>;
+  erros?: Partial<Record<"nome" | "cbo" | "setor" | "cpf", string>>;
   /** Já existe alguém com o mesmo nome: o formulário pede confirmação de que é outra pessoa. */
   pedirHomonimo?: boolean;
-  valores?: { nome: string; cargo: string; cbo: Cbo | null; setor: string; cpf: string };
+  valores?: { nome: string; cbo: Cbo | null; setor: string; cpf: string };
 }
 
 /** Cria (participanteId null) ou edita um participante do cliente. */
@@ -28,7 +28,6 @@ export async function salvarParticipante(
   if (!cliente) throw new Error("Cliente não encontrado");
 
   const nome = String(fd.get("nome") ?? "").trim();
-  const cargo = String(fd.get("cargo") ?? "").trim();
   const setor = String(fd.get("setor") ?? "").trim();
   const cpf = soDigitos(String(fd.get("cpf") ?? ""));
   // O título vem da tabela, não do navegador.
@@ -46,16 +45,15 @@ export async function salvarParticipante(
     erros.nome = "Já existe um participante com este nome neste cliente.";
     pedirHomonimo = true;
   }
-  if (!cargo) erros.cargo = "Informe o cargo.";
   if (!cbo) erros.cbo = "Escolha a ocupação (CBO) na lista.";
   if (!setor) erros.setor = "Informe o setor.";
   if (cliente.exigeCpf) {
     if (!cpfValido(cpf)) erros.cpf = "CPF inválido.";
     else if (await cpfEmUso(clienteId, cpf, excetoId)) erros.cpf = "Já existe um participante com este CPF neste cliente.";
   }
-  if (Object.keys(erros).length) return { erros, pedirHomonimo, valores: { nome, cargo, cbo, setor, cpf } };
+  if (Object.keys(erros).length) return { erros, pedirHomonimo, valores: { nome, cbo, setor, cpf } };
 
-  const dados = { nome, cargo, cbo: cbo!, setor, cpf: cliente.exigeCpf ? cpf : null };
+  const dados = { nome, cbo: cbo!, setor, cpf: cliente.exigeCpf ? cpf : null };
   if (participanteId) await atualizarParticipante(participanteId, dados);
   else await criarParticipante(clienteId, dados);
   revalidatePath("/admin/participantes");

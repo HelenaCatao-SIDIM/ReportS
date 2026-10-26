@@ -25,7 +25,6 @@ async function contexto(visitaId: string) {
 export interface SugestaoParticipante {
   id: string;
   nome: string;
-  cargo: string;
   cbo: Cbo;
   setor: string;
   cpfMascarado: string;
@@ -40,12 +39,12 @@ export async function sugerirParticipantes(visitaId: string, termo: string): Pro
   return (await listarParticipantes(v.clienteId))
     .filter((p) => !presentes.has(p.id) && normalizar(p.nome).includes(n))
     .slice(0, 8)
-    .map((p) => ({ id: p.id, nome: p.nome, cargo: p.cargo, cbo: p.cbo, setor: p.setor, cpfMascarado: p.cpf ? mascararCpf(p.cpf) : "" }));
+    .map((p) => ({ id: p.id, nome: p.nome, cbo: p.cbo, setor: p.setor, cpfMascarado: p.cpf ? mascararCpf(p.cpf) : "" }));
 }
 
 export interface PresencaState {
   ok?: boolean;
-  erros?: Partial<Record<"nome" | "cargo" | "cbo" | "setor" | "cpf" | "assinatura" | "geral", string>>;
+  erros?: Partial<Record<"nome" | "cbo" | "setor" | "cpf" | "assinatura" | "geral", string>>;
   pedirHomonimo?: boolean;
 }
 
@@ -71,7 +70,6 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
 
   if (!participante) {
     const nome = String(fd.get("nome") ?? "").trim();
-    const cargo = String(fd.get("cargo") ?? "").trim();
     const setor = String(fd.get("setor") ?? "").trim();
     const cpf = soDigitos(String(fd.get("cpf") ?? ""));
     const cbo = await buscarCbo(String(fd.get("cbo") ?? ""));
@@ -80,7 +78,6 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
     else if (fd.get("homonimo") === null && (await homonimo(cliente.id, nome))) {
       erros.nome = "Já existe alguém com este nome no cadastro. Escolha na lista de sugestões ou confirme que é outra pessoa.";
     }
-    if (!cargo) erros.cargo = "Informe o cargo.";
     if (!cbo) erros.cbo = "Escolha a ocupação (CBO) na lista.";
     if (!setor) erros.setor = "Informe o setor.";
     if (cliente.exigeCpf) {
@@ -89,7 +86,7 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
     }
     if (Object.keys(erros).length) return { erros, pedirHomonimo: erros.nome?.startsWith("Já existe") };
 
-    participante = await criarParticipante(cliente.id, { nome, cargo, cbo: cbo!, setor, cpf: cliente.exigeCpf ? cpf : null }, true);
+    participante = await criarParticipante(cliente.id, { nome, cbo: cbo!, setor, cpf: cliente.exigeCpf ? cpf : null }, true);
   } else if (Object.keys(erros).length) {
     return { erros };
   }
@@ -104,7 +101,6 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
   await adicionarPresenca(visitaId, tecnico.id, {
     participanteId: participante.id,
     nome: participante.nome,
-    cargo: participante.cargo,
     cbo: participante.cbo,
     setor: participante.setor,
     cpf: participante.cpf,
