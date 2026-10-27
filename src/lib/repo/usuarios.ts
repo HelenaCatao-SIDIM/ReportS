@@ -13,10 +13,10 @@ const SENHA_SEED = "sidim123";
 function seed(): Usuario[] {
   const hash = bcrypt.hashSync(SENHA_SEED, 10);
   return [
-    { id: "u1", nome: "Gestor SIDIM", email: "gestor@sidim.com.br", senhaHash: hash, perfil: "gestor", ativo: true },
-    { id: "u2", nome: "Ana Souza", email: "ana@sidim.com.br", senhaHash: hash, perfil: "tecnico", ativo: true },
-    { id: "u3", nome: "Carlos Lima", email: "carlos@sidim.com.br", senhaHash: hash, perfil: "tecnico", ativo: true },
-    { id: "u4", nome: "Paulo Inativo", email: "paulo@sidim.com.br", senhaHash: hash, perfil: "tecnico", ativo: false },
+    { id: "u1", nome: "Gestor SIDIM", email: "gestor@sidim.com.br", senhaHash: hash, perfil: "gestor", ativo: true, telefone: null },
+    { id: "u2", nome: "Ana Souza", email: "ana@sidim.com.br", senhaHash: hash, perfil: "tecnico", ativo: true, telefone: null },
+    { id: "u3", nome: "Carlos Lima", email: "carlos@sidim.com.br", senhaHash: hash, perfil: "tecnico", ativo: true, telefone: null },
+    { id: "u4", nome: "Paulo Inativo", email: "paulo@sidim.com.br", senhaHash: hash, perfil: "tecnico", ativo: false, telefone: null },
   ];
 }
 
@@ -65,6 +65,7 @@ export interface DadosUsuario {
   email: string;
   perfil: Perfil;
   ativo: boolean;
+  telefone: string | null;
 }
 
 export async function criarUsuario(dados: DadosUsuario & { senha: string }): Promise<UsuarioPublico> {

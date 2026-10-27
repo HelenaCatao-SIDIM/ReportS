@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CheckCircle2, Plus, Search } from "lucide-react";
 import { listarUsuarios } from "@/lib/repo/usuarios";
 import { getUsuarioAtual } from "@/lib/dal";
+import { formatarTelefone } from "@/lib/format";
 import type { Perfil } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/shell/placeholder";
@@ -94,6 +95,7 @@ async function ListaUsuarios({ searchParams }: Pick<PageProps<"/admin/usuarios">
               <TableRow>
                 <TableHead className="pl-4">Nome</TableHead>
                 <TableHead>E-mail</TableHead>
+                <TableHead>Telefone</TableHead>
                 <TableHead>Perfil</TableHead>
                 <TableHead>Situação</TableHead>
                 <TableHead className="pr-4 text-right">Ações</TableHead>
@@ -102,7 +104,7 @@ async function ListaUsuarios({ searchParams }: Pick<PageProps<"/admin/usuarios">
             <TableBody>
               {usuarios.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                     Nenhum usuário encontrado.
                   </TableCell>
                 </TableRow>
@@ -114,6 +116,7 @@ async function ListaUsuarios({ searchParams }: Pick<PageProps<"/admin/usuarios">
                     {u.id === eu?.id && <span className="ml-2 text-xs font-normal text-muted-foreground">(você)</span>}
                   </TableCell>
                   <TableCell>{u.email}</TableCell>
+                  <TableCell className="whitespace-nowrap">{u.telefone ? formatarTelefone(u.telefone) : "—"}</TableCell>
                   <TableCell>
                     <Badge variant={u.perfil === "gestor" ? "default" : "secondary"}>
                       {u.perfil === "gestor" ? "Gestor" : "Técnico"}

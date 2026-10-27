@@ -7,6 +7,8 @@ export interface Usuario {
   senhaHash: string;
   perfil: Perfil;
   ativo: boolean;
+  /** Só dígitos, com DDD (10 ou 11). Opcional; será o destino do aviso de visita aberta por WhatsApp. */
+  telefone: string | null;
 }
 
 /** Dados do usuário que podem ir para a tela (sem o hash da senha). */
