@@ -29,7 +29,7 @@ export async function fazerCheckout(visitaId: string, _: CheckoutState, fd: Form
     const lat = Number(fd.get("latitude"));
     const lng = Number(fd.get("longitude"));
     if (fd.get("latitude") && fd.get("longitude") && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) checkout = { latitude: lat, longitude: lng };
-    else erros.gps = "É preciso a localização do celular para o check-out presencial.";
+    else erros.gps = "É preciso a localização do aparelho para o check-out presencial.";
   }
   if (Object.keys(erros).length) return { erros };
 

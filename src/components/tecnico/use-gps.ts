@@ -10,7 +10,7 @@ export type EstadoGps =
 
 const MENSAGENS: Record<number, string> = {
   1: "Permissão de localização negada. Libere a localização para este site nas configurações do navegador e tente de novo.",
-  2: "Não foi possível obter a localização. Verifique se o GPS do celular está ligado.",
+  2: "Não foi possível obter a localização. Verifique se a localização do aparelho está ligada.",
   3: "A localização demorou demais. Vá para um lugar com melhor sinal e tente de novo.",
 };
 

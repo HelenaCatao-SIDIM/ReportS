@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { AlertCircle, Check, Clock, Loader2, LocateFixed, MapPin } from "lucide-react";
+import { useState, useSyncExternalStore } from "react";
+import { AlertCircle, Check, Clock, Loader2, LocateFixed, MapPin, Monitor } from "lucide-react";
 import type { ClienteCheckin } from "@/lib/repo/clientes";
-import type { TipoVisita } from "@/lib/types";
+import type { MeioRegistro, TipoVisita } from "@/lib/types";
+import { detectarMeio } from "@/lib/meio";
 import { ehPresencial, TIPOS_VISITA } from "@/lib/visitas";
 import { cn } from "@/lib/utils";
 import { fazerCheckin, type CheckinState } from "./actions";
@@ -18,6 +19,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 
 const select = cn(selectClass, "h-11 bg-background text-base");
+
+// O aparelho só é conhecido no navegador; no servidor fica vazio e o valor entra após a hidratação.
+const semAssinatura = () => () => {};
+const meioNoNavegador = (): MeioRegistro | null => detectarMeio();
+const meioNoServidor = (): MeioRegistro | null => null;
 
 function Erro({ msg }: { msg?: string }) {
   return msg ? <p className="mt-1.5 text-xs text-destructive">{msg}</p> : null;
@@ -49,6 +55,7 @@ export function CheckinForm({ clientes }: { clientes: ClienteCheckin[] }) {
   const [temFoto, setTemFoto] = useState(false);
   const [link, setLink] = useState("");
   const { estado: gps, capturar } = useGps();
+  const meio = useSyncExternalStore(semAssinatura, meioNoNavegador, meioNoServidor);
 
   const cliente = clientes.find((c) => c.id === clienteId);
   const unidade = cliente?.unidades.find((u) => u.id === unidadeId);
@@ -76,6 +83,7 @@ export function CheckinForm({ clientes }: { clientes: ClienteCheckin[] }) {
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4">
+      <input type="hidden" name="meio" value={meio ?? ""} />
       {e.geral && (
         <Alert variant="destructive">
           <AlertCircle />
@@ -184,6 +192,16 @@ export function CheckinForm({ clientes }: { clientes: ClienteCheckin[] }) {
         </div>
         <Erro msg={e.tipo} />
       </Secao>
+
+      {presencial === true && meio === "computador" && (
+        <Alert>
+          <Monitor />
+          <AlertDescription>
+            Você está no computador. Em visita presencial, o ideal é fazer o check-in pelo celular: a localização do computador costuma ser pouco precisa. Você
+            pode continuar; o relatório mostrará que o registro foi feito pelo computador.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {presencial === true && (
         <Secao numero={3} titulo="Comprovação no local">

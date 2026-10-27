@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState, useTransition } from "react";
 import { Check, ChevronDown, Loader2, MapPin, Pencil, Plus, Trash2, X } from "lucide-react";
 import type { UnidadeComSetores } from "@/lib/repo/clientes";
 import type { Setor } from "@/lib/types";
+import { RAIO_PADRAO_METROS } from "@/lib/distancia";
 import { cn } from "@/lib/utils";
 import { removerSetor, removerUnidade, salvarSetor, salvarUnidade, type UnidadeFormState } from "../actions";
 import { Campo } from "@/components/form/campo";
@@ -25,6 +26,7 @@ function UnidadeForm({ clienteId, unidade, onSalvo }: { clienteId: string; unida
     endereco: unidade?.endereco ?? "",
     latitude: String(unidade?.latitude ?? ""),
     longitude: String(unidade?.longitude ?? ""),
+    raio: String(unidade?.raioMetros ?? RAIO_PADRAO_METROS),
   };
 
   useEffect(() => {
@@ -47,7 +49,17 @@ function UnidadeForm({ clienteId, unidade, onSalvo }: { clienteId: string; unida
           <Input id="u-lng" name="longitude" inputMode="decimal" placeholder="-47.0621" defaultValue={v.longitude} className="h-9" aria-invalid={!!e.longitude} />
         </Campo>
       </div>
-      <p className="-mt-2 text-xs text-muted-foreground">Opcionais. Nesta versão são apenas armazenadas.</p>
+      <p className="-mt-2 text-xs text-muted-foreground">
+        Latitude e longitude são opcionais. Com elas, o check-in presencial grava a distância até a unidade.
+      </p>
+      <Campo
+        id="u-raio"
+        label="Raio de verificação (metros)"
+        erro={e.raio}
+        dica="Check-in fora do raio gera um alerta para o gestor; nunca bloqueia o técnico. Comece em 50 m e ajuste pela distância real medida nas visitas."
+      >
+        <Input id="u-raio" name="raio" inputMode="numeric" defaultValue={v.raio} className="h-9" aria-invalid={!!e.raio} />
+      </Campo>
       <DialogFooter>
         <Button type="submit" disabled={pending}>
           {pending && <Loader2 className="animate-spin" />}

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { exigirGestorAcao } from "@/lib/dal";
+import { RAIO_PADRAO_METROS } from "@/lib/distancia";
 import { cnpjValido, emailValido, soDigitos } from "@/lib/format";
 import * as repo from "@/lib/repo/clientes";
 import type { NivelComprovacao } from "@/lib/types";
@@ -93,9 +94,9 @@ export async function editarCliente(id: string, _: ClienteFormState, fd: FormDat
 
 export interface UnidadeFormState {
   ok?: boolean;
-  erros?: Partial<Record<"nome" | "latitude" | "longitude", string>>;
+  erros?: Partial<Record<"nome" | "latitude" | "longitude" | "raio", string>>;
   /** Valores digitados, devolvidos quando há erro (o formulário é limpo após o envio). */
-  valores?: { nome: string; endereco: string; latitude: string; longitude: string };
+  valores?: { nome: string; endereco: string; latitude: string; longitude: string; raio: string };
 }
 
 function lerCoordenada(valor: FormDataEntryValue | null, limite: number): number | null | "invalida" {
@@ -103,6 +104,14 @@ function lerCoordenada(valor: FormDataEntryValue | null, limite: number): number
   if (!s) return null;
   const n = Number(s);
   return Number.isFinite(n) && Math.abs(n) <= limite ? n : "invalida";
+}
+
+/** Metros inteiros; vazio volta ao padrão. Abaixo de 10 m o erro natural do GPS já geraria alerta em todo check-in. */
+function lerRaio(valor: FormDataEntryValue | null): number | "invalido" {
+  const s = String(valor ?? "").trim();
+  if (!s) return RAIO_PADRAO_METROS;
+  const n = Number(s);
+  return Number.isInteger(n) && n >= 10 && n <= 5000 ? n : "invalido";
 }
 
 export async function salvarUnidade(
@@ -116,16 +125,21 @@ export async function salvarUnidade(
   const endereco = String(fd.get("endereco") ?? "").trim();
   const latitude = lerCoordenada(fd.get("latitude"), 90);
   const longitude = lerCoordenada(fd.get("longitude"), 180);
+  const raio = lerRaio(fd.get("raio"));
 
   const erros: NonNullable<UnidadeFormState["erros"]> = {};
   if (!nome) erros.nome = "Informe o nome da unidade.";
   if (latitude === "invalida") erros.latitude = "Número entre -90 e 90.";
   if (longitude === "invalida") erros.longitude = "Número entre -180 e 180.";
+  if (raio === "invalido") erros.raio = "Número inteiro de metros, de 10 a 5000.";
   if (Object.keys(erros).length) {
-    return { erros, valores: { nome, endereco, latitude: String(fd.get("latitude") ?? ""), longitude: String(fd.get("longitude") ?? "") } };
+    return {
+      erros,
+      valores: { nome, endereco, latitude: String(fd.get("latitude") ?? ""), longitude: String(fd.get("longitude") ?? ""), raio: String(fd.get("raio") ?? "") },
+    };
   }
 
-  const dados = { nome, endereco, latitude: latitude as number | null, longitude: longitude as number | null };
+  const dados = { nome, endereco, latitude: latitude as number | null, longitude: longitude as number | null, raioMetros: raio as number };
   if (unidadeId) await repo.atualizarUnidade(unidadeId, dados);
   else await repo.criarUnidade(clienteId, dados);
 

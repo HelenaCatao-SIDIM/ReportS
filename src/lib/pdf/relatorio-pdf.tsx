@@ -4,6 +4,7 @@ import { Document, Font, Image, Page, StyleSheet, Text, View } from "@react-pdf/
 import type { ConteudoCongelado, VisitaDetalhada } from "@/lib/types";
 import { formatarData, formatarDataHora, formatarDuracao, formatarHora } from "@/lib/datas";
 import { formatarCbo, formatarCnpj, mascararCpf } from "@/lib/format";
+import { ROTULO_MEIO } from "@/lib/meio";
 import { ehPresencial, formatarDataCurta, formatarMinutos, rotuloTipo } from "@/lib/visitas";
 
 // Sem hifenização automática: em colunas estreitas o padrão quebrava palavras ("Recursos Hu-manos").
@@ -88,6 +89,7 @@ function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao }: { v: Visit
           <Campo rotulo="Unidade" valor={v.unidadeNome} />
           <Campo rotulo="Setor" valor={v.setorNome} />
           <Campo rotulo="Técnico" valor={v.tecnicoNome} />
+          <Campo rotulo="Registrado por" valor={ROTULO_MEIO[v.meio]} />
           <Campo rotulo="Entrada" valor={formatarHora(v.entrada)} />
           <Campo rotulo="Saída" valor={v.saida ? formatarHora(v.saida) : ""} />
           <Campo rotulo="Duração" valor={v.saida ? formatarDuracao(v.entrada, v.saida) : ""} />

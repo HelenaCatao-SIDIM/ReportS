@@ -149,7 +149,7 @@ export function CheckoutForm({
               <Textarea id={c.nome} name={c.nome} rows={3} className="text-base" />
             </div>
           ))}
-          <p className="text-xs text-muted-foreground">O texto fica guardado neste celular enquanto você escreve.</p>
+          <p className="text-xs text-muted-foreground">O texto fica guardado neste aparelho enquanto você escreve.</p>
         </CardContent>
       </Card>
 

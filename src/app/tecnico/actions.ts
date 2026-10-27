@@ -3,11 +3,13 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { exigirTecnicoAcao } from "@/lib/dal";
+import { distanciaMetros } from "@/lib/distancia";
+import { ehMeio } from "@/lib/meio";
 import { ehPresencial, TIPOS_VISITA } from "@/lib/visitas";
 import { buscarCliente, buscarSetor, buscarUnidade } from "@/lib/repo/clientes";
 import { salvarImagem } from "@/lib/repo/arquivos";
 import { abrirVisita, visitaAbertaDoTecnico } from "@/lib/repo/visitas";
-import type { Coordenadas, TipoVisita } from "@/lib/types";
+import type { Coordenadas, MeioRegistro, TipoVisita } from "@/lib/types";
 
 export interface CheckinState {
   erros?: Partial<Record<"cliente" | "unidade" | "setor" | "tipo" | "gps" | "foto" | "print" | "link" | "geral", string>>;
@@ -36,6 +38,7 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
   const setorValor = String(fd.get("setorId") ?? "");
   const setorOutro = String(fd.get("setorOutro") ?? "").trim();
   const tipo = String(fd.get("tipo") ?? "") as TipoVisita;
+  const meioLido = String(fd.get("meio") ?? "");
 
   const erros: NonNullable<CheckinState["erros"]> = {};
   const cliente = await buscarCliente(clienteId);
@@ -52,6 +55,7 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
     else setorId = setor.id;
   }
   if (!TIPOS_VISITA.some((t) => t.valor === tipo)) erros.tipo = "Escolha o tipo de visita.";
+  if (!ehMeio(meioLido)) erros.geral = "Não foi possível identificar o aparelho. Atualize a página e tente de novo.";
 
   const presencial = ehPresencial(tipo);
   const checkin = presencial ? lerCoordenadas(fd) : null;
@@ -59,7 +63,7 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
   const fotoArquivo = arquivo(fd, presencial ? "fotoAmbiente" : "printTela");
 
   if (presencial) {
-    if (!checkin) erros.gps = "É preciso a localização do celular para o check-in presencial.";
+    if (!checkin) erros.gps = "É preciso a localização do aparelho para o check-in presencial.";
     if (!fotoArquivo) erros.foto = "Tire a foto do ambiente.";
   } else if (erros.tipo === undefined) {
     if (!fotoArquivo) erros.print = "Envie o print da tela da reunião.";
@@ -70,6 +74,12 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
   const foto = await salvarImagem(fotoArquivo!);
   if (!foto) return { erros: { [presencial ? "foto" : "print"]: "Imagem inválida ou muito grande. Tente de novo." } };
 
+  // A distância é só registrada: fora do raio vira alerta para o gestor, nunca impede o check-in.
+  const distanciaCheckinM =
+    checkin && unidade?.latitude != null && unidade.longitude != null
+      ? Math.round(distanciaMetros(checkin, { latitude: unidade.latitude, longitude: unidade.longitude }))
+      : null;
+
   const v = await abrirVisita({
     tecnicoId: tecnico.id,
     clienteId,
@@ -78,6 +88,9 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
     setorOutro: setorId ? null : setorOutro,
     tipo,
     checkin,
+    meio: meioLido as MeioRegistro,
+    distanciaCheckinM,
+    raioCheckinM: distanciaCheckinM === null ? null : unidade!.raioMetros,
     fotoAmbiente: presencial ? foto : null,
     printTela: presencial ? null : foto,
     linkReuniao: presencial ? null : linkReuniao,

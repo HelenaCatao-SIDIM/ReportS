@@ -1,9 +1,11 @@
 /* eslint-disable @next/next/no-img-element -- fotos do storage; otimização de imagem fica para a fase de banco */
-import { ExternalLink, MapPin, PenLine } from "lucide-react";
+import { ExternalLink, MapPin, MapPinOff, PenLine } from "lucide-react";
 import type { VisitaDetalhada } from "@/lib/repo/visitas";
 import type { Foto } from "@/lib/types";
 import { formatarData, formatarDuracao, formatarHora } from "@/lib/datas";
+import { foraDoRaio, formatarDistancia } from "@/lib/distancia";
 import { formatarCbo, formatarCpf, mascararCpf } from "@/lib/format";
+import { ROTULO_MEIO } from "@/lib/meio";
 import { ehPresencial, rotuloTipo } from "@/lib/visitas";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +27,24 @@ function Coordenada({ c }: { c: VisitaDetalhada["checkin"] }) {
       <MapPin className="size-3" />
       {c.latitude.toFixed(5)}, {c.longitude.toFixed(5)}
     </span>
+  );
+}
+
+/** Distância medida entre o check-in e a unidade, com o alerta quando passa do raio. */
+function DistanciaCheckin({ v }: { v: Pick<VisitaDetalhada, "distanciaCheckinM" | "raioCheckinM"> }) {
+  if (v.distanciaCheckinM === null || v.raioCheckinM === null) return <span className="text-muted-foreground">Não medida</span>;
+  if (foraDoRaio(v)) {
+    return (
+      <span className="inline-flex items-center gap-1 font-medium text-amber-700">
+        <MapPinOff className="size-3.5" />
+        {formatarDistancia(v.distanciaCheckinM)} — fora do raio de {formatarDistancia(v.raioCheckinM)}
+      </span>
+    );
+  }
+  return (
+    <>
+      {formatarDistancia(v.distanciaCheckinM)} <span className="text-xs text-muted-foreground">(raio de {formatarDistancia(v.raioCheckinM)})</span>
+    </>
   );
 }
 
@@ -56,8 +76,17 @@ function Texto({ rotulo, valor }: { rotulo: string; valor: string }) {
 /**
  * Conteúdo completo de uma visita, em modo leitura.
  * `cpf`: "completo" só para o gestor dentro do sistema; nos demais lugares, "mascarado".
+ * `controle`: só na Administração; mostra a distância do check-in à unidade (não aparece para técnico nem aprovador).
  */
-export function DetalheVisita({ visita: v, cpf = "mascarado" }: { visita: VisitaDetalhada; cpf?: "completo" | "mascarado" }) {
+export function DetalheVisita({
+  visita: v,
+  cpf = "mascarado",
+  controle = false,
+}: {
+  visita: VisitaDetalhada;
+  cpf?: "completo" | "mascarado";
+  controle?: boolean;
+}) {
   const presencial = ehPresencial(v.tipo);
 
   return (
@@ -79,6 +108,7 @@ export function DetalheVisita({ visita: v, cpf = "mascarado" }: { visita: Visita
             <Item rotulo="Saída">{v.saida ? formatarHora(v.saida) : "—"}</Item>
             <Item rotulo="Duração">{v.saida ? formatarDuracao(v.entrada, v.saida) : "—"}</Item>
             <Item rotulo="Técnico">{v.tecnicoNome}</Item>
+            <Item rotulo="Registrado por">{ROTULO_MEIO[v.meio]}</Item>
             {presencial ? (
               <>
                 <Item rotulo="Local do check-in">
@@ -87,6 +117,11 @@ export function DetalheVisita({ visita: v, cpf = "mascarado" }: { visita: Visita
                 <Item rotulo="Local do check-out">
                   <Coordenada c={v.checkout} />
                 </Item>
+                {controle && (
+                  <Item rotulo="Distância da unidade">
+                    <DistanciaCheckin v={v} />
+                  </Item>
+                )}
               </>
             ) : (
               <div className="sm:col-span-2">

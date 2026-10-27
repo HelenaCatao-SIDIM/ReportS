@@ -1,4 +1,5 @@
 import "server-only";
+import { RAIO_PADRAO_METROS } from "@/lib/distancia";
 import { normalizar } from "@/lib/format";
 import type { Aprovador, Cliente, Setor, Unidade } from "@/lib/types";
 
@@ -41,9 +42,9 @@ function seed(): Store {
       },
     ],
     unidades: [
-      { id: "un1", clienteId: "c1", nome: "Sede da Prefeitura", endereco: "Praça Central, 100 — Centro", latitude: -22.9035, longitude: -47.0621 },
-      { id: "un2", clienteId: "c1", nome: "Secretaria de Saúde", endereco: "Rua das Flores, 250 — Jardim América", latitude: null, longitude: null },
-      { id: "un3", clienteId: "c2", nome: "Matriz", endereco: "Av. Brasil, 1500 — Centro", latitude: null, longitude: null },
+      { id: "un1", clienteId: "c1", nome: "Sede da Prefeitura", endereco: "Praça Central, 100 — Centro", latitude: -22.9035, longitude: -47.0621, raioMetros: RAIO_PADRAO_METROS },
+      { id: "un2", clienteId: "c1", nome: "Secretaria de Saúde", endereco: "Rua das Flores, 250 — Jardim América", latitude: null, longitude: null, raioMetros: RAIO_PADRAO_METROS },
+      { id: "un3", clienteId: "c2", nome: "Matriz", endereco: "Av. Brasil, 1500 — Centro", latitude: null, longitude: null, raioMetros: RAIO_PADRAO_METROS },
     ],
     setores: [
       { id: "s1", unidadeId: "un1", nome: "Protocolo" },
