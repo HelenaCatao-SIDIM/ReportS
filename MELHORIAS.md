@@ -19,13 +19,13 @@ Registradas em 26/10/2026. Legenda: ✅ definido · ⚠ ponto de atenção · *E
    - **Nomes de pessoa:** só aparecem nos dados de exemplo (`src/lib/repo/*`), que o banco real substitui. O único nome fora disso, um exemplo no campo de ajuste da página do aprovador, virou texto genérico.
    - **Vários gestores:** o cadastro de usuários já permite. O gestor não consegue inativar a própria conta nem mudar o próprio perfil, então sempre sobra um gestor ativo. O histórico guarda o nome de quem agiu e as visitas antigas continuam mostrando técnicos já inativos, então trocar de pessoa não apaga nada.
    - **Corrigido:** mudar o papel de alguém (ou inativá-lo) enquanto ele estava logado fazia o navegador entrar num laço de redirecionamentos, com tela em branco (37 redirecionamentos em 5 segundos). Agora a pessoa cai no login e entra de novo na área certa. Testado nos três casos: técnico promovido, gestor rebaixado e conta inativada.
-   - **Continua no código, a decidir:** os tipos de visita (`TIPOS_VISITA` em `src/lib/visitas.ts`) são uma lista fixa, não um cadastro. Não estavam na lista do que precisa ser configurável, mas ficam como observação.
+   - **Decidido em 27/10/2026: manter fixos** os tipos de visita (`TIPOS_VISITA` em `src/lib/visitas.ts`), por ora. Não estavam na lista do que precisa ser configurável. Se virarem cadastro, como temas e setores, é um ponto novo.
 - ✅ **2. Cargo sai, fica só o CBO** (Classificação Brasileira de Ocupações). **Feito para o participante em 26/10/2026 (`63d3dd4`).**
    - Removido de `Participante` e `PresencaVisita`, do cadastro e da edição na Administração, do cadastro em campo e da lista no App do Técnico, do detalhe e da correção de visita e da tabela do PDF do relatório. A busca de participantes passa a ser por nome, ocupação ou setor.
-   - **Ficou como estava, a decidir:** o cargo do **aprovador** (`Aprovador` e `aprovadorCargo` em `src/lib/types.ts`, cadastro do cliente e relatório). A decisão vale também para ele? (ver "Para alinhar com o time")
+   - **Decidido em 27/10/2026: manter** o cargo do **aprovador** (`Aprovador` e `aprovadorCargo` em `src/lib/types.ts`, cadastro do cliente e relatório). Ele não tem CBO que o substitua, e remover apagaria um dado cadastrado sem ganho. Se um dia o relatório precisar dizer quem aprovou em nome do cliente, o cargo ajuda.
 - ✅ **3. Setor do participante: opcional,** já preenchido com o setor da visita. **Feito em 27/10/2026 (`226ac59`).**
    - No cadastro de novo participante em campo (App do Técnico), o campo já vem com o setor da visita e pode ser apagado. Na Administração, o setor deixou de ser obrigatório. Sem setor, as tabelas e o PDF mostram "—".
-   - **Ficou como estava, a decidir:** participante já cadastrado, escolhido pela busca, mantém o setor do próprio cadastro; se esse setor estiver vazio, a presença também fica sem setor (não herda o da visita).
+   - **Decidido em 27/10/2026 (`7cb5a6d`):** participante já cadastrado, escolhido pela busca, mantém o setor do próprio cadastro; se esse setor estiver vazio, a presença herda o setor da visita. Só a presença recebe o setor; o cadastro do participante não muda. O cartão do participante escolhido mostra "(setor da visita)" nesse caso.
 - **4. Lista de presença por seleção: evolutiva.** Nesta versão o técnico digita os participantes. Quando a base de pessoas do cliente estiver disponível, passa a ser seleção. **É o primeiro item a alinhar com o time de desenvolvimento.**
 - **5. Coordenadas da unidade sem digitação, com solução gratuita.** Converter endereço em coordenadas por serviço aberto. Isso acerta a rua, não a porta — então o ponto fica ajustável, e a posição do primeiro check-in pode refinar a referência da unidade.
    - **Hoje no código:** latitude e longitude da unidade são digitadas à mão (`Unidade` em `src/lib/types.ts`).
@@ -34,7 +34,7 @@ Registradas em 26/10/2026. Legenda: ✅ definido · ⚠ ponto de atenção · *E
    - **Sugestão:** começar em 50 m e gravar a distância medida em cada check-in. Em dois meses o número real permite apertar o raio com dado, não com palpite. O raio é por unidade, então a que for problemática se ajusta sozinha.
    - **Feito:** cada unidade tem um raio de verificação (padrão 50 m; editável em Clientes → unidade, de 10 a 5000 m). O check-in presencial grava a distância medida até a unidade e o raio da época, para o alerta não mudar se o raio for alterado depois.
    - Fora do raio, a Administração mostra o selo "Fora do raio" nas listas de visitas e a distância no detalhe da visita ("178 m — fora do raio de 50 m"). Nunca bloqueia o check-in. Técnico, aprovador e PDF do relatório **não** veem o alerta nem a distância.
-   - **Limites e a decidir:** só mede unidades com latitude e longitude (sem elas, o detalhe mostra "Não medida"); o alerta vai só para o gestor, não para o técnico no momento do check-in; não há ainda um painel com o histórico das distâncias para ajustar o raio (a distância de cada visita já fica gravada). A visita de exemplo de 20/10 (Visita técnica, Carlos) está fora do raio, para demonstração.
+   - **Limites e a decidir:** só mede unidades com latitude e longitude (sem elas, o detalhe mostra "Não medida"); o alerta vai só para o gestor, não para o técnico no momento do check-in (**decidido em 27/10/2026: continua assim**, para o alerta não disparar com frequência em UPA e hospital); não há ainda um painel com o histórico das distâncias para ajustar o raio (a distância de cada visita já fica gravada). A visita de exemplo de 20/10 (Visita técnica, Carlos) está fora do raio, para demonstração.
 - **7 e 8. Marcação de implantação e check-list: fora desta versão.** Entram quando a função existir.
 - **9. Aviso de visita aberta por WhatsApp, via Fortics.** **Parcial: o campo de telefone está feito (27/10/2026, ver abaixo); o envio não.** O número virá do cadastro do técnico. O e-mail fica como reserva. O sistema continua nunca encerrando a visita sozinho.
    - **Dúvida para o time:** o Fortics expõe API (Interface de Programação de Aplicações) para disparo? Se expuser, é o melhor canal. Notificação do próprio navegador é alternativa, mas falha no iPhone e não é confiável.
@@ -55,8 +55,8 @@ Registradas em 26/10/2026. Legenda: ✅ definido · ⚠ ponto de atenção · *E
 
 - [ ] **Primeiro** — Base de pessoas do cliente, para a lista de presença passar de digitação a seleção (definição 4).
 - [ ] O Fortics expõe API para disparo de WhatsApp? E quais as regras do aviso: depois de quantas horas, se repete, quem mais recebe? (definição 9)
-- [ ] A remoção do cargo vale também para o aprovador? (definição 2)
-- [ ] O alerta de check-in fora do raio vai só para o gestor, como está hoje, ou o técnico também deve ser avisado na hora? (definição 6)
+- [x] A remoção do cargo vale também para o aprovador? (definição 2) — **respondida em 27/10/2026: não, o cargo do aprovador fica.**
+- [x] O alerta de check-in fora do raio vai só para o gestor ou o técnico também é avisado? (definição 6) — **respondida em 27/10/2026: só o gestor.**
 
 ## Pontos bloqueados e decisões em aberto
 
@@ -70,7 +70,7 @@ Atualizado em 27/10/2026. Aqui está tudo o que **não anda sem uma ação de fo
 | **9. Aviso por WhatsApp (Fortics)** | Informação externa | Resposta sobre a API do Fortics, regras do aviso e um agendador na hospedagem | Time de desenvolvimento / Fortics |
 | **4. Lista de presença por seleção** | Dependência | Definir de onde vem a base de pessoas do cliente | Time de desenvolvimento |
 | **7 e 8. Implantação e check-list** | Não é bloqueio: adiados por definição | Entram quando a função existir | — |
-| **7 decisões em aberto** | Decisão | Uma resposta para cada | Quem decide o produto |
+| **3 decisões em aberto (2, 6 e 7)** | Decisão | Uma resposta para cada. As decisões 1, 3, 4 e 5 foram respondidas em 27/10/2026. | Quem decide o produto |
 | **Login único entre sistemas** | Dependência (nova) | Decidir antes do banco real | Quem decide a arquitetura |
 
 ### Ponto 5 — Coordenadas da unidade sem digitação · bloqueio técnico
@@ -111,6 +111,8 @@ A definição diz apenas que entram "quando a função existir". Não há escopo
 
 ### Decisões em aberto (bloqueiam o acabamento de pontos já feitos)
 
+**Situação em 27/10/2026:** respondidas as decisões **1** (manter o cargo do aprovador), **3** (alerta só para o gestor), **4** (herdar o setor da visita, feito em `7cb5a6d`) e **5** (tipos de visita continuam fixos). Seguem abertas a **2** (falta o motivo da troca para "Aprovado"), a **6** (depende de a conferência terminar) e a **7** (decisão do dono do repositório).
+
 | # | Decisão | Fato verificado | Opções |
 |---|---|---|---|
 | 1 | **Cargo do aprovador** (ponto 2) | O cargo só aparece no cadastro do cliente. É copiado para o link de aprovação (`aprovadorCargo`), mas nenhuma tela do aprovador nem o PDF o mostram. | Remover (arquivos: tipos, cadastro do cliente, repositório de clientes e de relatórios) ou manter. O impacto é baixo nos dois sentidos. |
@@ -138,7 +140,7 @@ Não sabemos se já existem; precisam ser confirmados antes de cada item começa
 
 ### Ordem sugerida para resolver
 
-1. **Decisões em aberto (1 a 7).** São respostas rápidas e destravam o acabamento do que já foi feito.
+1. **Decisões em aberto (2, 6 e 7).** São respostas rápidas e destravam o acabamento do que já foi feito.
 2. **Ponto 5**, liberando o domínio ou mudando para o computador local.
 3. **Login único**, antes do banco real.
 4. **Pontos 4 e 9**, que dependem do time e do Fortics.
