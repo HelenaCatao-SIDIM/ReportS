@@ -9,7 +9,7 @@ import { listarTemas } from "@/lib/repo/temas";
 import { buscarCliente, listarUnidades } from "@/lib/repo/clientes";
 import { formatarData, formatarDataHora, formatarHora } from "@/lib/datas";
 import { ehPresencial, rotuloTipo } from "@/lib/visitas";
-import { chaveRascunho, exigeParticipantes } from "@/lib/regras-visita";
+import { chaveRascunho, chaveRascunhoCheckin, chaveRascunhoParticipante, chaveRascunhoTema, exigeParticipantes } from "@/lib/regras-visita";
 import { LimparRascunho } from "@/components/tecnico/limpar-rascunho";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -70,6 +70,8 @@ async function EmAndamento({ v }: { v: VisitaDetalhada }) {
   const setores = [...new Set(unidades.flatMap((u) => u.setores.map((s) => s.nome)))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   return (
     <div className="space-y-4">
+      {/* O check-in já foi feito: o rascunho dele cumpriu o papel. */}
+      <LimparRascunho chave={chaveRascunhoCheckin} />
       <Link href="/tecnico" className="inline-flex items-center gap-1 text-sm text-muted-foreground">
         <ArrowLeft className="size-4" />
         Início
@@ -103,7 +105,7 @@ async function EmAndamento({ v }: { v: VisitaDetalhada }) {
 function Leitura({ v, acabouDeEncerrar }: { v: VisitaDetalhada; acabouDeEncerrar: boolean }) {
   return (
     <div className="space-y-4">
-      <LimparRascunho chave={chaveRascunho(v.id)} />
+      <LimparRascunho chave={[chaveRascunho(v.id), chaveRascunhoParticipante(v.id), chaveRascunhoTema(v.id)]} />
       {acabouDeEncerrar && (
         <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
           <CheckCircle2 />

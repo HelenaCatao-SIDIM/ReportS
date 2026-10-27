@@ -1,16 +1,18 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AlertCircle, Check, Clock, Loader2, LocateFixed, MapPin, Monitor } from "lucide-react";
 import type { ClienteCheckin } from "@/lib/repo/clientes";
 import type { MeioRegistro, TipoVisita } from "@/lib/types";
 import { detectarMeio } from "@/lib/meio";
+import { chaveRascunhoCheckin } from "@/lib/regras-visita";
 import { ehPresencial, TIPOS_VISITA } from "@/lib/visitas";
 import { cn } from "@/lib/utils";
 import { fazerCheckin, type CheckinState } from "./actions";
 import { useAcao } from "@/components/form/use-acao";
 import { selectClass } from "@/components/form/campo";
 import { FotoCampo } from "@/components/tecnico/foto-campo";
+import { guardarRascunho, lerRascunho } from "@/components/tecnico/rascunho";
 import { useGps } from "@/components/tecnico/use-gps";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +26,16 @@ const select = cn(selectClass, "h-11 bg-background text-base");
 const semAssinatura = () => () => {};
 const meioNoNavegador = (): MeioRegistro | null => detectarMeio();
 const meioNoServidor = (): MeioRegistro | null => null;
+
+/** O que o técnico já tinha escolhido no check-in. A foto e a localização não são guardadas: são pedidas de novo. */
+interface RascunhoCheckin {
+  clienteId: string;
+  unidadeId: string;
+  setor: string;
+  setorOutro: string;
+  tipo: TipoVisita | "";
+  link: string;
+}
 
 function Erro({ msg }: { msg?: string }) {
   return msg ? <p className="mt-1.5 text-xs text-destructive">{msg}</p> : null;
@@ -56,6 +68,38 @@ export function CheckinForm({ clientes }: { clientes: ClienteCheckin[] }) {
   const [link, setLink] = useState("");
   const { estado: gps, capturar } = useGps();
   const meio = useSyncExternalStore(semAssinatura, meioNoNavegador, meioNoServidor);
+  const restaurado = useRef(false);
+
+  // Ao reabrir a tela (aba fechada, celular travado), devolve o que já tinha sido escolhido.
+  useEffect(() => {
+    if (restaurado.current) return;
+    const t = setTimeout(() => {
+      const r = lerRascunho<RascunhoCheckin>(chaveRascunhoCheckin);
+      const c = clientes.find((x) => x.id === r?.clienteId);
+      if (r && c) {
+        const u = c.unidades.find((x) => x.id === r.unidadeId);
+        const s = u && (r.setor === "outro" || u.setores.some((x) => x.id === r.setor)) ? r.setor : "";
+        const tipoValido = TIPOS_VISITA.find((x) => x.valor === r.tipo);
+        setClienteId(c.id);
+        setUnidadeId(u?.id ?? "");
+        setSetor(s);
+        setSetorOutro(s === "outro" ? r.setorOutro : "");
+        if (tipoValido) {
+          setTipo(tipoValido.valor);
+          if (tipoValido.presencial) capturar();
+          else setLink(r.link);
+        }
+      }
+      restaurado.current = true;
+    }, 0);
+    return () => clearTimeout(t);
+  }, [clientes, capturar]);
+
+  // Guarda as escolhas a cada mudança, só depois da recuperação (senão apagaria o rascunho ao abrir).
+  useEffect(() => {
+    if (!restaurado.current) return;
+    guardarRascunho(chaveRascunhoCheckin, { clienteId, unidadeId, setor, setorOutro, tipo, link } satisfies RascunhoCheckin);
+  }, [clienteId, unidadeId, setor, setorOutro, tipo, link]);
 
   const cliente = clientes.find((c) => c.id === clienteId);
   const unidade = cliente?.unidades.find((u) => u.id === unidadeId);

@@ -13,8 +13,25 @@ import { Button } from "@/components/ui/button";
  * Escolha da ocupação (CBO) buscando pelo nome da ocupação.
  * Envia o código no campo oculto `name`; o servidor busca o título na tabela.
  */
-export function CboCampo({ id, name, inicial, invalido }: { id: string; name: string; inicial: Cbo | null; invalido?: boolean }) {
-  const [escolhido, setEscolhido] = useState<Cbo | null>(inicial);
+export function CboCampo({
+  id,
+  name,
+  inicial,
+  invalido,
+  onMudar,
+}: {
+  id: string;
+  name: string;
+  inicial: Cbo | null;
+  invalido?: boolean;
+  /** Avisa quando a ocupação é escolhida ou trocada (ex.: para guardar rascunho). */
+  onMudar?: (cbo: Cbo | null) => void;
+}) {
+  const [escolhido, setEscolhidoLocal] = useState<Cbo | null>(inicial);
+  const setEscolhido = (c: Cbo | null) => {
+    setEscolhidoLocal(c);
+    onMudar?.(c);
+  };
   const [termo, setTermo] = useState("");
   const [resultados, setResultados] = useState<Cbo[]>([]);
   const [buscando, setBuscando] = useState(false);
