@@ -23,6 +23,8 @@ interface Config {
   exigeAssinatura: boolean;
   exigeCpf: boolean;
   setores: string[];
+  /** Setor da visita; já vem preenchido no cadastro de novo participante. */
+  setorVisita: string;
 }
 
 function AvisoLgpd({ clienteNome, exigeCpf, exigeAssinatura }: Pick<Config, "clienteNome" | "exigeCpf" | "exigeAssinatura">) {
@@ -40,7 +42,10 @@ function AvisoLgpd({ clienteNome, exigeCpf, exigeAssinatura }: Pick<Config, "cli
 
 const Erro = ({ msg }: { msg?: string }) => (msg ? <p className="mt-1 text-xs text-destructive">{msg}</p> : null);
 
-function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setores, onFeito }: Config & { onFeito: () => void }) {
+/** Junta os textos preenchidos com " · " (o setor é opcional). */
+const juntar = (...partes: string[]) => partes.filter(Boolean).join(" · ");
+
+function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setores, setorVisita, onFeito }: Config & { onFeito: () => void }) {
   const [state, onSubmit, pending] = useAcao<PresencaState>(registrarPresenca.bind(null, visitaId), {});
   const e = state.erros ?? {};
   const [modo, setModo] = useState<"busca" | "existente" | "novo">("busca");
@@ -117,7 +122,7 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
                   >
                     <span className="block text-sm font-medium">{s.nome}</span>
                     <span className="block text-xs text-muted-foreground">
-                      {s.cbo.titulo} · {s.setor}
+                      {juntar(s.cbo.titulo, s.setor)}
                     </span>
                   </button>
                 </li>
@@ -139,7 +144,7 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 text-sm">
               <div className="font-medium">{escolhido.nome}</div>
-              <div className="text-muted-foreground">{escolhido.setor}</div>
+              {escolhido.setor && <div className="text-muted-foreground">{escolhido.setor}</div>}
               <div className="text-xs text-muted-foreground">
                 <span className="font-mono">{formatarCbo(escolhido.cbo.codigo)}</span> {escolhido.cbo.titulo}
               </div>
@@ -190,15 +195,14 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
           </div>
           <div>
             <Label htmlFor="n-setor" className="mb-1.5">
-              Setor
+              Setor (opcional)
             </Label>
-            <Input id="n-setor" name="setor" list="setores-cliente" className="h-11 text-base" aria-invalid={!!e.setor} />
+            <Input id="n-setor" name="setor" list="setores-cliente" defaultValue={setorVisita} className="h-11 text-base" />
             <datalist id="setores-cliente">
               {setores.map((s) => (
                 <option key={s} value={s} />
               ))}
             </datalist>
-            <Erro msg={e.setor} />
           </div>
           {exigeCpf && (
             <div>
@@ -246,7 +250,7 @@ function LinhaPresenca({ visitaId, p }: { visitaId: string; p: PresencaVisita })
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{p.nome}</div>
         <div className="truncate text-xs text-muted-foreground">
-          {p.cbo.titulo} · {p.setor}
+          {juntar(p.cbo.titulo, p.setor)}
           {p.cpf && ` · ${mascararCpf(p.cpf)}`}
         </div>
       </div>

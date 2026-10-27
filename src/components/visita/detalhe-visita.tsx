@@ -167,7 +167,7 @@ export function DetalheVisita({ visita: v, cpf = "mascarado" }: { visita: Visita
                     <TableCell className="text-xs">
                       <span className="font-mono text-muted-foreground">{formatarCbo(p.cbo.codigo)}</span> {p.cbo.titulo}
                     </TableCell>
-                    <TableCell>{p.setor}</TableCell>
+                    <TableCell>{p.setor || "—"}</TableCell>
                     <TableCell className="font-mono text-xs">{p.cpf ? (cpf === "completo" ? formatarCpf(p.cpf) : mascararCpf(p.cpf)) : "—"}</TableCell>
                     <TableCell className="pr-4">
                       {p.confirmacao === "assinatura" && p.assinatura ? (

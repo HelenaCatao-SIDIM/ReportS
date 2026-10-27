@@ -122,7 +122,7 @@ function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao }: { v: Visit
                 <Text style={{ width: "28%", fontSize: 8 }}>
                   {formatarCbo(p.cbo.codigo)} {p.cbo.titulo}
                 </Text>
-                <Text style={{ width: "15%" }}>{p.setor}</Text>
+                <Text style={{ width: "15%" }}>{p.setor || "—"}</Text>
                 <Text style={{ width: "15%" }}>{p.cpf ? mascararCpf(p.cpf) : "—"}</Text>
                 <View style={{ width: "16%" }}>
                   {p.confirmacao === "assinatura" && assinatura ? <Image src={assinatura} style={{ height: 20, objectFit: "contain" }} /> : <Text>Nominal</Text>}

@@ -17,7 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 type Acao = (state: ClienteFormState, formData: FormData) => Promise<ClienteFormState>;
 
 const NIVEIS: { valor: NivelComprovacao; titulo: string; descricao: string }[] = [
-  { valor: "nominal", titulo: "Nominal", descricao: "Basta a lista de participantes com nome, CBO e setor." },
+  { valor: "nominal", titulo: "Nominal", descricao: "Basta a lista de participantes com nome e CBO (o setor é opcional)." },
   { valor: "assinado", titulo: "Assinado", descricao: "Cada participante assina com o dedo na tela do celular do técnico." },
 ];
 

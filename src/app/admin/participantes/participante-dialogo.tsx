@@ -42,8 +42,8 @@ function ParticipanteForm({ clienteId, exigeCpf, setores, participante, onSalvo 
           É outra pessoa com o mesmo nome — cadastrar mesmo assim
         </label>
       )}
-      <Campo id="p-setor" label="Setor" erro={e.setor}>
-        <Input id="p-setor" name="setor" list="lista-setores" defaultValue={v?.setor} className="h-9" aria-invalid={!!e.setor} />
+      <Campo id="p-setor" label="Setor (opcional)">
+        <Input id="p-setor" name="setor" list="lista-setores" defaultValue={v?.setor} className="h-9" />
       </Campo>
       <datalist id="lista-setores">
         {setores.map((s) => (

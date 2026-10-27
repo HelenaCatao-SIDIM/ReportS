@@ -84,6 +84,7 @@ async function EmAndamento({ v }: { v: VisitaDetalhada }) {
         exigeAssinatura={cliente?.nivel === "assinado" && ehPresencial(v.tipo)}
         exigeCpf={!!cliente?.exigeCpf}
         setores={setores}
+        setorVisita={v.setorNome === "—" ? "" : v.setorNome}
         ehTreinamento={v.tipo === "treinamento" || v.tipo === "treinamento_online"}
       />
       <div className="space-y-2 pb-2">

@@ -44,7 +44,7 @@ export async function sugerirParticipantes(visitaId: string, termo: string): Pro
 
 export interface PresencaState {
   ok?: boolean;
-  erros?: Partial<Record<"nome" | "cbo" | "setor" | "cpf" | "assinatura" | "geral", string>>;
+  erros?: Partial<Record<"nome" | "cbo" | "cpf" | "assinatura" | "geral", string>>;
   pedirHomonimo?: boolean;
 }
 
@@ -79,7 +79,6 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
       erros.nome = "Já existe alguém com este nome no cadastro. Escolha na lista de sugestões ou confirme que é outra pessoa.";
     }
     if (!cbo) erros.cbo = "Escolha a ocupação (CBO) na lista.";
-    if (!setor) erros.setor = "Informe o setor.";
     if (cliente.exigeCpf) {
       if (!cpfValido(cpf)) erros.cpf = "CPF inválido.";
       else if (await cpfEmUso(cliente.id, cpf)) erros.cpf = "Este CPF já está cadastrado. Busque a pessoa pelo nome.";

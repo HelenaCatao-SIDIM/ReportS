@@ -95,7 +95,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/participantes">
                     <span className="font-mono text-xs text-muted-foreground">{formatarCbo(p.cbo.codigo)}</span>
                     <span className="block truncate text-xs">{p.cbo.titulo}</span>
                   </TableCell>
-                  <TableCell>{p.setor}</TableCell>
+                  <TableCell>{p.setor || "—"}</TableCell>
                   {cliente.exigeCpf && <TableCell className="font-mono text-xs">{p.cpf ? formatarCpf(p.cpf) : "—"}</TableCell>}
                   <TableCell>
                     {p.criadoEmCampo ? <Badge variant="secondary">Em campo</Badge> : <span className="text-xs text-muted-foreground">Cadastro</span>}

@@ -10,7 +10,7 @@ import type { Cbo } from "@/lib/types";
 
 export interface ParticipanteFormState {
   ok?: boolean;
-  erros?: Partial<Record<"nome" | "cbo" | "setor" | "cpf", string>>;
+  erros?: Partial<Record<"nome" | "cbo" | "cpf", string>>;
   /** Já existe alguém com o mesmo nome: o formulário pede confirmação de que é outra pessoa. */
   pedirHomonimo?: boolean;
   valores?: { nome: string; cbo: Cbo | null; setor: string; cpf: string };
@@ -46,7 +46,6 @@ export async function salvarParticipante(
     pedirHomonimo = true;
   }
   if (!cbo) erros.cbo = "Escolha a ocupação (CBO) na lista.";
-  if (!setor) erros.setor = "Informe o setor.";
   if (cliente.exigeCpf) {
     if (!cpfValido(cpf)) erros.cpf = "CPF inválido.";
     else if (await cpfEmUso(clienteId, cpf, excetoId)) erros.cpf = "Já existe um participante com este CPF neste cliente.";
