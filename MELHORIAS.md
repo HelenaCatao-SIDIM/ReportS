@@ -13,7 +13,7 @@ Registro de alterações futuras e sugestões. O `README.md` continua sendo a re
 
 Registradas em 26/10/2026. Legenda: ✅ definido · ⚠ ponto de atenção · *Evolutiva* = entra numa versão seguinte · *Fora desta versão* = só entra quando a função existir. Onde aparece **Hoje no código**, é o que foi conferido no repositório no momento do registro.
 
-**Situação em 27/10/2026:** feitos **1, 2, 3, 6, 10, 11 e 12** (o 2 só para o participante) · parcial **9** (campo de telefone feito; falta o envio) · bloqueado **5** (o ambiente de desenvolvimento não alcança o serviço de endereços) · sem código por definição **4, 7 e 8**.
+**Situação em 27/10/2026:** feitos **1, 2, 3, 6, 10, 11 e 12** (o 2 só para o participante) · parcial **9** (campo de telefone feito; falta o envio) · bloqueado **5** (o ambiente de desenvolvimento não alcança o serviço de endereços) · sem código por definição **4, 7 e 8**. Os motivos, as evidências e o que destrava cada um estão em **"Pontos bloqueados e decisões em aberto"**, mais abaixo.
 
 - **1. Sistema da operação, não de uma pessoa.** O sistema tem três papéis — Gestor, Técnico e Aprovador — e qualquer pessoa pode ocupar qualquer um deles. Pode existir mais de um gestor, e a coordenação pode mudar de mão sem que nada quebre: nenhum cadastro, relatório ou fluxo tem nome de pessoa escrito dentro. O mesmo vale para o que é configurável (clientes, unidades, setores, temas): fica em cadastro, não no código. **Auditado e ajustado em 27/10/2026 (`c4c4c81`).**
    - **Nomes de pessoa:** só aparecem nos dados de exemplo (`src/lib/repo/*`), que o banco real substitui. O único nome fora disso, um exemplo no campo de ajuste da página do aprovador, virou texto genérico.
@@ -57,6 +57,92 @@ Registradas em 26/10/2026. Legenda: ✅ definido · ⚠ ponto de atenção · *E
 - [ ] O Fortics expõe API para disparo de WhatsApp? E quais as regras do aviso: depois de quantas horas, se repete, quem mais recebe? (definição 9)
 - [ ] A remoção do cargo vale também para o aprovador? (definição 2)
 - [ ] O alerta de check-in fora do raio vai só para o gestor, como está hoje, ou o técnico também deve ser avisado na hora? (definição 6)
+
+## Pontos bloqueados e decisões em aberto
+
+Atualizado em 27/10/2026. Aqui está tudo o que **não anda sem uma ação de fora do código**, com o motivo, a evidência, o que destrava e quem pode destravar. A ideia é resolver um por um, na ordem sugerida no fim da seção.
+
+**Tipos de bloqueio:** *técnico* (o ambiente impede) · *informação externa* (depende do time ou de um fornecedor) · *dependência* (espera outra coisa ficar pronta) · *decisão* (falta escolher entre opções).
+
+| Ponto | Tipo | O que destrava | Quem |
+|---|---|---|---|
+| **5. Coordenadas automáticas** | Técnico | Liberar `nominatim.openstreetmap.org` na rede do ambiente, ou fazer no computador local | Quem administra o ambiente |
+| **9. Aviso por WhatsApp (Fortics)** | Informação externa | Resposta sobre a API do Fortics, regras do aviso e um agendador na hospedagem | Time de desenvolvimento / Fortics |
+| **4. Lista de presença por seleção** | Dependência | Definir de onde vem a base de pessoas do cliente | Time de desenvolvimento |
+| **7 e 8. Implantação e check-list** | Não é bloqueio: adiados por definição | Entram quando a função existir | — |
+| **7 decisões em aberto** | Decisão | Uma resposta para cada | Quem decide o produto |
+| **Login único entre sistemas** | Dependência (nova) | Decidir antes do banco real | Quem decide a arquitetura |
+
+### Ponto 5 — Coordenadas da unidade sem digitação · bloqueio técnico
+
+- **O que está bloqueado:** a chamada ao serviço aberto que converte endereço em coordenadas. Sem testar a chamada real, não entregamos a função.
+- **Evidência (27/10/2026):** ao chamar `https://nominatim.openstreetmap.org/search?...` a partir do ambiente de desenvolvimento em nuvem, a resposta foi `CONNECT tunnel failed, response 403`. É o proxy do ambiente recusando o domínio (política de rede), não o serviço fora do ar.
+- **Duas saídas:**
+  1. **Liberar o domínio.** Nas configurações do ambiente em nuvem (menu do ambiente na barra de título da sessão → *Edit* → *Network access*), ampliar o nível de acesso ou incluir `nominatim.openstreetmap.org` em *Allowed domains*, mantendo marcada a caixa dos gerenciadores de pacotes para o `npm install` continuar funcionando. Passo a passo oficial: https://code.claude.com/docs/en/cloud-environments#network-access
+  2. **Fazer no computador local**, numa sessão que roda lá, sem a restrição de rede. Depois é só enviar a branch.
+- **Escopo depois de destravar (tamanho: pequeno a médio):** botão "Buscar coordenadas pelo endereço" no cadastro da unidade (Clientes → unidade → Editar); a chamada roda no servidor; latitude e longitude são preenchidas e **continuam editáveis**; mensagem clara quando o endereço não é encontrado ou o serviço falha; teste com endereços reais da SIDIM.
+- **Decisões a tomar antes:**
+  - *Qual serviço.* O Nominatim (OpenStreetMap) é gratuito, mas a instância pública tem regras de uso: identificar o aplicativo no cabeçalho da requisição, no máximo 1 consulta por segundo e uso moderado. Para volume maior, seria outro serviço ou uma instância própria.
+  - *Refinar a referência pelo primeiro check-in.* A definição diz que a posição do primeiro check-in pode refinar o ponto. **Recomendação:** só sugerir ao gestor, nunca alterar sozinho. Um check-in feito no estacionamento deslocaria a referência de todas as visitas seguintes.
+- **Efeito sobre outros pontos:** o raio (ponto 6) só mede unidades que têm coordenadas, e hoje elas são digitadas à mão. Nos dados de exemplo, só a "Sede da Prefeitura" tem.
+
+### Ponto 9 — Aviso de visita aberta por WhatsApp (Fortics) · bloqueio de informação externa
+
+- **Já pronto:** o telefone com DDD no cadastro de usuário (`9dac1a8`); o destaque "Possivelmente esquecida" para visitas abertas há 10 horas ou mais, na Administração (`HORAS_ALERTA` em `src/app/admin/visitas/page.tsx`); e a regra de que o sistema nunca encerra a visita sozinho (nenhum trecho do código faz isso).
+- **O que bloqueia (cinco itens):**
+  1. **API do Fortics.** Ele expõe API de disparo? Qual a documentação, a autenticação, os limites e o custo? Se for a API oficial do WhatsApp, mensagens iniciadas pela empresa costumam exigir modelos de mensagem pré-aprovados. *A confirmar com o fornecedor.*
+  2. **Regras do aviso, ainda não definidas:** depois de quantas horas dispara, se repete, em que horário pode enviar, quem mais recebe (o gestor?) e o que fazer quando o técnico não tem telefone cadastrado.
+  3. **Agendador.** O sistema não tem tarefas em segundo plano. Para olhar as visitas abertas de tempos em tempos, a hospedagem precisa de uma tarefa periódica, que só passa a existir quando o sistema for publicado (item de infraestrutura pendente).
+  4. **E-mail de reserva.** Depende do envio real de e-mail, que ainda é simulado (item de infraestrutura pendente).
+  5. **Uso do número.** Confirmar com quem cuida de LGPD e RH se o telefone do técnico pode receber mensagens da empresa. *A confirmar.*
+- **O que destrava:** as respostas do time e do Fortics, as regras definidas e a publicação com agendador.
+- **Enquanto isso:** não há trabalho útil no código sem risco de retrabalho.
+
+### Ponto 4 — Lista de presença por seleção · dependência
+
+- **Hoje:** o técnico busca por nome entre os participantes já cadastrados do cliente e, se a pessoa não existe, cadastra em campo.
+- **O que falta definir:** de onde vem a base de pessoas do cliente (outro sistema interno, planilha do cliente, integração com o cliente); que dados ela traz (nome, CPF, CBO, setor); como é mantida atualizada; e como tratar os dados pessoais (LGPD, principalmente o CPF).
+- **Por que é "o primeiro a alinhar":** a resposta muda o desenho de vários itens, inclusive o do login único (a base de pessoas pode morar em outro sistema).
+- **Depois de definido:** a seleção passa a ser a forma principal, e a digitação livre vira exceção.
+
+### Pontos 7 e 8 — Marcação de implantação e check-list · adiados, não bloqueados
+
+A definição diz apenas que entram "quando a função existir". Não há escopo: o que é a marcação de implantação, e se o check-list é fixo ou por cliente, ainda não foi descrito. Nada a fazer até lá.
+
+### Decisões em aberto (bloqueiam o acabamento de pontos já feitos)
+
+| # | Decisão | Fato verificado | Opções |
+|---|---|---|---|
+| 1 | **Cargo do aprovador** (ponto 2) | O cargo só aparece no cadastro do cliente. É copiado para o link de aprovação (`aprovadorCargo`), mas nenhuma tela do aprovador nem o PDF o mostram. | Remover (arquivos: tipos, cadastro do cliente, repositório de clientes e de relatórios) ou manter. O impacto é baixo nos dois sentidos. |
+| 2 | **Textos de "faturamento"** (ponto 12) | Três lugares ainda falam de faturamento: a mensagem ao aprovador (`src/app/aprovacao/[token]/decisao.tsx`), o README e o cabeçalho "Status / faturamento" da lista de relatórios. | Se a ideia é o sistema não afirmar nada sobre faturamento, mudar os três (sugestão para a mensagem: "A aprovação confirma os atendimentos deste relatório."). Se foi só o rótulo, manter. |
+| 3 | **Quem recebe o alerta de raio** (ponto 6) | Hoje só o gestor vê o selo e a distância. | Manter só o gestor, ou avisar também o técnico na hora do check-in. |
+| 4 | **Setor da presença de participante já cadastrado** (ponto 3) | Se o cadastro da pessoa não tem setor, a presença fica sem setor. | **Recomendação:** herdar o setor da visita, coerente com a definição "já preenchido com o setor da visita". É uma mudança pequena. |
+| 5 | **Tipos de visita como cadastro** (ponto 1) | São uma lista fixa em `src/lib/visitas.ts`. | Manter fixos ou virar cadastro, como temas e setores. |
+| 6 | **Destino da branch** | A `claude/practical-dijkstra-zfagzj` tem vários commits à frente da `main` (ver `git log origin/main..HEAD`). Nada disso está na `main`. | Abrir PR para a `main`, manter só na branch, ou desfazer. |
+| 7 | **Repositório público** | O repositório está público: o README (com os acessos de teste) e este arquivo (regras de negócio, o nome do fornecedor Fortics) podem ser lidos por qualquer pessoa. Este arquivo evita citar outros sistemas internos por nome. | Manter público, ou tornar privado antes de documentar mais. |
+
+### Login único entre sistemas · dependência nova (a organizar em arquivo próprio)
+
+Surgiu em 27/10/2026: a ideia de unificar os acessos dos sistemas internos, com um cadastro central de usuários e um portal comum. O ponto que interessa aqui é a **ordem**: o banco real do ReportS (item de infraestrutura abaixo) prevê uma tabela de usuários. Se ela for criada antes da decisão de identidade, será descartada depois. Na parte do ReportS, a troca fica concentrada em `src/lib/repo/usuarios.ts`, `src/lib/session.ts` e `src/lib/dal.ts`. O plano completo será escrito à parte, a pedido.
+
+### Pré-requisitos externos dos itens de infraestrutura (não verificados)
+
+Não sabemos se já existem; precisam ser confirmados antes de cada item começar.
+
+| Item | Precisa de |
+|---|---|
+| Banco de dados real e armazenamento | Um projeto Supabase (conta e credenciais) e a decisão de identidade acima |
+| Envio real de e-mail | Domínio da SIDIM verificado no Resend, com acesso ao DNS |
+| Tabela CBO oficial | O arquivo oficial do Ministério do Trabalho. Não testamos se o ambiente consegue baixá-lo |
+| Publicação e teste no celular com https | Conta Vercel e o domínio |
+
+### Ordem sugerida para resolver
+
+1. **Decisões em aberto (1 a 7).** São respostas rápidas e destravam o acabamento do que já foi feito.
+2. **Ponto 5**, liberando o domínio ou mudando para o computador local.
+3. **Login único**, antes do banco real.
+4. **Pontos 4 e 9**, que dependem do time e do Fortics.
+5. **Infraestrutura**, na ordem da seção "A fazer".
 
 ## A fazer
 
