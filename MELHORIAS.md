@@ -13,6 +13,8 @@ Registro de alterações futuras e sugestões. O `README.md` continua sendo a re
 
 Registradas em 26/10/2026. Legenda: ✅ definido · ⚠ ponto de atenção · *Evolutiva* = entra numa versão seguinte · *Fora desta versão* = só entra quando a função existir. Onde aparece **Hoje no código**, é o que foi conferido no repositório no momento do registro.
 
+**Situação em 27/10/2026:** feitos **1, 2, 3, 6, 10, 11 e 12** (o 2 só para o participante) · parcial **9** (campo de telefone feito; falta o envio) · bloqueado **5** (o ambiente de desenvolvimento não alcança o serviço de endereços) · sem código por definição **4, 7 e 8**.
+
 - **1. Sistema da operação, não de uma pessoa.** O sistema tem três papéis — Gestor, Técnico e Aprovador — e qualquer pessoa pode ocupar qualquer um deles. Pode existir mais de um gestor, e a coordenação pode mudar de mão sem que nada quebre: nenhum cadastro, relatório ou fluxo tem nome de pessoa escrito dentro. O mesmo vale para o que é configurável (clientes, unidades, setores, temas): fica em cadastro, não no código. **Auditado e ajustado em 27/10/2026 (`c4c4c81`).**
    - **Nomes de pessoa:** só aparecem nos dados de exemplo (`src/lib/repo/*`), que o banco real substitui. O único nome fora disso, um exemplo no campo de ajuste da página do aprovador, virou texto genérico.
    - **Vários gestores:** o cadastro de usuários já permite. O gestor não consegue inativar a própria conta nem mudar o próprio perfil, então sempre sobra um gestor ativo. O histórico guarda o nome de quem agiu e as visitas antigas continuam mostrando técnicos já inativos, então trocar de pessoa não apaga nada.
@@ -34,9 +36,10 @@ Registradas em 26/10/2026. Legenda: ✅ definido · ⚠ ponto de atenção · *E
    - Fora do raio, a Administração mostra o selo "Fora do raio" nas listas de visitas e a distância no detalhe da visita ("178 m — fora do raio de 50 m"). Nunca bloqueia o check-in. Técnico, aprovador e PDF do relatório **não** veem o alerta nem a distância.
    - **Limites e a decidir:** só mede unidades com latitude e longitude (sem elas, o detalhe mostra "Não medida"); o alerta vai só para o gestor, não para o técnico no momento do check-in; não há ainda um painel com o histórico das distâncias para ajustar o raio (a distância de cada visita já fica gravada). A visita de exemplo de 20/10 (Visita técnica, Carlos) está fora do raio, para demonstração.
 - **7 e 8. Marcação de implantação e check-list: fora desta versão.** Entram quando a função existir.
-- **9. Aviso de visita aberta por WhatsApp, via Fortics.** O número virá do cadastro do técnico (o campo ainda não existe; ver abaixo). O e-mail fica como reserva. O sistema continua nunca encerrando a visita sozinho.
+- **9. Aviso de visita aberta por WhatsApp, via Fortics.** **Parcial: o campo de telefone está feito (27/10/2026, ver abaixo); o envio não.** O número virá do cadastro do técnico. O e-mail fica como reserva. O sistema continua nunca encerrando a visita sozinho.
    - **Dúvida para o time:** o Fortics expõe API (Interface de Programação de Aplicações) para disparo? Se expuser, é o melhor canal. Notificação do próprio navegador é alternativa, mas falha no iPhone e não é confiável.
-   - **Hoje no código:** o `Usuario` (`src/lib/types.ts`) **não tem campo de telefone**; ele precisa ser incluído no cadastro do técnico.
+   - **Feito:** o cadastro de usuário tem o telefone com DDD, opcional, com máscara de digitação e validação (10 dígitos, ou 11 começando com 9 depois do DDD). Aparece na lista de usuários. Guardado só com dígitos, sem o 55 do país.
+   - **Falta, e não dá para fazer sem o time:** o envio em si (depende da resposta sobre a API do Fortics) e as regras do aviso, que ainda não foram definidas: depois de quantas horas aberta a visita dispara, se repete, e quem mais é avisado. Hoje a Administração já destaca visitas abertas há 10 horas ou mais, sem enviar nada.
 - **10. Registro pelo celular e pelo computador, com o meio identificado.** O técnico registra pelos dois, e a visita grava por onde foi feita, aparecendo no relatório. No computador, aviso em tela quando o tipo for presencial. Modo específico de treinamento online fica como *evolutiva*. **Feito em 27/10/2026 (`d50565c`).**
    - **Feito:** o check-in identifica o aparelho (celular ou computador) e grava na visita. Aparece como "Registrado por" no detalhe da visita, no relatório (tela e PDF) e na página do aprovador. No computador, visita presencial mostra um aviso em tela, sem bloquear. As mensagens de localização passam a falar em "aparelho".
    - **Limites:** a identificação é pelo navegador (tablet conta como celular); a localização de um computador é aproximada; o App do Técnico segue em coluna estreita também no computador. O modo específico de treinamento online segue como evolutiva.
@@ -51,7 +54,7 @@ Registradas em 26/10/2026. Legenda: ✅ definido · ⚠ ponto de atenção · *E
 ### Para alinhar com o time de desenvolvimento
 
 - [ ] **Primeiro** — Base de pessoas do cliente, para a lista de presença passar de digitação a seleção (definição 4).
-- [ ] O Fortics expõe API para disparo de WhatsApp? (definição 9)
+- [ ] O Fortics expõe API para disparo de WhatsApp? E quais as regras do aviso: depois de quantas horas, se repete, quem mais recebe? (definição 9)
 - [ ] A remoção do cargo vale também para o aprovador? (definição 2)
 - [ ] O alerta de check-in fora do raio vai só para o gestor, como está hoje, ou o técnico também deve ser avisado na hora? (definição 6)
 
