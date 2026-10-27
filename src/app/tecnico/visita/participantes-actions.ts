@@ -97,11 +97,14 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
     assinatura = img.url;
   }
 
+  // Quem não tem setor no cadastro entra na lista com o setor da visita (só na presença; o cadastro não muda).
+  const setorDaVisita = v.setorNome === "—" ? "" : v.setorNome;
+
   await adicionarPresenca(visitaId, tecnico.id, {
     participanteId: participante.id,
     nome: participante.nome,
     cbo: participante.cbo,
-    setor: participante.setor,
+    setor: participante.setor || setorDaVisita,
     cpf: participante.cpf,
     confirmacao: exigeAssinatura ? "assinatura" : "nominal",
     assinatura,

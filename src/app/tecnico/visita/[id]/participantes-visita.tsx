@@ -179,7 +179,12 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 text-sm">
               <div className="font-medium">{escolhido.nome}</div>
-              {escolhido.setor && <div className="text-muted-foreground">{escolhido.setor}</div>}
+              {(escolhido.setor || setorVisita) && (
+                <div className="text-muted-foreground">
+                  {escolhido.setor || setorVisita}
+                  {!escolhido.setor && <span className="ml-1 text-xs">(setor da visita)</span>}
+                </div>
+              )}
               <div className="text-xs text-muted-foreground">
                 <span className="font-mono">{formatarCbo(escolhido.cbo.codigo)}</span> {escolhido.cbo.titulo}
               </div>
