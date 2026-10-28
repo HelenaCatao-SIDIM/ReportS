@@ -75,7 +75,7 @@ function EmAndamento({ visitas, agora }: { visitas: VisitaDetalhada[]; agora: nu
           <TableHeader>
             <TableRow>
               <TableHead className="pl-4">Técnico</TableHead>
-              <TableHead>Cliente / unidade</TableHead>
+              <TableHead>Cliente / estabelecimento</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead>Entrada</TableHead>
               <TableHead>Aberta há</TableHead>
@@ -196,7 +196,7 @@ async function Encerradas({ sp }: { sp: Record<string, string | string[] | undef
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-4">Data</TableHead>
-                <TableHead>Cliente / unidade</TableHead>
+                <TableHead>Cliente / estabelecimento</TableHead>
                 <TableHead>Técnico</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Horário</TableHead>

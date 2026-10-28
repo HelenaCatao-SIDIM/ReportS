@@ -159,7 +159,7 @@ export function CheckinForm({ clientes, porCep = false, carimbo = false }: { cli
             onChange={(ev) => {
               setClienteId(ev.target.value);
               const c = clientes.find((x) => x.id === ev.target.value);
-              // Unidade única já vem escolhida.
+              // Estabelecimento único já vem escolhido.
               setUnidadeId(c?.unidades.length === 1 ? c.unidades[0].id : "");
               setSetor("");
             }}
@@ -176,7 +176,7 @@ export function CheckinForm({ clientes, porCep = false, carimbo = false }: { cli
         </div>
         <div>
           <Label htmlFor="unidadeId" className="mb-1.5">
-            Unidade
+            Estabelecimento
           </Label>
           <select
             id="unidadeId"
@@ -189,7 +189,7 @@ export function CheckinForm({ clientes, porCep = false, carimbo = false }: { cli
             }}
             className={select}
           >
-            <option value="">{cliente ? "Escolha a unidade" : "Escolha o cliente primeiro"}</option>
+            <option value="">{cliente ? "Escolha o estabelecimento" : "Escolha o cliente primeiro"}</option>
             {cliente?.unidades.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.nome}
@@ -209,7 +209,7 @@ export function CheckinForm({ clientes, porCep = false, carimbo = false }: { cli
             Setor
           </Label>
           <select id="setorId" name="setorId" value={setor} disabled={!unidade} onChange={(ev) => setSetor(ev.target.value)} className={select}>
-            <option value="">{unidade ? "Escolha o setor" : "Escolha a unidade primeiro"}</option>
+            <option value="">{unidade ? "Escolha o setor" : "Escolha o estabelecimento primeiro"}</option>
             {unidade?.setores.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.nome}

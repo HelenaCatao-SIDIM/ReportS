@@ -85,7 +85,7 @@ export async function criarCliente(_: ClienteFormState, fd: FormData): Promise<C
 
   const c = await repo.criarCliente({ ...d, ativo: true });
   revalidatePath("/admin/clientes");
-  // Segue para a tela do cliente, onde as unidades são cadastradas.
+  // Segue para a tela do cliente, onde os estabelecimentos são cadastrados.
   redirect(`/admin/clientes/${c.id}?ok=criado`);
 }
 
@@ -100,7 +100,7 @@ export async function editarCliente(id: string, _: ClienteFormState, fd: FormDat
   redirect(`/admin/clientes/${id}?ok=salvo`);
 }
 
-// ---------- Unidade ----------
+// ---------- Estabelecimento ----------
 
 export interface UnidadeFormState {
   ok?: boolean;
@@ -138,7 +138,7 @@ export async function salvarUnidade(
   const raio = lerRaio(fd.get("raio"));
 
   const erros: NonNullable<UnidadeFormState["erros"]> = {};
-  if (!nome) erros.nome = "Informe o nome da unidade.";
+  if (!nome) erros.nome = "Informe o nome do estabelecimento.";
   if (latitude === "invalida") erros.latitude = "Número entre -90 e 90.";
   if (longitude === "invalida") erros.longitude = "Número entre -180 e 180.";
   if (raio === "invalido") erros.raio = "Número inteiro de metros, de 10 a 5000.";
@@ -177,7 +177,7 @@ export async function salvarSetor(unidadeId: string, setorId: string | null, nom
   await exigirGestorAcao();
   const n = nome.trim();
   if (!n) return "Informe o nome do setor.";
-  if (await repo.setorDuplicado(unidadeId, n, setorId ?? undefined)) return "Este setor já existe na unidade.";
+  if (await repo.setorDuplicado(unidadeId, n, setorId ?? undefined)) return "Este setor já existe no estabelecimento.";
 
   if (setorId) await repo.renomearSetor(setorId, n);
   else await repo.criarSetor(unidadeId, n);

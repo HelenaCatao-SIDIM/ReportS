@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 
 /**
  * Selos de situação da visita: em andamento/encerrada/cancelada, encerrada pelo gestor, corrigida, travada.
- * `alertaRaio` (só na Administração) acrescenta o selo de check-in dentro ou fora do raio da unidade.
+ * `alertaRaio` (só na Administração) acrescenta o selo de check-in dentro ou fora do raio do estabelecimento.
  */
 export function SelosVisita({
   visita,

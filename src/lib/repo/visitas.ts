@@ -228,7 +228,7 @@ export async function corrigirPeloGestor(id: string, c: CorrecaoVisita, autor: U
   comparar("Entrada", formatarDataHora(v.entrada), formatarDataHora(c.entrada));
   comparar("Saída", v.saida ? formatarDataHora(v.saida) : "", formatarDataHora(c.saida));
   comparar("Tipo", rotuloTipo(v.tipo), rotuloTipo(c.tipo));
-  comparar("Unidade", await nomeUnidade(v.unidadeId), await nomeUnidade(c.unidadeId));
+  comparar("Estabelecimento", await nomeUnidade(v.unidadeId), await nomeUnidade(c.unidadeId));
   comparar("Setor", await nomeSetor(v.setorId, v.setorOutro), await nomeSetor(c.setorId, c.setorOutro));
   comparar("Temas", nomeTemas(v.temaIds), nomeTemas(c.temaIds));
   comparar("Tema adicional", v.temaAdicional, c.temaAdicional);

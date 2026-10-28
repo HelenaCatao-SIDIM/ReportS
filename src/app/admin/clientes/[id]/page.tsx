@@ -12,7 +12,7 @@ import { Unidades } from "./unidades";
 import { buscaCoordenadas } from "@/lib/config";
 
 const MENSAGENS: Record<string, string> = {
-  criado: "Cliente criado. Agora cadastre as unidades e os setores.",
+  criado: "Cliente criado. Agora cadastre os estabelecimentos e os setores.",
   salvo: "Dados do cliente salvos.",
 };
 

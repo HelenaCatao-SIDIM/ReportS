@@ -4,7 +4,7 @@ import { normalizar } from "@/lib/format";
 import type { Aprovador, Cliente, Setor, Unidade } from "@/lib/types";
 
 /*
- * Repositório de clientes, unidades e setores — implementação MOCK em memória.
+ * Repositório de clientes, estabelecimentos e setores — implementação MOCK em memória.
  * Na fase de banco, só este arquivo muda (Prisma/Postgres).
  */
 
@@ -104,7 +104,7 @@ export async function atualizarCliente(id: string, dados: DadosCliente): Promise
   Object.assign(c, dados, { aprovadores: comIds(dados.aprovadores) });
 }
 
-// ---------- Unidades ----------
+// ---------- Estabelecimentos ----------
 
 export interface UnidadeComSetores extends Unidade {
   setores: Setor[];
@@ -134,7 +134,7 @@ export async function atualizarUnidade(id: string, dados: DadosUnidade): Promise
   if (u) Object.assign(u, dados);
 }
 
-/** Remove a unidade e os seus setores. (Com visitas registradas, passará a ser bloqueado.) */
+/** Remove o estabelecimento e os seus setores. (Com visitas registradas, passará a ser bloqueado.) */
 export async function removerUnidade(id: string): Promise<void> {
   db.unidades = db.unidades.filter((u) => u.id !== id);
   db.setores = db.setores.filter((s) => s.unidadeId !== id);
@@ -175,7 +175,7 @@ export interface ClienteCheckin {
   unidades: { id: string; nome: string; endereco: string; setores: { id: string; nome: string }[] }[];
 }
 
-/** Clientes ativos que têm ao menos uma unidade, com unidades e setores — para a escolha em cascata no check-in. */
+/** Clientes ativos que têm ao menos um estabelecimento, com estabelecimentos e setores — para a escolha em cascata no check-in. */
 export async function listarParaCheckin(): Promise<ClienteCheckin[]> {
   const clientes = db.clientes.filter((c) => c.ativo).sort(porNome);
   const resultado: ClienteCheckin[] = [];

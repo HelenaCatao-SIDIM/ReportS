@@ -6,7 +6,7 @@ import { getUsuarioAtual } from "@/lib/dal";
 
 const ATALHOS = [
   { href: "/admin/usuarios", titulo: "Usuários", desc: "Técnicos e gestores com acesso", icon: UserCog },
-  { href: "/admin/clientes", titulo: "Clientes", desc: "Aprovadores, unidades e setores", icon: Building2 },
+  { href: "/admin/clientes", titulo: "Clientes", desc: "Aprovadores, estabelecimentos e setores", icon: Building2 },
   { href: "/admin/temas", titulo: "Temas", desc: "Assuntos trabalhados nas visitas", icon: BookOpen },
   { href: "/admin/participantes", titulo: "Participantes", desc: "Pessoas treinadas por cliente", icon: Users },
   { href: "/admin/visitas", titulo: "Visitas", desc: "Em andamento, encerramento e correções", icon: Timer },

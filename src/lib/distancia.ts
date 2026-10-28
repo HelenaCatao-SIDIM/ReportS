@@ -1,6 +1,6 @@
 import type { Coordenadas, Visita } from "@/lib/types";
 
-/** Raio de verificação de uma unidade nova, em metros. Cada unidade ajusta o seu. */
+/** Raio de verificação de um estabelecimento novo, em metros. Cada estabelecimento ajusta o seu. */
 export const RAIO_PADRAO_METROS = 50;
 
 /** Distância em metros entre dois pontos (fórmula de haversine). */
@@ -18,12 +18,12 @@ export function formatarDistancia(metros: number): string {
   return metros < 1000 ? `${metros} m` : `${(metros / 1000).toFixed(1).replace(".", ",")} km`;
 }
 
-/** O check-in ficou dentro do raio da unidade? Sem medição, não há como afirmar. */
+/** O check-in ficou dentro do raio do estabelecimento? Sem medição, não há como afirmar. */
 export function dentroDoRaio(v: Pick<Visita, "distanciaCheckinM" | "raioCheckinM">): boolean {
   return v.distanciaCheckinM !== null && v.raioCheckinM !== null && v.distanciaCheckinM <= v.raioCheckinM;
 }
 
-/** O check-in ficou além do raio da unidade? Sem medição, não há alerta. */
+/** O check-in ficou além do raio do estabelecimento? Sem medição, não há alerta. */
 export function foraDoRaio(v: Pick<Visita, "distanciaCheckinM" | "raioCheckinM">): boolean {
   return v.distanciaCheckinM !== null && v.raioCheckinM !== null && v.distanciaCheckinM > v.raioCheckinM;
 }

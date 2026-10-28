@@ -39,7 +39,7 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
   const cliente = await buscarCliente(clienteId);
   if (!cliente?.ativo) erros.cliente = "Escolha o cliente.";
   const unidade = await buscarUnidade(unidadeId);
-  if (!unidade || unidade.clienteId !== clienteId) erros.unidade = "Escolha a unidade.";
+  if (!unidade || unidade.clienteId !== clienteId) erros.unidade = "Escolha o estabelecimento.";
 
   let setorId: string | null = null;
   if (setorValor === "outro") {

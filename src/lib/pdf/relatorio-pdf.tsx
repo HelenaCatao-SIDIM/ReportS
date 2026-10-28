@@ -86,7 +86,7 @@ function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao }: { v: Visit
 
       <View style={s.caixa}>
         <View style={s.grade}>
-          <Campo rotulo="Unidade" valor={v.unidadeNome} />
+          <Campo rotulo="Estabelecimento" valor={v.unidadeNome} />
           <Campo rotulo="Setor" valor={v.setorNome} />
           <Campo rotulo="Técnico" valor={v.tecnicoNome} />
           <Campo rotulo="Registrado por" valor={ROTULO_MEIO[v.meio]} />
@@ -270,7 +270,7 @@ export function RelatorioPdf({
           <View style={[s.linha, s.cabecalho]}>
             <Text style={{ width: "14%" }}>Data</Text>
             <Text style={{ width: "22%" }}>Tipo</Text>
-            <Text style={{ width: "30%" }}>Unidade / setor</Text>
+            <Text style={{ width: "30%" }}>Estabelecimento / setor</Text>
             <Text style={{ width: "20%" }}>Horário</Text>
             <Text style={{ width: "14%" }}>Duração</Text>
           </View>

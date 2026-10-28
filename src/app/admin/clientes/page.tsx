@@ -15,7 +15,7 @@ export default function ClientesPage({ searchParams }: PageProps<"/admin/cliente
   return (
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <PageHeader titulo="Clientes" descricao="Clientes atendidos, forma de comprovação, aprovadores e unidades." />
+        <PageHeader titulo="Clientes" descricao="Clientes atendidos, forma de comprovação, aprovadores e estabelecimentos." />
         <Button nativeButton={false} render={<Link href="/admin/clientes/novo" />} className="h-9">
           <Plus />
           Novo cliente
@@ -47,7 +47,7 @@ async function ListaClientes({ searchParams }: Pick<PageProps<"/admin/clientes">
               <TableRow>
                 <TableHead className="pl-4">Cliente</TableHead>
                 <TableHead>Comprovação</TableHead>
-                <TableHead className="text-center">Unidades</TableHead>
+                <TableHead className="text-center">Estabelecimentos</TableHead>
                 <TableHead className="text-center">Aprovadores</TableHead>
                 <TableHead>Situação</TableHead>
                 <TableHead className="pr-4 text-right">Ações</TableHead>

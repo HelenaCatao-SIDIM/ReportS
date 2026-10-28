@@ -32,7 +32,7 @@ function Coordenada({ c }: { c: VisitaDetalhada["checkin"] }) {
   );
 }
 
-/** Distância medida entre o check-in e a unidade, com o alerta quando passa do raio. */
+/** Distância medida entre o check-in e o estabelecimento, com o alerta quando passa do raio. */
 function DistanciaCheckin({ v }: { v: Pick<VisitaDetalhada, "distanciaCheckinM" | "raioCheckinM"> }) {
   if (v.distanciaCheckinM === null || v.raioCheckinM === null) return <span className="text-muted-foreground">Não medida</span>;
   if (foraDoRaio(v)) {
@@ -79,7 +79,7 @@ function Texto({ rotulo, valor }: { rotulo: string; valor: string }) {
 /**
  * Conteúdo completo de uma visita, em modo leitura.
  * `cpf`: "completo" só para o gestor dentro do sistema; nos demais lugares, "mascarado".
- * `controle`: só na Administração; mostra a distância do check-in à unidade (não aparece para técnico nem aprovador).
+ * `controle`: só na Administração; mostra a distância do check-in ao estabelecimento (não aparece para técnico nem aprovador).
  */
 export function DetalheVisita({
   visita: v,
@@ -104,7 +104,7 @@ export function DetalheVisita({
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Item rotulo="Data">{formatarData(v.entrada)}</Item>
             <Item rotulo="Tipo">{rotuloTipo(v.tipo)}</Item>
-            <Item rotulo="Unidade">{v.unidadeNome}</Item>
+            <Item rotulo="Estabelecimento">{v.unidadeNome}</Item>
             <Item rotulo="Setor">
               {v.setorNome}
               {v.setorOutro && <span className="ml-1 text-xs text-muted-foreground">(outro)</span>}
@@ -119,7 +119,7 @@ export function DetalheVisita({
                 <Item rotulo="Local do check-in">{porCep ? <LocalVisita local={v.checkin} /> : <Coordenada c={v.checkin} />}</Item>
                 <Item rotulo="Local do check-out">{porCep ? <LocalVisita local={v.checkout} /> : <Coordenada c={v.checkout} />}</Item>
                 {controle && (
-                  <Item rotulo="Distância da unidade">
+                  <Item rotulo="Distância do estabelecimento">
                     <DistanciaCheckin v={v} />
                   </Item>
                 )}

@@ -4,7 +4,7 @@ import { aguardarVezNominatim, buscarJson } from "@/lib/cep";
 import { normalizar } from "@/lib/format";
 
 /*
- * Endereço → coordenada, para o cadastro da unidade. Nominatim (OpenStreetMap): acerta a rua, não a porta,
+ * Endereço → coordenada, para o cadastro do estabelecimento. Nominatim (OpenStreetMap): acerta a rua, não a porta,
  * então o gestor sempre confere e pode ajustar. Mesmas regras de uso do CEP: User-Agent com contato,
  * no máximo 1 consulta por segundo (a fila é a mesma de src/lib/cep.ts), resultado guardado e chamada só pelo servidor.
  */

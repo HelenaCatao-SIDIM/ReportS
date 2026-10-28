@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-// ---------- Diálogo de unidade (criar / editar) ----------
+// ---------- Diálogo de estabelecimento (criar / editar) ----------
 
 /** Resultado da busca de coordenadas, com o endereço que o mapa achou para o gestor conferir. */
 function MensagemBusca({ r, latitude, longitude }: { r: RespostaBusca; latitude: string; longitude: string }) {
@@ -94,7 +94,7 @@ function UnidadeForm({
 
   return (
     <form action={action} noValidate key={JSON.stringify(state.valores ?? null)} className="grid gap-4">
-      <Campo id="u-nome" label="Nome da unidade" erro={e.nome}>
+      <Campo id="u-nome" label="Nome do estabelecimento" erro={e.nome}>
         <Input id="u-nome" name="nome" defaultValue={v.nome} placeholder="Ex.: Secretaria de Saúde" className="h-9" aria-invalid={!!e.nome} />
       </Campo>
       <Campo id="u-endereco" label="Endereço" dica={buscaAtiva ? "Para a busca de coordenadas acertar, inclua número, cidade e UF." : undefined}>
@@ -120,7 +120,7 @@ function UnidadeForm({
         </Campo>
       </div>
       <p className="-mt-2 text-xs text-muted-foreground">
-        Latitude e longitude são opcionais. Com elas, o check-in presencial grava a distância até a unidade.
+        Latitude e longitude são opcionais. Com elas, o check-in presencial grava a distância até o estabelecimento.
       </p>
       <Campo
         id="u-raio"
@@ -133,7 +133,7 @@ function UnidadeForm({
       <DialogFooter>
         <Button type="submit" disabled={pending}>
           {pending && <Loader2 className="animate-spin" />}
-          {unidade ? "Salvar" : "Adicionar unidade"}
+          {unidade ? "Salvar" : "Adicionar estabelecimento"}
         </Button>
       </DialogFooter>
     </form>
@@ -157,7 +157,7 @@ function UnidadeDialog({
     <Dialog open={aberto} onOpenChange={(o) => !o && onFechar()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{unidade ? "Editar unidade" : "Nova unidade"}</DialogTitle>
+          <DialogTitle>{unidade ? "Editar estabelecimento" : "Novo estabelecimento"}</DialogTitle>
           <DialogDescription>Local do cliente onde os atendimentos acontecem.</DialogDescription>
         </DialogHeader>
         {/* Remonta a cada abertura para começar sem erros antigos */}
@@ -276,7 +276,7 @@ function NovoSetor({ unidadeId }: { unidadeId: string }) {
   );
 }
 
-// ---------- Cartão da unidade ----------
+// ---------- Cartão do estabelecimento ----------
 
 function CartaoUnidade({ unidade, inicialAberta, onEditar }: { unidade: UnidadeComSetores; inicialAberta: boolean; onEditar: () => void }) {
   const [aberta, setAberta] = useState(inicialAberta);
@@ -318,7 +318,7 @@ function CartaoUnidade({ unidade, inicialAberta, onEditar }: { unidade: UnidadeC
           aria-label={`Remover ${unidade.nome}`}
           disabled={pending}
           onClick={() =>
-            confirm(`Remover a unidade "${unidade.nome}" e os seus ${n} setores?`) && start(() => removerUnidade(unidade.id))
+            confirm(`Remover o estabelecimento "${unidade.nome}" e os seus ${n} setores?`) && start(() => removerUnidade(unidade.id))
           }
         >
           {pending ? <Loader2 className="animate-spin" /> : <Trash2 />}
@@ -353,20 +353,20 @@ export function Unidades({ clienteId, unidades, buscaAtiva = false }: { clienteI
     <section className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold">Unidades e setores</h2>
+          <h2 className="text-lg font-semibold">Estabelecimentos e setores</h2>
           <p className="text-sm text-muted-foreground">
-            O técnico escolhe a unidade e o setor no check-in. Alterações aqui são salvas na hora.
+            O técnico escolhe o estabelecimento e o setor no check-in. Alterações aqui são salvas na hora.
           </p>
         </div>
         <Button variant="outline" onClick={() => setDialogo("nova")}>
           <Plus />
-          Nova unidade
+          Novo estabelecimento
         </Button>
       </div>
 
       {unidades.length === 0 ? (
         <Card className="items-center py-10 text-center text-sm text-muted-foreground">
-          Nenhuma unidade cadastrada. Cadastre ao menos uma para o cliente aparecer no check-in.
+          Nenhum estabelecimento cadastrado. Cadastre ao menos um para o cliente aparecer no check-in.
         </Card>
       ) : (
         unidades.map((u, i) => (

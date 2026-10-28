@@ -10,7 +10,7 @@ const LIMITE_POR_MINUTO = 10;
 const g = globalThis as unknown as { __buscaCoordenadas?: Map<string, number[]> };
 const chamadas = (g.__buscaCoordenadas ??= new Map<string, number[]>());
 
-/** Coordenada do endereço digitado no cadastro da unidade. Só o gestor chama; o gestor sempre confere o resultado. */
+/** Coordenada do endereço digitado no cadastro do estabelecimento. Só o gestor chama; o gestor sempre confere o resultado. */
 export async function buscarCoordenadas(endereco: string): Promise<RespostaBusca> {
   const gestor = await exigirGestorAcao();
   if (!buscaCoordenadas()) return { status: "desligado" };

@@ -79,13 +79,13 @@ export async function corrigirVisita(id: string, _: CorrecaoState, fd: FormData)
   else if (new Date(saida).getTime() > Date.now()) erros.saida = "A saída não pode estar no futuro.";
 
   const unidade = await buscarUnidade(unidadeId);
-  if (!unidade || unidade.clienteId !== v.clienteId) erros.unidade = "Escolha uma unidade do cliente.";
+  if (!unidade || unidade.clienteId !== v.clienteId) erros.unidade = "Escolha um estabelecimento do cliente.";
   let setorId: string | null = null;
   if (setorValor === "outro") {
     if (!setorOutro) erros.setor = "Informe o nome do setor.";
   } else {
     const setor = await buscarSetor(setorValor);
-    if (!setor || setor.unidadeId !== unidadeId) erros.setor = "Escolha um setor da unidade.";
+    if (!setor || setor.unidadeId !== unidadeId) erros.setor = "Escolha um setor do estabelecimento.";
     else setorId = setor.id;
   }
   if (motivo.length < 5) erros.motivo = "Informe o motivo da correção (fica no histórico).";

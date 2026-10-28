@@ -43,7 +43,7 @@ export interface Unidade {
   clienteId: string;
   nome: string;
   endereco: string;
-  /** Digitadas à mão; com elas, o check-in presencial grava a distância até a unidade. */
+  /** Digitadas à mão; com elas, o check-in presencial grava a distância até o estabelecimento. */
   latitude: number | null;
   longitude: number | null;
   /** Raio de verificação do check-in, em metros. Fora dele gera alerta ao gestor; nunca bloqueia o técnico. */
@@ -169,7 +169,7 @@ export interface Visita {
   tecnicoId: string;
   clienteId: string;
   unidadeId: string;
-  /** Setor da lista da unidade, ou null quando o técnico escolheu "outro". */
+  /** Setor da lista do estabelecimento, ou null quando o técnico escolheu "outro". */
   setorId: string | null;
   setorOutro: string | null;
   tipo: TipoVisita;
@@ -181,9 +181,9 @@ export interface Visita {
   checkout: LocalVisita | null;
   /** Aparelho do check-in; aparece no relatório. */
   meio: MeioRegistro;
-  /** Distância medida entre o check-in e a unidade, em metros. Null sem localização ou sem coordenadas da unidade. */
+  /** Distância medida entre o check-in e o estabelecimento, em metros. Null sem localização ou sem coordenadas do estabelecimento. */
   distanciaCheckinM: number | null;
-  /** Raio da unidade no momento do check-in (guardado para o alerta não mudar se o raio for alterado depois). */
+  /** Raio do estabelecimento no momento do check-in (guardado para o alerta não mudar se o raio for alterado depois). */
   raioCheckinM: number | null;
   fotoAmbiente: Foto | null;
   /** Treinamento online. */
@@ -226,7 +226,7 @@ export interface VersaoRelatorio {
   decisao: DecisaoRelatorio | null;
 }
 
-/** Visita com os nomes resolvidos (cliente, técnico, unidade, setor, temas). */
+/** Visita com os nomes resolvidos (cliente, técnico, estabelecimento, setor, temas). */
 export interface VisitaDetalhada extends Visita {
   tecnicoNome: string;
   clienteNome: string;

@@ -60,7 +60,7 @@ export function CorrecaoForm({ visita: v, unidades, temas }: { visita: VisitaDet
               ))}
             </select>
           </Campo>
-          <Campo id="unidadeId" label="Unidade" erro={e.unidade}>
+          <Campo id="unidadeId" label="Estabelecimento" erro={e.unidade}>
             <select
               id="unidadeId"
               name="unidadeId"
