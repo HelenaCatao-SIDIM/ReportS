@@ -18,6 +18,11 @@ export function formatarDistancia(metros: number): string {
   return metros < 1000 ? `${metros} m` : `${(metros / 1000).toFixed(1).replace(".", ",")} km`;
 }
 
+/** O check-in ficou dentro do raio da unidade? Sem medição, não há como afirmar. */
+export function dentroDoRaio(v: Pick<Visita, "distanciaCheckinM" | "raioCheckinM">): boolean {
+  return v.distanciaCheckinM !== null && v.raioCheckinM !== null && v.distanciaCheckinM <= v.raioCheckinM;
+}
+
 /** O check-in ficou além do raio da unidade? Sem medição, não há alerta. */
 export function foraDoRaio(v: Pick<Visita, "distanciaCheckinM" | "raioCheckinM">): boolean {
   return v.distanciaCheckinM !== null && v.raioCheckinM !== null && v.distanciaCheckinM > v.raioCheckinM;

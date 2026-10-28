@@ -1,12 +1,12 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { AlertTriangle, MapPinOff } from "lucide-react";
+import { AlertTriangle, MapPinCheck, MapPinOff } from "lucide-react";
 import { listarEmAndamento, listarEncerradas, type VisitaDetalhada } from "@/lib/repo/visitas";
 import { listarClientes } from "@/lib/repo/clientes";
 import { listarUsuarios } from "@/lib/repo/usuarios";
 import { fimDoDia, formatarData, formatarDataHora, formatarDuracao, formatarHora, inicioDoDia } from "@/lib/datas";
 import { horaDoServidor } from "@/lib/agora";
-import { foraDoRaio, formatarDistancia } from "@/lib/distancia";
+import { dentroDoRaio, foraDoRaio, formatarDistancia } from "@/lib/distancia";
 import { rotuloTipo } from "@/lib/visitas";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/shell/placeholder";
@@ -99,6 +99,12 @@ function EmAndamento({ visitas, agora }: { visitas: VisitaDetalhada[]; agora: nu
                   <TableCell>
                     {v.clienteNome}
                     <span className="block text-xs text-muted-foreground">{v.unidadeNome}</span>
+                    {dentroDoRaio(v) && (
+                      <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-emerald-700">
+                        <MapPinCheck className="size-3" />
+                        Check-in dentro do raio ({formatarDistancia(v.distanciaCheckinM!)}; limite {formatarDistancia(v.raioCheckinM!)})
+                      </span>
+                    )}
                     {foraDoRaio(v) && (
                       <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-amber-700">
                         <MapPinOff className="size-3" />

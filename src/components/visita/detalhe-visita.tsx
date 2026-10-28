@@ -1,5 +1,5 @@
 /* eslint-disable @next/next/no-img-element -- fotos do storage; otimização de imagem fica para a fase de banco */
-import { ExternalLink, MapPin, MapPinOff, PenLine } from "lucide-react";
+import { ExternalLink, MapPin, MapPinCheck, MapPinOff, PenLine } from "lucide-react";
 import type { VisitaDetalhada } from "@/lib/repo/visitas";
 import type { Foto } from "@/lib/types";
 import { formatarData, formatarDuracao, formatarHora } from "@/lib/datas";
@@ -44,9 +44,10 @@ function DistanciaCheckin({ v }: { v: Pick<VisitaDetalhada, "distanciaCheckinM" 
     );
   }
   return (
-    <>
-      {formatarDistancia(v.distanciaCheckinM)} <span className="text-xs text-muted-foreground">(raio de {formatarDistancia(v.raioCheckinM)})</span>
-    </>
+    <span className="inline-flex items-center gap-1 font-medium text-emerald-700">
+      <MapPinCheck className="size-3.5" />
+      {formatarDistancia(v.distanciaCheckinM)} — dentro do raio de {formatarDistancia(v.raioCheckinM)}
+    </span>
   );
 }
 
