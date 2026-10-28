@@ -1,7 +1,7 @@
 import "server-only";
 import { after } from "next/server";
 import { localizacaoPorCep } from "@/lib/config";
-import { resolverCep } from "@/lib/cep";
+import { cepEmCache, resolverCep } from "@/lib/cep";
 import { definirEndereco } from "@/lib/repo/visitas";
 import type { EnderecoVisita, LocalVisita, Visita } from "@/lib/types";
 
@@ -34,9 +34,18 @@ async function converter(visitaId: string, momento: Momento, local: LocalVisita)
   await definirEndereco(visitaId, momento, endereco);
 }
 
-/** Depois da resposta ao técnico, converte a coordenada recém-gravada. Falha nunca bloqueia nada. */
-export function converterDepois(visitaId: string, momento: Momento, local: LocalVisita | null) {
+/**
+ * Grava o CEP da coordenada recém-registrada. Se a prévia mostrada ao técnico já resolveu esta coordenada
+ * (resultado em cache), grava na hora e a tela da visita já abre com o CEP. Senão, converte depois da resposta,
+ * sem atrasar o técnico. Falha nunca bloqueia nada.
+ */
+export async function converterDepois(visitaId: string, momento: Momento, local: LocalVisita | null) {
   if (!localizacaoPorCep() || !local) return;
+  const pronto = cepEmCache(local.latitude, local.longitude);
+  if (pronto) {
+    await definirEndereco(visitaId, momento, { ...pronto });
+    return;
+  }
   after(() => converter(visitaId, momento, local).catch((e) => console.error(`[cep] visita ${visitaId} (${momento}):`, e)));
 }
 

@@ -184,6 +184,12 @@ async function resolverSemCache(lat: number, lng: number): Promise<EnderecoVisit
   return { ...base, status: "sem_cep", cep: null, aproximado: false, fonte: n.logradouro || n.cidade ? "nominatim" : null };
 }
 
+/** Resultado definitivo já guardado para a coordenada (o da prévia mostrada ao técnico), ou null. */
+export function cepEmCache(lat: number, lng: number): EnderecoVisita | null {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return estado.cache.get(chave(lat, lng)) ?? null;
+}
+
 /**
  * CEP + endereço de uma coordenada. Nunca lança exceção: em falha devolve status "falhou".
  * Guarda em cache (coordenada com 4 casas, ~11 m) os resultados definitivos ("ok" e "sem_cep").
