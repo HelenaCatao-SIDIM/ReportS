@@ -57,14 +57,17 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
   const editavel = r.status === "rascunho" || r.status === "ajuste_solicitado";
   const ultima = r.versoes.at(-1);
 
-  // Rascunho: as visitas sem CEP começam a ser convertidas agora, e a tela se atualiza sozinha. Emitido: o CEP já foi congelado na versão.
+  // Emitido com conteúdo congelado: mostra o que o cliente recebeu (o CEP já foi congelado junto). Em edição, ou sem
+  // conteúdo congelado (como o relatório de exemplo), mostra os dados atuais: as visitas sem CEP começam a ser
+  // convertidas agora, e a tela se atualiza sozinha.
+  const congelado = !editavel && !!ultima?.conteudo;
   const agora = await horaDoServidor();
-  if (editavel) for (const v of c.visitas) agendarCepPendente(v, agora);
-  const pendentes = editavel ? locaisPendentes(c.visitas) : 0;
+  if (!congelado) for (const v of c.visitas) agendarCepPendente(v, agora);
+  const pendentes = congelado ? 0 : locaisPendentes(c.visitas);
 
   // Emitido: mostra o conteúdo congelado da última versão (o que o cliente recebeu); em edição, os dados atuais.
   const dados: DadosConteudo =
-    !editavel && ultima?.conteudo
+    congelado && ultima?.conteudo
       ? ultima.conteudo
       : {
           cliente: { nome: cliente.nome, cnpj: cliente.cnpj, contrato: cliente.contrato },
