@@ -17,6 +17,7 @@ import { DetalheVisita } from "@/components/visita/detalhe-visita";
 import { LocalVisita } from "@/components/visita/local-visita";
 import { localizacaoPorCep } from "@/lib/config";
 import { agendarCepPendente } from "@/lib/cep-visitas";
+import { horaDoServidor } from "@/lib/agora";
 import { SelosVisita } from "@/components/visita/selos";
 import { Card } from "@/components/ui/card";
 import { TemasVisita } from "./temas-visita";
@@ -36,7 +37,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/tecnico/visit
   const v = await buscarVisita(id);
   // O técnico só vê as próprias visitas.
   if (!v || !usuario || v.tecnicoId !== usuario.id) notFound();
-  agendarCepPendente(v);
+  agendarCepPendente(v, await horaDoServidor());
   return v.status === "em_andamento" ? <EmAndamento v={v} /> : <Leitura v={v} acabouDeEncerrar={sp.ok === "encerrada"} />;
 }
 

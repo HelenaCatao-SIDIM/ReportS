@@ -40,14 +40,14 @@ export function converterDepois(visitaId: string, momento: Momento, local: Local
   after(() => converter(visitaId, momento, local).catch((e) => console.error(`[cep] visita ${visitaId} (${momento}):`, e)));
 }
 
-/** Ao abrir o detalhe: se faltar CEP, agenda uma tentativa (no máximo a cada 10 min por visita). */
-export function agendarCepPendente(v: Pick<Visita, "id" | "checkin" | "checkout">) {
+/** Ao abrir o detalhe: se faltar CEP, agenda uma tentativa (no máximo a cada 10 min por visita). `agora` vem da requisição. */
+export function agendarCepPendente(v: Pick<Visita, "id" | "checkin" | "checkout">, agora: number) {
   if (!localizacaoPorCep()) return;
   const faltam = MOMENTOS.filter((m) => precisaDeCep(v[m]));
   if (!faltam.length) return;
   const ultima = tentativas.get(v.id) ?? 0;
-  if (Date.now() - ultima < ESPERA_NOVA_TENTATIVA_MS) return;
-  tentativas.set(v.id, Date.now());
+  if (agora - ultima < ESPERA_NOVA_TENTATIVA_MS) return;
+  tentativas.set(v.id, agora);
   after(async () => {
     for (const m of faltam) await converter(v.id, m, v[m]!).catch((e) => console.error(`[cep] visita ${v.id} (${m}):`, e));
   });
