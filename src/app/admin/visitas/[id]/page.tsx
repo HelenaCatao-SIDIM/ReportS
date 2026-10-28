@@ -5,7 +5,8 @@ import { ArrowLeft, CheckCircle2, History, Lock, Pencil } from "lucide-react";
 import { buscarVisita } from "@/lib/repo/visitas";
 import { formatarData, formatarDataHora } from "@/lib/datas";
 import { DetalheVisita } from "@/components/visita/detalhe-visita";
-import { agendarCepPendente } from "@/lib/cep-visitas";
+import { agendarCepPendente, cepEmAndamento } from "@/lib/cep-visitas";
+import { AtualizarEnquantoPendente } from "@/components/visita/atualizar-enquanto-pendente";
 import { horaDoServidor } from "@/lib/agora";
 import { SelosVisita } from "@/components/visita/selos";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/visitas
 
   return (
     <div className="space-y-6">
+      <AtualizarEnquantoPendente pendente={cepEmAndamento(v)} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{v.clienteNome}</h1>

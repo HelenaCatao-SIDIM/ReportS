@@ -16,7 +16,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DetalheVisita } from "@/components/visita/detalhe-visita";
 import { LocalVisita } from "@/components/visita/local-visita";
 import { localizacaoPorCep } from "@/lib/config";
-import { agendarCepPendente } from "@/lib/cep-visitas";
+import { agendarCepPendente, cepEmAndamento } from "@/lib/cep-visitas";
+import { AtualizarEnquantoPendente } from "@/components/visita/atualizar-enquanto-pendente";
 import { horaDoServidor } from "@/lib/agora";
 import { SelosVisita } from "@/components/visita/selos";
 import { Card } from "@/components/ui/card";
@@ -38,7 +39,12 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/tecnico/visit
   // O técnico só vê as próprias visitas.
   if (!v || !usuario || v.tecnicoId !== usuario.id) notFound();
   agendarCepPendente(v, await horaDoServidor());
-  return v.status === "em_andamento" ? <EmAndamento v={v} /> : <Leitura v={v} acabouDeEncerrar={sp.ok === "encerrada"} />;
+  return (
+    <>
+      <AtualizarEnquantoPendente pendente={cepEmAndamento(v)} />
+      {v.status === "em_andamento" ? <EmAndamento v={v} /> : <Leitura v={v} acabouDeEncerrar={sp.ok === "encerrada"} />}
+    </>
+  );
 }
 
 function Cabecalho({ v }: { v: VisitaDetalhada }) {

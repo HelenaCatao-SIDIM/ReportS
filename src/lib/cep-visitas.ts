@@ -49,6 +49,15 @@ export async function converterDepois(visitaId: string, momento: Momento, local:
   after(() => converter(visitaId, momento, local).catch((e) => console.error(`[cep] visita ${visitaId} (${momento}):`, e)));
 }
 
+/** Algum local ainda sem resultado: o CEP está sendo identificado em segundo plano. */
+export function cepEmAndamento(v: Pick<Visita, "checkin" | "checkout">): boolean {
+  if (!localizacaoPorCep()) return false;
+  return MOMENTOS.some((m) => {
+    const local = v[m];
+    return !!local && (!local.endereco || local.endereco.status === "pendente");
+  });
+}
+
 /** Ao abrir o detalhe: se faltar CEP, agenda uma tentativa (no máximo a cada 10 min por visita). `agora` vem da requisição. */
 export function agendarCepPendente(v: Pick<Visita, "id" | "checkin" | "checkout">, agora: number) {
   if (!localizacaoPorCep()) return;
