@@ -4,25 +4,25 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 const INTERVALO_MS = 3000;
-const MAX_TENTATIVAS = 8;
+const TENTATIVAS_PADRAO = 8;
 
 /**
  * Enquanto o CEP está sendo identificado em segundo plano, busca de novo os dados da página a cada 3 s
- * (no máximo 8 vezes), para o CEP aparecer sem o técnico ou o gestor recarregarem a tela.
+ * (no máximo `tentativas` vezes, 8 por padrão), para o CEP aparecer sem ninguém recarregar a tela.
  */
-export function AtualizarEnquantoPendente({ pendente }: { pendente: boolean }) {
+export function AtualizarEnquantoPendente({ pendente, tentativas: maximo = TENTATIVAS_PADRAO }: { pendente: boolean; tentativas?: number }) {
   const router = useRouter();
 
   useEffect(() => {
     if (!pendente) return;
-    let tentativas = 0;
+    let feitas = 0;
     const timer = setInterval(() => {
-      tentativas += 1;
+      feitas += 1;
       router.refresh();
-      if (tentativas >= MAX_TENTATIVAS) clearInterval(timer);
+      if (feitas >= maximo) clearInterval(timer);
     }, INTERVALO_MS);
     return () => clearInterval(timer);
-  }, [pendente, router]);
+  }, [pendente, maximo, router]);
 
   return null;
 }

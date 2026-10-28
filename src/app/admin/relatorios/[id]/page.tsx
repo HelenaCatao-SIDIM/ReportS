@@ -12,6 +12,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { chamadosSuporte } from "@/lib/config-suporte";
 import { buscarResumoSuporte } from "@/lib/suporte";
+import { agendarCepPendente, locaisPendentes } from "@/lib/cep-visitas";
+import { horaDoServidor } from "@/lib/agora";
+import { AtualizarEnquantoPendente } from "@/components/visita/atualizar-enquanto-pendente";
 import { AcoesRascunho } from "./acoes-rascunho";
 
 export default function RelatorioPage({ params, searchParams }: PageProps<"/admin/relatorios/[id]">) {
@@ -54,6 +57,11 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
   const editavel = r.status === "rascunho" || r.status === "ajuste_solicitado";
   const ultima = r.versoes.at(-1);
 
+  // Rascunho: as visitas sem CEP começam a ser convertidas agora, e a tela se atualiza sozinha. Emitido: o CEP já foi congelado na versão.
+  const agora = await horaDoServidor();
+  if (editavel) for (const v of c.visitas) agendarCepPendente(v, agora);
+  const pendentes = editavel ? locaisPendentes(c.visitas) : 0;
+
   // Emitido: mostra o conteúdo congelado da última versão (o que o cliente recebeu); em edição, os dados atuais.
   const dados: DadosConteudo =
     !editavel && ultima?.conteudo
@@ -72,6 +80,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
 
   return (
     <div className="space-y-6">
+      <AtualizarEnquantoPendente pendente={pendentes > 0} tentativas={Math.min(40, 8 + pendentes)} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="flex flex-wrap items-center gap-2 text-2xl font-semibold tracking-tight">
