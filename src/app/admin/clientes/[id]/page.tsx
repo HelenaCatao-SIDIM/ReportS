@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Unidades } from "./unidades";
+import { buscaCoordenadas } from "@/lib/config";
 
 const MENSAGENS: Record<string, string> = {
   criado: "Cliente criado. Agora cadastre as unidades e os setores.",
@@ -115,7 +116,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/cliente
         </Card>
       </div>
 
-      <Unidades clienteId={id} unidades={unidades} />
+      <Unidades clienteId={id} unidades={unidades} buscaAtiva={buscaCoordenadas()} />
     </div>
   );
 }

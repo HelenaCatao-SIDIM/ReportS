@@ -13,5 +13,8 @@ export const localizacaoPorCep = () => ligado("LOCALIZACAO_POR_CEP");
 /** Escreve data/hora e CEP no rodapé da foto do ambiente. Só vale com a localização por CEP ligada. */
 export const carimboFoto = () => localizacaoPorCep() && ligado("CARIMBO_FOTO");
 
+/** Botão "Buscar coordenadas pelo endereço" no cadastro da unidade (consulta o Nominatim). */
+export const buscaCoordenadas = () => ligado("BUSCA_COORDENADAS");
+
 /** Identificação exigida pela política de uso do Nominatim (sistema + contato). */
 export const geocodingUserAgent = () => process.env.GEOCODING_USER_AGENT || "SIDIM-Visitas/0.1 (configure GEOCODING_USER_AGENT)";

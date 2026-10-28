@@ -13,7 +13,7 @@ Registro de alterações futuras e sugestões. O `README.md` continua sendo a re
 
 Registradas em 26/10/2026. Legenda: ✅ definido · ⚠ ponto de atenção · *Evolutiva* = entra numa versão seguinte · *Fora desta versão* = só entra quando a função existir. Onde aparece **Hoje no código**, é o que foi conferido no repositório no momento do registro.
 
-**Situação em 28/10/2026:** feitos **1, 2, 3, 6, 10, 11 e 12** (o 2 só para o participante) · parcial **9** (campo de telefone feito; falta o envio) · bloqueado **5** (o ambiente de desenvolvimento não alcança o serviço de endereços) · sem código por definição **4, 7 e 8**. Além dos pontos, entraram na `main` as duas entregas externas (**chamados de suporte** e **localização por CEP**): ver "Entregas externas integradas", mais abaixo. Os motivos, as evidências e o que destrava cada um estão em **"Pontos bloqueados e decisões em aberto"**, mais abaixo.
+**Situação em 28/10/2026:** feitos **1, 2, 3, 6, 10, 11 e 12** · **5 implementado, falta o teste com o serviço real** (botão de busca de coordenadas, desligado por padrão) (o 2 só para o participante) · parcial **9** (campo de telefone feito; falta o envio) · sem código por definição **4, 7 e 8**. Além dos pontos, entraram na `main` as duas entregas externas (**chamados de suporte** e **localização por CEP**): ver "Entregas externas integradas", mais abaixo. Os motivos, as evidências e o que destrava cada um estão em **"Pontos bloqueados e decisões em aberto"**, mais abaixo.
 
 - **1. Sistema da operação, não de uma pessoa.** O sistema tem três papéis — Gestor, Técnico e Aprovador — e qualquer pessoa pode ocupar qualquer um deles. Pode existir mais de um gestor, e a coordenação pode mudar de mão sem que nada quebre: nenhum cadastro, relatório ou fluxo tem nome de pessoa escrito dentro. O mesmo vale para o que é configurável (clientes, unidades, setores, temas): fica em cadastro, não no código. **Auditado e ajustado em 27/10/2026 (`c4c4c81`).**
    - **Nomes de pessoa:** só aparecem nos dados de exemplo (`src/lib/repo/*`), que o banco real substitui. O único nome fora disso, um exemplo no campo de ajuste da página do aprovador, virou texto genérico.
@@ -73,9 +73,16 @@ Atualizado em 27/10/2026. Aqui está tudo o que **não anda sem uma ação de fo
 | **3 decisões em aberto (2, 6 e 7)** | Decisão | Uma resposta para cada. As decisões 1, 3, 4 e 5 foram respondidas em 27/10/2026. | Quem decide o produto |
 | **Login único entre sistemas** | Dependência (nova) | Decidir antes do banco real | Quem decide a arquitetura |
 
-### Ponto 5 — Coordenadas da unidade sem digitação · bloqueio técnico
+### Ponto 5 — Coordenadas da unidade sem digitação · implementado (28/10/2026), falta testar com o serviço real
 
-- **O que está bloqueado:** a chamada ao serviço aberto que converte endereço em coordenadas. Sem testar a chamada real, não entregamos a função.
+- **Entregue:** botão **"Buscar coordenadas pelo endereço"** em Clientes → unidade → Editar. A chamada ao Nominatim roda no servidor (`src/lib/geocodificar.ts`, mesma fila de 1 consulta por segundo da localização por CEP), latitude e longitude são preenchidas e **continuam editáveis**, a mensagem mostra o endereço que o mapa achou e há um link "Ver no mapa". Trata endereço não encontrado, serviço fora do ar e excesso de buscas (10 por minuto por gestor). **Desligado por padrão** (`BUSCA_COORDENADAS=true`). Roteiro em `docs/teste-busca-coordenadas.md`.
+- **Testado** com o Nominatim simulado (14/14). **Falta** testar no computador local, com o serviço real e o endereço real de uma unidade, e conferir se o ponto cai no lugar certo.
+- **Não entregue (decisão pendente):** refinar o ponto pelo primeiro check-in. Recomendação: só sugerir ao gestor, nunca alterar sozinho.
+- **Histórico do bloqueio:** o ambiente em nuvem não alcança o domínio do serviço (veja abaixo); por isso o teste real é feito no computador local.
+
+**Contexto original do bloqueio (mantido para consulta):**
+
+- **O que estava bloqueado:** a chamada ao serviço aberto que converte endereço em coordenadas. Sem testar a chamada real, não entregamos a função.
 - **Evidência (27/10/2026):** ao chamar `https://nominatim.openstreetmap.org/search?...` a partir do ambiente de desenvolvimento em nuvem, a resposta foi `CONNECT tunnel failed, response 403`. É o proxy do ambiente recusando o domínio (política de rede), não o serviço fora do ar.
 - **Confirmado em 28/10/2026:** no computador local, o Nominatim e o ViaCEP responderam normalmente (consulta inversa, coordenada → endereço, usada pela entrega do CEP). Ou seja, o bloqueio é só do ambiente em nuvem, e a saída 2 abaixo funciona.
 - **Duas saídas:**
@@ -160,7 +167,7 @@ Não sabemos se já existem; precisam ser confirmados antes de cada item começa
 ### Ordem sugerida para resolver
 
 1. **Decisões em aberto (2, 6 e 7).** São respostas rápidas e destravam o acabamento do que já foi feito.
-2. **Ponto 5**, preferindo o computador local (a chamada ao serviço de endereços funcionou lá em 28/10) ou liberando o domínio na nuvem.
+2. **Ponto 5**: testar no computador local, com o serviço real e o endereço real de uma unidade (roteiro em `docs/teste-busca-coordenadas.md`).
 3. **Login único**, antes do banco real.
 4. **Pontos 4 e 9**, que dependem do time e do Fortics.
 5. **Infraestrutura**, na ordem da seção "A fazer".

@@ -1,12 +1,13 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
-import { Check, ChevronDown, Loader2, MapPin, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ExternalLink, Loader2, MapPin, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import type { UnidadeComSetores } from "@/lib/repo/clientes";
 import type { Setor } from "@/lib/types";
 import { RAIO_PADRAO_METROS } from "@/lib/distancia";
 import { cn } from "@/lib/utils";
 import { removerSetor, removerUnidade, salvarSetor, salvarUnidade, type UnidadeFormState } from "../actions";
+import { buscarCoordenadas, type RespostaBusca } from "../geo-actions";
 import { Campo } from "@/components/form/campo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +16,48 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 // ---------- Diálogo de unidade (criar / editar) ----------
 
-function UnidadeForm({ clienteId, unidade, onSalvo }: { clienteId: string; unidade?: UnidadeComSetores; onSalvo: () => void }) {
+/** Resultado da busca de coordenadas, com o endereço que o mapa achou para o gestor conferir. */
+function MensagemBusca({ r, latitude, longitude }: { r: RespostaBusca; latitude: string; longitude: string }) {
+  if (r.status === "ok") {
+    return (
+      <p role="status" className="text-xs text-emerald-800">
+        Encontrado: {r.descricao || "endereço sem descrição"}. A busca acerta a rua, não a porta: confira e ajuste se precisar.{" "}
+        <a
+          href={`https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=18/${latitude}/${longitude}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-0.5 underline"
+        >
+          Ver no mapa
+          <ExternalLink className="size-3" />
+        </a>
+      </p>
+    );
+  }
+  const texto: Record<Exclude<RespostaBusca["status"], "ok">, string> = {
+    nao_encontrado: "Endereço não encontrado. Inclua rua, número, cidade e UF, ou digite as coordenadas.",
+    indisponivel: "O serviço de endereços não respondeu. Tente de novo em instantes ou digite as coordenadas.",
+    limite: "Muitas buscas seguidas. Aguarde um minuto e tente de novo.",
+    desligado: "A busca de coordenadas está desligada neste ambiente.",
+  };
+  return (
+    <p role="status" className="text-xs text-amber-800">
+      {texto[r.status]}
+    </p>
+  );
+}
+
+function UnidadeForm({
+  clienteId,
+  unidade,
+  buscaAtiva,
+  onSalvo,
+}: {
+  clienteId: string;
+  unidade?: UnidadeComSetores;
+  buscaAtiva: boolean;
+  onSalvo: () => void;
+}) {
   const [state, action, pending] = useActionState<UnidadeFormState, FormData>(
     salvarUnidade.bind(null, clienteId, unidade?.id ?? null),
     {},
@@ -29,6 +71,23 @@ function UnidadeForm({ clienteId, unidade, onSalvo }: { clienteId: string; unida
     raio: String(unidade?.raioMetros ?? RAIO_PADRAO_METROS),
   };
 
+  // Endereço e coordenadas ficam em estado para o botão poder preenchê-las; continuam editáveis.
+  const [endereco, setEndereco] = useState(v.endereco);
+  const [lat, setLat] = useState(v.latitude);
+  const [lng, setLng] = useState(v.longitude);
+  const [busca, setBusca] = useState<RespostaBusca | null>(null);
+  const [buscando, iniciarBusca] = useTransition();
+
+  const buscar = () =>
+    iniciarBusca(async () => {
+      const r = await buscarCoordenadas(endereco).catch((): RespostaBusca => ({ status: "indisponivel" }));
+      setBusca(r);
+      if (r.status === "ok") {
+        setLat(String(r.latitude));
+        setLng(String(r.longitude));
+      }
+    });
+
   useEffect(() => {
     if (state.ok) onSalvo();
   }, [state, onSalvo]);
@@ -38,15 +97,26 @@ function UnidadeForm({ clienteId, unidade, onSalvo }: { clienteId: string; unida
       <Campo id="u-nome" label="Nome da unidade" erro={e.nome}>
         <Input id="u-nome" name="nome" defaultValue={v.nome} placeholder="Ex.: Secretaria de Saúde" className="h-9" aria-invalid={!!e.nome} />
       </Campo>
-      <Campo id="u-endereco" label="Endereço">
-        <Input id="u-endereco" name="endereco" defaultValue={v.endereco} className="h-9" />
+      <Campo id="u-endereco" label="Endereço" dica={buscaAtiva ? "Para a busca de coordenadas acertar, inclua número, cidade e UF." : undefined}>
+        <Input id="u-endereco" name="endereco" value={endereco} onChange={(ev) => setEndereco(ev.target.value)} className="h-9" />
       </Campo>
+      {buscaAtiva && (
+        <div className="-mt-1 grid gap-1.5">
+          <div>
+            <Button type="button" size="sm" variant="outline" onClick={buscar} disabled={buscando || endereco.trim().length < 5}>
+              {buscando ? <Loader2 className="animate-spin" /> : <Search />}
+              Buscar coordenadas pelo endereço
+            </Button>
+          </div>
+          {busca && <MensagemBusca r={busca} latitude={lat} longitude={lng} />}
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3">
         <Campo id="u-lat" label="Latitude" erro={e.latitude}>
-          <Input id="u-lat" name="latitude" inputMode="decimal" placeholder="-22.9035" defaultValue={v.latitude} className="h-9" aria-invalid={!!e.latitude} />
+          <Input id="u-lat" name="latitude" inputMode="decimal" placeholder="-22.9035" value={lat} onChange={(ev) => setLat(ev.target.value)} className="h-9" aria-invalid={!!e.latitude} />
         </Campo>
         <Campo id="u-lng" label="Longitude" erro={e.longitude}>
-          <Input id="u-lng" name="longitude" inputMode="decimal" placeholder="-47.0621" defaultValue={v.longitude} className="h-9" aria-invalid={!!e.longitude} />
+          <Input id="u-lng" name="longitude" inputMode="decimal" placeholder="-47.0621" value={lng} onChange={(ev) => setLng(ev.target.value)} className="h-9" aria-invalid={!!e.longitude} />
         </Campo>
       </div>
       <p className="-mt-2 text-xs text-muted-foreground">
@@ -74,11 +144,13 @@ function UnidadeDialog({
   clienteId,
   unidade,
   aberto,
+  buscaAtiva,
   onFechar,
 }: {
   clienteId: string;
   unidade?: UnidadeComSetores;
   aberto: boolean;
+  buscaAtiva: boolean;
   onFechar: () => void;
 }) {
   return (
@@ -89,7 +161,7 @@ function UnidadeDialog({
           <DialogDescription>Local do cliente onde os atendimentos acontecem.</DialogDescription>
         </DialogHeader>
         {/* Remonta a cada abertura para começar sem erros antigos */}
-        {aberto && <UnidadeForm clienteId={clienteId} unidade={unidade} onSalvo={onFechar} />}
+        {aberto && <UnidadeForm clienteId={clienteId} unidade={unidade} buscaAtiva={buscaAtiva} onSalvo={onFechar} />}
       </DialogContent>
     </Dialog>
   );
@@ -272,7 +344,7 @@ function CartaoUnidade({ unidade, inicialAberta, onEditar }: { unidade: UnidadeC
 
 // ---------- Seção ----------
 
-export function Unidades({ clienteId, unidades }: { clienteId: string; unidades: UnidadeComSetores[] }) {
+export function Unidades({ clienteId, unidades, buscaAtiva = false }: { clienteId: string; unidades: UnidadeComSetores[]; buscaAtiva?: boolean }) {
   // null = fechado; "nova" = criando; id = editando
   const [dialogo, setDialogo] = useState<string | null>(null);
   const editando = unidades.find((u) => u.id === dialogo);
@@ -302,7 +374,7 @@ export function Unidades({ clienteId, unidades }: { clienteId: string; unidades:
         ))
       )}
 
-      <UnidadeDialog clienteId={clienteId} unidade={editando} aberto={dialogo !== null} onFechar={() => setDialogo(null)} />
+      <UnidadeDialog clienteId={clienteId} unidade={editando} aberto={dialogo !== null} buscaAtiva={buscaAtiva} onFechar={() => setDialogo(null)} />
     </section>
   );
 }

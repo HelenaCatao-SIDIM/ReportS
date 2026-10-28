@@ -54,6 +54,19 @@ GEOCODING_USER_AGENT=SIDIM-Visitas/1.0 (contato@sidimsistemas.com.br)
 - `CARIMBO_FOTO`: escreve data/hora e CEP no rodapé da foto do ambiente (nunca coordenadas).
 - `GEOCODING_USER_AGENT`: nome do sistema e um e-mail de contato, exigidos pelo Nominatim.
 
+Opcional — **busca de coordenadas pelo endereço** (desligada por padrão), no cadastro da unidade:
+
+```bash
+BUSCA_COORDENADAS=true
+GEOCODING_USER_AGENT=SIDIM-Visitas/1.0 (contato@sidimsistemas.com.br)
+```
+
+- `BUSCA_COORDENADAS`: mostra o botão **"Buscar coordenadas pelo endereço"** em Clientes → unidade → Editar. Ele preenche
+  latitude e longitude pelo [Nominatim](https://operations.osmfoundation.org/policies/nominatim/); os campos continuam editáveis.
+  A busca acerta a rua, não a porta, então o gestor confere (há um link "Ver no mapa"). Inclua cidade e UF no endereço.
+- Usa o mesmo `GEOCODING_USER_AGENT` e a mesma fila de 1 consulta por segundo da localização por CEP
+  (`src/lib/geocodificar.ts`). Roteiro de teste em `docs/teste-busca-coordenadas.md`.
+
 A conversão usa duas APIs gratuitas, sem chave, chamadas só pelo servidor (`src/lib/cep.ts`):
 [Nominatim/OpenStreetMap](https://operations.osmfoundation.org/policies/nominatim/) (no máximo 1 consulta por segundo,
 com cache) e, quando ele não traz o CEP, o [ViaCEP](https://viacep.com.br) pela rua — nesse caso o CEP aparece como

@@ -45,7 +45,7 @@ const estado = (g.__cep ??= { cache: new Map(), emAndamento: new Map(), proximo:
 
 const chave = (lat: number, lng: number) => `${lat.toFixed(4)},${lng.toFixed(4)}`;
 
-async function aguardarVezNominatim() {
+export async function aguardarVezNominatim() {
   const agora = Date.now();
   const vez = Math.max(agora, estado.proximo);
   estado.proximo = vez + INTERVALO_MS;
@@ -53,7 +53,7 @@ async function aguardarVezNominatim() {
 }
 
 /** GET com timeout. Devolve o JSON, ou `undefined` em erro de rede, timeout ou resposta não 2xx. */
-async function buscarJson(url: string, headers: Record<string, string> = {}): Promise<unknown | undefined> {
+export async function buscarJson(url: string, headers: Record<string, string> = {}): Promise<unknown | undefined> {
   try {
     const r = await fetch(url, { headers: { Accept: "application/json", ...headers }, signal: AbortSignal.timeout(TIMEOUT_MS), cache: "no-store" });
     if (!r.ok) return undefined;
