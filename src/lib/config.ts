@@ -17,13 +17,30 @@ export const carimboFoto = () => localizacaoPorCep() && ligado("CARIMBO_FOTO");
 export const buscaCoordenadas = () => ligado("BUSCA_COORDENADAS");
 
 /**
- * Envio real de e-mail pelo Resend: exige EMAIL_REAL=true e RESEND_API_KEY (a chave fica só no servidor).
- * Sem isso, o e-mail é apenas gravado na Caixa de saída (simulado).
+ * Envio real de e-mail por SMTP (Gmail, Microsoft 365, e-mail da própria SIDIM...): exige EMAIL_REAL=true e SMTP_HOST.
+ * Usuário e senha ficam só no servidor. Sem isso, o e-mail é apenas gravado na Caixa de saída (simulado).
  */
-export const emailReal = () => ligado("EMAIL_REAL") && !!process.env.RESEND_API_KEY?.trim();
+export const emailReal = () => ligado("EMAIL_REAL") && !!process.env.SMTP_HOST?.trim();
 
-/** Remetente. O padrão é o de testes do Resend, que só entrega ao dono da conta; para clientes, use um domínio verificado. */
-export const emailRemetente = () => process.env.EMAIL_REMETENTE?.trim() || "SIDIM Visitas <onboarding@resend.dev>";
+export const smtp = () => {
+  const porta = Number(process.env.SMTP_PORTA) || 587;
+  return {
+    host: process.env.SMTP_HOST!.trim(),
+    porta,
+    /** TLS desde o início da conexão (porta 465). Nas demais, a conexão é aberta e promovida a TLS (STARTTLS). */
+    seguro: process.env.SMTP_SEGURO ? ligado("SMTP_SEGURO") : porta === 465,
+    usuario: process.env.SMTP_USUARIO?.trim() || null,
+    senha: process.env.SMTP_SENHA || null,
+  };
+};
+
+/** Remetente. Gmail e Microsoft 365 só aceitam o próprio endereço da conta; se não houver EMAIL_REMETENTE, usa o usuário do SMTP. */
+export const emailRemetente = () => {
+  const definido = process.env.EMAIL_REMETENTE?.trim();
+  if (definido) return definido;
+  const usuario = process.env.SMTP_USUARIO?.trim();
+  return usuario?.includes("@") ? `SIDIM Visitas <${usuario}>` : "SIDIM Visitas <nao-responda@localhost>";
+};
 
 /** Trava de teste: se definido, todo e-mail real vai para este endereço, com o destinatário original no assunto. */
 export const emailRedirecionarPara = () => process.env.EMAIL_REDIRECIONAR_PARA?.trim() || null;

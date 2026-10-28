@@ -42,7 +42,7 @@ function Cabecalho() {
       ) : (
         <Alert className="mb-4">
           <FlaskConical />
-          <AlertDescription>Envio simulado. Para enviar de verdade (Resend), ligue <code>EMAIL_REAL</code> e configure a chave no servidor.</AlertDescription>
+          <AlertDescription>Envio simulado. Para enviar de verdade, ligue <code>EMAIL_REAL</code> e configure o servidor SMTP (<code>SMTP_HOST</code>, usuário e senha) no servidor.</AlertDescription>
         </Alert>
       )}
     </>
@@ -93,11 +93,11 @@ async function Lista() {
             </div>
           </summary>
           <div className="border-t bg-muted/30 p-4">
-            {(e.situacao === "falhou" || e.redirecionadoPara || e.idProvedor) && (
+            {(e.situacao === "falhou" || e.redirecionadoPara || e.idMensagem) && (
               <div className="mx-auto mb-3 max-w-xl space-y-0.5 text-xs text-muted-foreground">
                 {e.situacao === "falhou" && <p className="font-medium text-red-700">Motivo da falha: {e.erro}</p>}
                 {e.redirecionadoPara && <p>Enviado para {e.redirecionadoPara} (trava de teste), não para o aprovador.</p>}
-                {e.idProvedor && <p>Identificador no provedor: {e.idProvedor}</p>}
+                {e.idMensagem && <p>Identificador da mensagem: {e.idMensagem}</p>}
               </div>
             )}
             <div className="mx-auto max-w-xl rounded-lg border bg-white p-6 text-sm text-slate-800 shadow-sm">
