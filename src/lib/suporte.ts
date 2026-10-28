@@ -1,4 +1,5 @@
 import "server-only";
+import { connection } from "next/server";
 import { n8nResumoChave, n8nResumoUrl } from "@/lib/config-suporte";
 import type { ChamadoSuporte, Cliente, ContagemSuporte, ResumoSuporte } from "@/lib/types";
 
@@ -63,6 +64,7 @@ async function pedir(corpo: object): Promise<Response> {
 
 /** Chamados do cliente no período (datas AAAA-MM-DD, horário de Brasília, inclusive). */
 export async function buscarResumoSuporte(cliente: Pick<Cliente, "id" | "nomesFortics">, de: string, ate: string): Promise<ResumoSuporte> {
+  await connection(); // a hora da consulta e o cache dependem da requisição, nunca da pré-renderização
   const nomes = (cliente.nomesFortics ?? []).filter(Boolean);
   if (!nomes.length) return vazio("sem_vinculo");
   if (!n8nResumoUrl() || !n8nResumoChave()) {

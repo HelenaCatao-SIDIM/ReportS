@@ -39,7 +39,7 @@ export async function fazerCheckout(visitaId: string, _: CheckoutState, fd: Form
   });
   // CEP calculado depois da resposta; aproveita para tentar de novo o do check-in, se ficou sem.
   converterDepois(visitaId, "checkout", checkout);
-  agendarCepPendente(v);
+  agendarCepPendente(v, Date.now());
 
   revalidatePath("/tecnico", "layout");
   revalidatePath("/admin/visitas", "layout");
