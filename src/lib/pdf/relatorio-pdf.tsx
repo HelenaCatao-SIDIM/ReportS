@@ -4,6 +4,7 @@ import { Document, Font, Image, Page, StyleSheet, Text, View } from "@react-pdf/
 import type { ContagemSuporte, ConteudoCongelado, ResumoSuporte, VisitaDetalhada } from "@/lib/types";
 import { formatarData, formatarDataHora, formatarDuracao, formatarHora } from "@/lib/datas";
 import { formatarCbo, formatarCnpj, mascararCpf } from "@/lib/format";
+import { ROTULO_MEIO } from "@/lib/meio";
 import { ehPresencial, formatarDataCurta, formatarMinutos, rotuloTipo } from "@/lib/visitas";
 
 // Sem hifenização automática: em colunas estreitas o padrão quebrava palavras ("Recursos Hu-manos").
@@ -88,6 +89,7 @@ function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao }: { v: Visit
           <Campo rotulo="Unidade" valor={v.unidadeNome} />
           <Campo rotulo="Setor" valor={v.setorNome} />
           <Campo rotulo="Técnico" valor={v.tecnicoNome} />
+          <Campo rotulo="Registrado por" valor={ROTULO_MEIO[v.meio]} />
           <Campo rotulo="Entrada" valor={formatarHora(v.entrada)} />
           <Campo rotulo="Saída" valor={v.saida ? formatarHora(v.saida) : ""} />
           <Campo rotulo="Duração" valor={v.saida ? formatarDuracao(v.entrada, v.saida) : ""} />
@@ -108,24 +110,22 @@ function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao }: { v: Visit
       {v.presencas.length ? (
         <View style={s.tabela}>
           <View style={[s.linha, s.cabecalho]}>
-            <Text style={{ width: "22%" }}>Nome</Text>
-            <Text style={{ width: "16%" }}>Cargo</Text>
-            <Text style={{ width: "20%" }}>CBO</Text>
-            <Text style={{ width: "13%" }}>Setor</Text>
-            <Text style={{ width: "13%" }}>CPF</Text>
+            <Text style={{ width: "26%" }}>Nome</Text>
+            <Text style={{ width: "28%" }}>CBO</Text>
+            <Text style={{ width: "15%" }}>Setor</Text>
+            <Text style={{ width: "15%" }}>CPF</Text>
             <Text style={{ width: "16%" }}>Confirmação</Text>
           </View>
           {v.presencas.map((p) => {
             const assinatura = p.assinatura ? imagens.get(p.assinatura) : undefined;
             return (
               <View key={p.participanteId} style={s.linha} wrap={false}>
-                <Text style={{ width: "22%" }}>{p.nome}</Text>
-                <Text style={{ width: "16%" }}>{p.cargo}</Text>
-                <Text style={{ width: "20%", fontSize: 8 }}>
+                <Text style={{ width: "26%" }}>{p.nome}</Text>
+                <Text style={{ width: "28%", fontSize: 8 }}>
                   {formatarCbo(p.cbo.codigo)} {p.cbo.titulo}
                 </Text>
-                <Text style={{ width: "13%" }}>{p.setor}</Text>
-                <Text style={{ width: "13%" }}>{p.cpf ? mascararCpf(p.cpf) : "—"}</Text>
+                <Text style={{ width: "15%" }}>{p.setor || "—"}</Text>
+                <Text style={{ width: "15%" }}>{p.cpf ? mascararCpf(p.cpf) : "—"}</Text>
                 <View style={{ width: "16%" }}>
                   {p.confirmacao === "assinatura" && assinatura ? <Image src={assinatura} style={{ height: 20, objectFit: "contain" }} /> : <Text>Nominal</Text>}
                 </View>

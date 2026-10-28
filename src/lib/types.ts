@@ -7,6 +7,8 @@ export interface Usuario {
   senhaHash: string;
   perfil: Perfil;
   ativo: boolean;
+  /** Só dígitos, com DDD (10 ou 11). Opcional; será o destino do aviso de visita aberta por WhatsApp. */
+  telefone: string | null;
 }
 
 /** Dados do usuário que podem ir para a tela (sem o hash da senha). */
@@ -41,9 +43,11 @@ export interface Unidade {
   clienteId: string;
   nome: string;
   endereco: string;
-  /** Digitadas à mão; apenas armazenadas nesta versão. */
+  /** Digitadas à mão; com elas, o check-in presencial grava a distância até a unidade. */
   latitude: number | null;
   longitude: number | null;
+  /** Raio de verificação do check-in, em metros. Fora dele gera alerta ao gestor; nunca bloqueia o técnico. */
+  raioMetros: number;
 }
 
 export interface Setor {
@@ -72,7 +76,6 @@ export interface Participante {
   id: string;
   clienteId: string;
   nome: string;
-  cargo: string;
   cbo: Cbo;
   setor: string;
   /** Somente dígitos; preenchido só quando o cliente exige CPF. */
@@ -84,6 +87,9 @@ export interface Participante {
 export type TipoVisita = "treinamento" | "implantacao" | "suporte_presencial" | "reuniao" | "visita_tecnica" | "treinamento_online";
 
 export type StatusVisita = "em_andamento" | "encerrada" | "cancelada";
+
+/** Aparelho em que o técnico fez o check-in. */
+export type MeioRegistro = "celular" | "computador";
 
 export interface Coordenadas {
   latitude: number;
@@ -132,7 +138,6 @@ export interface Foto {
 export interface PresencaVisita {
   participanteId: string;
   nome: string;
-  cargo: string;
   cbo: Cbo;
   setor: string;
   cpf: string | null;
@@ -174,6 +179,12 @@ export interface Visita {
   saida: string | null;
   checkin: LocalVisita | null;
   checkout: LocalVisita | null;
+  /** Aparelho do check-in; aparece no relatório. */
+  meio: MeioRegistro;
+  /** Distância medida entre o check-in e a unidade, em metros. Null sem localização ou sem coordenadas da unidade. */
+  distanciaCheckinM: number | null;
+  /** Raio da unidade no momento do check-in (guardado para o alerta não mudar se o raio for alterado depois). */
+  raioCheckinM: number | null;
   fotoAmbiente: Foto | null;
   /** Treinamento online. */
   printTela: Foto | null;

@@ -206,7 +206,7 @@ export function arquivosDaVersao(v: VersaoRelatorio): Set<string> {
 
 /**
  * Registra a decisão do aprovador. Vale a primeira: invalida os links de todos os aprovadores
- * desta versão. Aprovado → "liberado para faturar" (as visitas ficam travadas).
+ * desta versão. Aprovado → as visitas ficam travadas.
  */
 export async function registrarDecisao(
   token: string,

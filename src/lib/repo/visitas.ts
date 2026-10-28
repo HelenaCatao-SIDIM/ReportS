@@ -23,13 +23,13 @@ const presenca = (p: Omit<PresencaVisita, "assinatura" | "confirmacao">, assinad
   assinatura: assinada ? ASSINATURA : null,
 });
 
-const LUCIANA = { participanteId: "p1", nome: "Luciana Ferraz", cargo: "Assistente administrativa", cbo: { codigo: "411010", titulo: "Assistente administrativo" }, setor: "Protocolo", cpf: "12345678909" };
-const PATRICIA = { participanteId: "p3", nome: "Patrícia Gomes", cargo: "Analista de RH", cbo: { codigo: "252405", titulo: "Analista de recursos humanos" }, setor: "Recursos Humanos", cpf: "11144477735" };
-const SANDRA = { participanteId: "p4", nome: "Sandra Moura", cargo: "Enfermeira", cbo: { codigo: "223505", titulo: "Enfermeiro" }, setor: "Recepção", cpf: "52998224725" };
+const LUCIANA = { participanteId: "p1", nome: "Luciana Ferraz", cbo: { codigo: "411010", titulo: "Assistente administrativo" }, setor: "Protocolo", cpf: "12345678909" };
+const PATRICIA = { participanteId: "p3", nome: "Patrícia Gomes", cbo: { codigo: "252405", titulo: "Analista de recursos humanos" }, setor: "Recursos Humanos", cpf: "11144477735" };
+const SANDRA = { participanteId: "p4", nome: "Sandra Moura", cbo: { codigo: "223505", titulo: "Enfermeiro" }, setor: "Recepção", cpf: "52998224725" };
 
 function base(v: Partial<Visita> & Pick<Visita, "id" | "tecnicoId" | "clienteId" | "unidadeId" | "tipo" | "status" | "entrada">): Visita {
   return {
-    setorId: null, setorOutro: null, saida: null, checkin: null, checkout: null, fotoAmbiente: null, printTela: null, linkReuniao: null,
+    setorId: null, setorOutro: null, saida: null, checkin: null, checkout: null, meio: "celular", distanciaCheckinM: null, raioCheckinM: null, fotoAmbiente: null, printTela: null, linkReuniao: null,
     temaIds: [], temaAdicional: "", fotosExtras: [], presencas: [], observacoes: "", pendencias: "", proximosPassos: "",
     encerradaPorGestor: false, relatorioId: null, historico: [],
     ...v,
@@ -41,11 +41,14 @@ function seed(): Visita[] {
   const haHoras = (h: number) => new Date(agora - h * 3600_000).toISOString();
   // Um objeto por visita: o CEP é gravado dentro do local (definirEndereco), então não pode ser compartilhado.
   const coords = () => ({ latitude: -22.9035, longitude: -47.0621 });
+  // ~178 m ao sul da Sede da Prefeitura (raio de 50 m): exemplo de check-in fora do raio.
+  const coordsLonge = () => ({ latitude: -22.9051, longitude: -47.0621 });
+  const noLocal = { distanciaCheckinM: 0, raioCheckinM: 50 };
 
   return [
     base({
       id: "v1", tecnicoId: "u2", clienteId: "c1", unidadeId: "un1", setorId: "s1", tipo: "suporte_presencial", status: "em_andamento",
-      entrada: haHoras(2), checkin: coords(), fotoAmbiente: foto(1), temaIds: ["t1"],
+      entrada: haHoras(2), checkin: coords(), ...noLocal, fotoAmbiente: foto(1), temaIds: ["t1"],
     }),
     base({
       id: "v2", tecnicoId: "u3", clienteId: "c2", unidadeId: "un3", setorId: "s6", tipo: "implantacao", status: "em_andamento",
@@ -53,7 +56,7 @@ function seed(): Visita[] {
     }),
     base({
       id: "v3", tecnicoId: "u2", clienteId: "c1", unidadeId: "un1", setorId: "s2", tipo: "treinamento", status: "encerrada",
-      entrada: "2026-10-06T13:00:00.000Z", saida: "2026-10-06T16:30:00.000Z", checkin: coords(), checkout: coords(),
+      entrada: "2026-10-06T13:00:00.000Z", saida: "2026-10-06T16:30:00.000Z", checkin: coords(), ...noLocal, checkout: coords(),
       fotoAmbiente: foto(3), fotosExtras: [foto(4), foto(5)], temaIds: ["t4", "t5"], temaAdicional: "Dúvidas sobre consignados",
       presencas: [presenca(PATRICIA, true), presenca(LUCIANA, true)],
       observacoes: "Treinamento realizado com a equipe de RH. Boa participação.",
@@ -62,7 +65,7 @@ function seed(): Visita[] {
     }),
     base({
       id: "v4", tecnicoId: "u3", clienteId: "c1", unidadeId: "un2", setorId: "s5", tipo: "treinamento_online", status: "encerrada",
-      entrada: "2026-10-09T17:00:00.000Z", saida: "2026-10-09T18:30:00.000Z", printTela: foto(6), linkReuniao: "https://meet.example/abc-defg-hij",
+      meio: "computador", entrada: "2026-10-09T17:00:00.000Z", saida: "2026-10-09T18:30:00.000Z", printTela: foto(6), linkReuniao: "https://meet.example/abc-defg-hij",
       temaIds: ["t8"], presencas: [presenca(SANDRA, false)],
       observacoes: "Treinamento online de dispensação.", proximosPassos: "Agendar a turma da tarde.",
     }),
@@ -73,7 +76,7 @@ function seed(): Visita[] {
     }),
     base({
       id: "v6", tecnicoId: "u3", clienteId: "c1", unidadeId: "un1", setorOutro: "Gabinete do Prefeito", tipo: "visita_tecnica", status: "encerrada",
-      entrada: "2026-10-20T14:00:00.000Z", saida: "2026-10-20T15:10:00.000Z", checkin: coords(), fotoAmbiente: foto(5), encerradaPorGestor: true,
+      entrada: "2026-10-20T14:00:00.000Z", saida: "2026-10-20T15:10:00.000Z", checkin: coordsLonge(), distanciaCheckinM: 178, raioCheckinM: 50, fotoAmbiente: foto(5), encerradaPorGestor: true,
       historico: [
         {
           id: "h1", autorId: "u1", autorNome: "Gestor SIDIM", em: "2026-10-21T11:00:00.000Z", acao: "encerramento",
@@ -94,7 +97,7 @@ function seed(): Visita[] {
     }),
     base({
       id: "v8", tecnicoId: "u2", clienteId: "c1", unidadeId: "un1", setorId: "s3", tipo: "suporte_presencial", status: "encerrada",
-      entrada: "2026-09-15T12:30:00.000Z", saida: "2026-09-15T15:00:00.000Z", checkin: coords(), checkout: coords(), fotoAmbiente: foto(4),
+      entrada: "2026-09-15T12:30:00.000Z", saida: "2026-09-15T15:00:00.000Z", checkin: coords(), ...noLocal, checkout: coords(), fotoAmbiente: foto(4),
       temaIds: ["t2", "t3"], observacoes: "Suporte na emissão de guias.", relatorioId: "r-2026-09-c1",
     }),
   ];
@@ -273,7 +276,8 @@ export async function visitaAbertaDoTecnico(tecnicoId: string): Promise<VisitaDe
 
 export type DadosCheckin = Pick<
   Visita,
-  "tecnicoId" | "clienteId" | "unidadeId" | "setorId" | "setorOutro" | "tipo" | "checkin" | "fotoAmbiente" | "printTela" | "linkReuniao"
+  | "tecnicoId" | "clienteId" | "unidadeId" | "setorId" | "setorOutro" | "tipo" | "checkin" | "meio" | "distanciaCheckinM" | "raioCheckinM"
+  | "fotoAmbiente" | "printTela" | "linkReuniao"
 >;
 
 /** Abre a visita com a hora do servidor. Recusa se o técnico já tem uma visita aberta. */

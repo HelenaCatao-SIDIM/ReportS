@@ -1,15 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { AlertCircle, Check, Clock, Loader2, LocateFixed, MapPin } from "lucide-react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { AlertCircle, Check, Clock, Loader2, LocateFixed, MapPin, Monitor } from "lucide-react";
 import type { ClienteCheckin } from "@/lib/repo/clientes";
-import type { TipoVisita } from "@/lib/types";
+import type { MeioRegistro, TipoVisita } from "@/lib/types";
+import { detectarMeio } from "@/lib/meio";
+import { chaveRascunhoCheckin } from "@/lib/regras-visita";
 import { ehPresencial, TIPOS_VISITA } from "@/lib/visitas";
 import { cn } from "@/lib/utils";
 import { fazerCheckin, type CheckinState } from "./actions";
 import { useAcao } from "@/components/form/use-acao";
 import { selectClass } from "@/components/form/campo";
 import { FotoCampo } from "@/components/tecnico/foto-campo";
+import { guardarRascunho, lerRascunho } from "@/components/tecnico/rascunho";
 import { useGps } from "@/components/tecnico/use-gps";
 import { usePreviaCep } from "@/components/tecnico/use-previa-cep";
 import { TextoLocal } from "@/components/tecnico/texto-local";
@@ -21,6 +24,21 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 
 const select = cn(selectClass, "h-11 bg-background text-base");
+
+// O aparelho só é conhecido no navegador; no servidor fica vazio e o valor entra após a hidratação.
+const semAssinatura = () => () => {};
+const meioNoNavegador = (): MeioRegistro | null => detectarMeio();
+const meioNoServidor = (): MeioRegistro | null => null;
+
+/** O que o técnico já tinha escolhido no check-in. A foto e a localização não são guardadas: são pedidas de novo. */
+interface RascunhoCheckin {
+  clienteId: string;
+  unidadeId: string;
+  setor: string;
+  setorOutro: string;
+  tipo: TipoVisita | "";
+  link: string;
+}
 
 function Erro({ msg }: { msg?: string }) {
   return msg ? <p className="mt-1.5 text-xs text-destructive">{msg}</p> : null;
@@ -59,6 +77,39 @@ export function CheckinForm({ clientes, porCep = false, carimbo = false }: { cli
   const [temFoto, setTemFoto] = useState(false);
   const [link, setLink] = useState("");
   const { estado: gps, capturar } = useGps();
+  const meio = useSyncExternalStore(semAssinatura, meioNoNavegador, meioNoServidor);
+  const restaurado = useRef(false);
+
+  // Ao reabrir a tela (aba fechada, celular travado), devolve o que já tinha sido escolhido.
+  useEffect(() => {
+    if (restaurado.current) return;
+    const t = setTimeout(() => {
+      const r = lerRascunho<RascunhoCheckin>(chaveRascunhoCheckin);
+      const c = clientes.find((x) => x.id === r?.clienteId);
+      if (r && c) {
+        const u = c.unidades.find((x) => x.id === r.unidadeId);
+        const s = u && (r.setor === "outro" || u.setores.some((x) => x.id === r.setor)) ? r.setor : "";
+        const tipoValido = TIPOS_VISITA.find((x) => x.valor === r.tipo);
+        setClienteId(c.id);
+        setUnidadeId(u?.id ?? "");
+        setSetor(s);
+        setSetorOutro(s === "outro" ? r.setorOutro : "");
+        if (tipoValido) {
+          setTipo(tipoValido.valor);
+          if (tipoValido.presencial) capturar();
+          else setLink(r.link);
+        }
+      }
+      restaurado.current = true;
+    }, 0);
+    return () => clearTimeout(t);
+  }, [clientes, capturar]);
+
+  // Guarda as escolhas a cada mudança, só depois da recuperação (senão apagaria o rascunho ao abrir).
+  useEffect(() => {
+    if (!restaurado.current) return;
+    guardarRascunho(chaveRascunhoCheckin, { clienteId, unidadeId, setor, setorOutro, tipo, link } satisfies RascunhoCheckin);
+  }, [clienteId, unidadeId, setor, setorOutro, tipo, link]);
   const previa = usePreviaCep(gps, porCep);
   const p = previa.fase === "pronto" ? previa.previa : null;
 
@@ -88,6 +139,7 @@ export function CheckinForm({ clientes, porCep = false, carimbo = false }: { cli
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4">
+      <input type="hidden" name="meio" value={meio ?? ""} />
       {e.geral && (
         <Alert variant="destructive">
           <AlertCircle />
@@ -196,6 +248,16 @@ export function CheckinForm({ clientes, porCep = false, carimbo = false }: { cli
         </div>
         <Erro msg={e.tipo} />
       </Secao>
+
+      {presencial === true && meio === "computador" && (
+        <Alert>
+          <Monitor />
+          <AlertDescription>
+            Você está no computador. Em visita presencial, o ideal é fazer o check-in pelo celular: a localização do computador costuma ser pouco precisa. Você
+            pode continuar; o relatório mostrará que o registro foi feito pelo computador.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {presencial === true && (
         <Secao numero={3} titulo="Comprovação no local">

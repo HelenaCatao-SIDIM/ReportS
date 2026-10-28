@@ -27,7 +27,7 @@ export async function fazerCheckout(visitaId: string, _: CheckoutState, fd: Form
   }
 
   const checkout = ehPresencial(v.tipo) ? lerLocal(fd, `check-out da visita ${visitaId}`) : null;
-  if (ehPresencial(v.tipo) && !checkout) erros.gps = "É preciso a localização do celular para o check-out presencial.";
+  if (ehPresencial(v.tipo) && !checkout) erros.gps = "É preciso a localização do aparelho para o check-out presencial.";
   if (Object.keys(erros).length) return { erros };
 
   const texto = (nome: string) => String(fd.get(nome) ?? "").trim().slice(0, TAMANHO_TEXTO);

@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
 import type { UsuarioFormState } from "./actions";
 import type { UsuarioPublico } from "@/lib/types";
+import { formatarTelefone } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Campo, selectClass } from "@/components/form/campo";
@@ -18,6 +19,8 @@ export function UsuarioForm({ acao, usuario, ehVoceMesmo }: { acao: Acao; usuari
   const v = state.valores ?? usuario;
   const e = state.erros ?? {};
   const edicao = !!usuario;
+  // Com estado próprio, o que foi digitado continua no campo quando o servidor devolve um erro.
+  const [telefone, setTelefone] = useState(formatarTelefone(v?.telefone ?? ""));
 
   return (
     <Card className="max-w-2xl">
@@ -52,6 +55,24 @@ export function UsuarioForm({ acao, usuario, ehVoceMesmo }: { acao: Acao; usuari
                 <option value="gestor">Gestor</option>
               </select>
               {ehVoceMesmo && <input type="hidden" name="perfil" value="gestor" />}
+            </Campo>
+            <Campo
+              id="telefone"
+              label="Telefone com DDD (opcional)"
+              erro={e.telefone}
+              dica="Destino do aviso de visita aberta por WhatsApp. O envio ainda não está ligado."
+            >
+              <Input
+                id="telefone"
+                name="telefone"
+                inputMode="tel"
+                autoComplete="off"
+                placeholder="(19) 99999-0000"
+                value={telefone}
+                onChange={(ev) => setTelefone(formatarTelefone(ev.target.value))}
+                aria-invalid={!!e.telefone}
+                className="h-9"
+              />
             </Campo>
             <Campo
               id="senha"

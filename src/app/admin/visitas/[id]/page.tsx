@@ -42,7 +42,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/visitas
           <h1 className="text-2xl font-semibold tracking-tight">{v.clienteNome}</h1>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             {formatarData(v.entrada)} · {v.tecnicoNome}
-            <SelosVisita visita={v} />
+            <SelosVisita visita={v} alertaRaio />
           </p>
         </div>
         <div className="flex gap-2">
@@ -73,7 +73,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/visitas
         </Alert>
       )}
 
-      <DetalheVisita visita={v} cpf="completo" />
+      <DetalheVisita visita={v} cpf="completo" controle />
 
       <Card>
         <CardHeader>

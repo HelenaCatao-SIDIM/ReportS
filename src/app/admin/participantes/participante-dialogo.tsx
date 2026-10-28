@@ -42,20 +42,15 @@ function ParticipanteForm({ clienteId, exigeCpf, setores, participante, onSalvo 
           É outra pessoa com o mesmo nome — cadastrar mesmo assim
         </label>
       )}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Campo id="p-cargo" label="Cargo" erro={e.cargo}>
-          <Input id="p-cargo" name="cargo" defaultValue={v?.cargo} placeholder="Como a pessoa se apresenta" className="h-9" aria-invalid={!!e.cargo} />
-        </Campo>
-        <Campo id="p-setor" label="Setor" erro={e.setor}>
-          <Input id="p-setor" name="setor" list="lista-setores" defaultValue={v?.setor} className="h-9" aria-invalid={!!e.setor} />
-        </Campo>
-      </div>
+      <Campo id="p-setor" label="Setor (opcional)">
+        <Input id="p-setor" name="setor" list="lista-setores" defaultValue={v?.setor} className="h-9" />
+      </Campo>
       <datalist id="lista-setores">
         {setores.map((s) => (
           <option key={s} value={s} />
         ))}
       </datalist>
-      <Campo id="p-cbo" label="Ocupação (CBO)" erro={e.cbo} dica="Busque pelo nome do cargo na tabela CBO.">
+      <Campo id="p-cbo" label="Ocupação (CBO)" erro={e.cbo} dica="Busque pelo nome da ocupação na tabela CBO.">
         <CboCampo id="p-cbo" name="cbo" inicial={v?.cbo ?? null} invalido={!!e.cbo} />
       </Campo>
       {exigeCpf && (

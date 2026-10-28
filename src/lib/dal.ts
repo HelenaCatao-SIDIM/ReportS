@@ -20,7 +20,10 @@ export async function getUsuarioAtual() {
 export async function exigirPerfil(perfil: Perfil) {
   const usuario = await getUsuarioAtual();
   if (!usuario) redirect("/sair");
-  if (usuario.perfil !== perfil) redirect(HOME[usuario.perfil]);
+  // O proxy já separa as áreas pelo perfil do cookie. Se o cadastro tem outro perfil, o cookie ficou velho (alguém mudou
+  // o papel da pessoa enquanto ela estava logada). Mandar para a área do cadastro faria o proxy devolvê-la, num laço sem fim:
+  // sai e pede um novo login.
+  if (usuario.perfil !== perfil) redirect("/sair");
   return usuario;
 }
 

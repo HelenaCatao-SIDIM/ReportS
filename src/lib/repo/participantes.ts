@@ -8,16 +8,16 @@ import type { Participante } from "@/lib/types";
  */
 
 function seed(): Participante[] {
-  const p = (id: string, clienteId: string, nome: string, cargo: string, cbo: [string, string], setor: string, cpf: string | null, criadoEmCampo = false): Participante => ({
-    id, clienteId, nome, cargo, cbo: { codigo: cbo[0], titulo: cbo[1] }, setor, cpf, criadoEmCampo,
+  const p = (id: string, clienteId: string, nome: string, cbo: [string, string], setor: string, cpf: string | null, criadoEmCampo = false): Participante => ({
+    id, clienteId, nome, cbo: { codigo: cbo[0], titulo: cbo[1] }, setor, cpf, criadoEmCampo,
   });
   return [
-    p("p1", "c1", "Luciana Ferraz", "Assistente administrativa", ["411010", "Assistente administrativo"], "Protocolo", "12345678909"),
-    p("p2", "c1", "Rogério Batista", "Fiscal de tributos", ["411010", "Assistente administrativo"], "Tributação", "98765432100"),
-    p("p3", "c1", "Patrícia Gomes", "Analista de RH", ["252405", "Analista de recursos humanos"], "Recursos Humanos", "11144477735"),
-    p("p4", "c1", "Sandra Moura", "Enfermeira", ["223505", "Enfermeiro"], "Recepção", "52998224725", true),
-    p("p5", "c2", "Fábio Nunes", "Faturista", ["411005", "Auxiliar de escritório"], "Faturamento", null),
-    p("p6", "c2", "Cíntia Alves", "Recepcionista", ["422105", "Recepcionista, em geral"], "Recepção", null, true),
+    p("p1", "c1", "Luciana Ferraz", ["411010", "Assistente administrativo"], "Protocolo", "12345678909"),
+    p("p2", "c1", "Rogério Batista", ["411010", "Assistente administrativo"], "Tributação", "98765432100"),
+    p("p3", "c1", "Patrícia Gomes", ["252405", "Analista de recursos humanos"], "Recursos Humanos", "11144477735"),
+    p("p4", "c1", "Sandra Moura", ["223505", "Enfermeiro"], "Recepção", "52998224725", true),
+    p("p5", "c2", "Fábio Nunes", ["411005", "Auxiliar de escritório"], "Faturamento", null),
+    p("p6", "c2", "Cíntia Alves", ["422105", "Recepcionista, em geral"], "Recepção", null, true),
   ];
 }
 
@@ -25,12 +25,12 @@ function seed(): Participante[] {
 const g = globalThis as unknown as { __participantes?: Participante[] };
 const participantes = (g.__participantes ??= seed());
 
-/** Participantes de um cliente, com busca por nome, cargo ou setor. */
+/** Participantes de um cliente, com busca por nome, ocupação (CBO) ou setor. */
 export async function listarParticipantes(clienteId: string, busca = ""): Promise<Participante[]> {
   const b = normalizar(busca);
   return participantes
     .filter((p) => p.clienteId === clienteId)
-    .filter((p) => !b || [p.nome, p.cargo, p.setor].some((c) => normalizar(c).includes(b)))
+    .filter((p) => !b || [p.nome, p.cbo.titulo, p.setor].some((c) => normalizar(c).includes(b)))
     .sort((a, b2) => a.nome.localeCompare(b2.nome, "pt-BR"));
 }
 
