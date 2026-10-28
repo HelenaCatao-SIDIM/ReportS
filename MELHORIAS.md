@@ -178,7 +178,7 @@ Não sabemos se já existem; precisam ser confirmados antes de cada item começa
 
 - [ ] **Alta** — Banco de dados real (Prisma + PostgreSQL/Supabase). A troca fica concentrada em `src/lib/repo/*`; as telas não mudam.
 - [ ] **Alta** — Armazenamento de fotos, assinaturas e PDFs (Supabase Storage). Hoje ficam em memória.
-- [ ] **Média** — Envio real de e-mail (Resend) com o domínio da SIDIM. Hoje é simulado e aparece em Administração → Caixa de saída (teste); ponto de troca em `src/lib/email.ts`.
+- [ ] **Média** — Envio real de e-mail (Resend) com o domínio da SIDIM. **Implementado em 28/10/2026, falta o teste real** (`EMAIL_REAL`, `RESEND_API_KEY`, trava `EMAIL_REDIRECIONAR_PARA`; roteiro em `docs/teste-email-real.md`). Falta ainda verificar o domínio da SIDIM no Resend (acesso ao DNS) para enviar aos aprovadores de verdade. Sem as variáveis, segue simulado na Caixa de saída (`src/lib/email.ts`).
 - [ ] **Média** — Importar a tabela CBO oficial do Ministério do Trabalho. Hoje é uma amostra de 25 ocupações, com códigos não conferidos. Ganha peso com a definição 2, em que o CBO passa a ser o único campo de ocupação.
 - [ ] **Média** — Publicar (Vercel) e testar no celular com https. O GPS do check-in presencial só funciona em https ou em `localhost`.
 

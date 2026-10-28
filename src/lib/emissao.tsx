@@ -69,8 +69,9 @@ export async function emitirRelatorio(id: string) {
 
   const periodo = `${formatarDataCurta(conteudo.de)} a ${formatarDataCurta(conteudo.ate)}`;
   const anexa = pdf.length <= LIMITE_ANEXO;
+  let falhas = 0;
   for (const l of links) {
-    await enviarEmail({
+    const enviado = await enviarEmail({
       para: { nome: l.aprovadorNome, email: l.aprovadorEmail },
       assunto: `Relatório de atendimento SIDIM — ${conteudo.cliente.nome} — ${periodo}${versao.numero > 1 ? ` (v${versao.numero})` : ""}`,
       html: [
@@ -83,6 +84,7 @@ export async function emitirRelatorio(id: string) {
       botao: { texto: "Ver relatório", url: `${urlBase()}/aprovacao/${l.token}` },
       relatorioId: id,
     });
+    if (enviado.situacao === "falhou") falhas++;
   }
-  return { versao: versao.numero, destinatarios: links.length, tamanho: pdf.length, anexado: anexa };
+  return { versao: versao.numero, destinatarios: links.length, falhas, tamanho: pdf.length, anexado: anexa };
 }

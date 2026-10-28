@@ -56,5 +56,5 @@ export async function emitir(id: string): Promise<string | null> {
   if ("erro" in r) return r.erro ?? "Não foi possível emitir.";
   revalidatePath("/admin/relatorios", "layout");
   revalidatePath("/admin/emails");
-  redirect(`/admin/relatorios/${id}?ok=emitido&destinatarios=${r.destinatarios}`);
+  redirect(`/admin/relatorios/${id}?ok=emitido&destinatarios=${r.destinatarios}&falhas=${r.falhas}`);
 }

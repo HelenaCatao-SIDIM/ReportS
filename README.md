@@ -54,6 +54,26 @@ GEOCODING_USER_AGENT=SIDIM-Visitas/1.0 (contato@sidimsistemas.com.br)
 - `CARIMBO_FOTO`: escreve data/hora e CEP no rodapé da foto do ambiente (nunca coordenadas).
 - `GEOCODING_USER_AGENT`: nome do sistema e um e-mail de contato, exigidos pelo Nominatim.
 
+Opcional — **envio real de e-mail** pelo [Resend](https://resend.com) (desligado por padrão; com ele desligado, os e-mails só
+aparecem na Caixa de saída, como antes):
+
+```bash
+EMAIL_REAL=true
+RESEND_API_KEY=<chave criada no painel do Resend; nunca vai para o Git>
+EMAIL_REMETENTE=SIDIM Relatórios <relatorios@seu-dominio-verificado>
+EMAIL_REDIRECIONAR_PARA=voce@sidimsistemas.com.br
+```
+
+- `EMAIL_REAL` + `RESEND_API_KEY`: ligam o envio real. A chave fica só no servidor (`src/lib/email.ts`).
+- `EMAIL_REMETENTE`: de quem o e-mail sai. Sem ele, usa o remetente de testes do Resend (`onboarding@resend.dev`), que só entrega
+  ao e-mail do dono da conta. Para enviar aos aprovadores, verifique um domínio da SIDIM no Resend.
+- `EMAIL_REDIRECIONAR_PARA`: **trava de teste**. Enquanto estiver definida, todo e-mail vai para este endereço, com o destinatário
+  original no assunto (`[TESTE → Nome <email>]`). Remova só quando for enviar de verdade aos clientes.
+- O PDF vai em anexo (até 8 MB), há versão só texto, e uma falha de envio nunca desfaz a emissão: aparece como "Falhou" na Caixa de saída.
+- `APP_URL` precisa ser o endereço **público** do sistema; com `localhost`, o link do e-mail só abre no mesmo computador.
+
+Roteiro de teste em `docs/teste-email-real.md`.
+
 Opcional — **busca de coordenadas pelo endereço** (desligada por padrão), no cadastro do estabelecimento:
 
 ```bash

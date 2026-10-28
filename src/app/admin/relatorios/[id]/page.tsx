@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Download, Eye, FileText, Lock, Mail, MessageSquareWarning } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Download, Eye, FileText, Lock, Mail, MessageSquareWarning } from "lucide-react";
 import { montarConteudo } from "@/lib/repo/relatorios";
 import { formatarDataHora } from "@/lib/datas";
 import { formatarDataCurta, formatarMinutos } from "@/lib/visitas";
@@ -11,6 +11,7 @@ import { Mudancas } from "@/components/relatorio/mudancas";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { chamadosSuporte } from "@/lib/config-suporte";
+import { emailReal } from "@/lib/config";
 import { buscarResumoSuporte } from "@/lib/suporte";
 import { agendarCepPendente, locaisPendentes } from "@/lib/cep-visitas";
 import { horaDoServidor } from "@/lib/agora";
@@ -39,13 +40,29 @@ function Mensagem({ sp }: { sp: Record<string, string | string[] | undefined> })
     const depois = Number(sp.depois);
     texto = antes === depois ? `Visitas conferidas: nenhuma mudança (${depois}).` : `Visitas atualizadas: ${antes} → ${depois}.`;
   }
-  if (sp.ok === "emitido") texto = `Relatório emitido: PDF gerado e e-mail enviado a ${sp.destinatarios} aprovador(es). Veja na Caixa de saída.`;
+  const falhas = Number(sp.falhas) || 0;
+  if (sp.ok === "emitido") {
+    const total = Number(sp.destinatarios) || 0;
+    texto = emailReal()
+      ? `Relatório emitido: PDF gerado e e-mail enviado a ${total - falhas} de ${total} aprovador(es). Veja na Caixa de saída.`
+      : `Relatório emitido: PDF gerado e e-mail simulado para ${total} aprovador(es) (envio real desligado). Veja na Caixa de saída.`;
+  }
   if (!texto) return null;
   return (
-    <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
-      <CheckCircle2 />
-      <AlertDescription className="text-emerald-800">{texto}</AlertDescription>
-    </Alert>
+    <>
+      <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
+        <CheckCircle2 />
+        <AlertDescription className="text-emerald-800">{texto}</AlertDescription>
+      </Alert>
+      {sp.ok === "emitido" && falhas > 0 && (
+        <Alert className="border-amber-300 bg-amber-50 text-amber-900">
+          <AlertTriangle />
+          <AlertDescription className="text-amber-900">
+            O envio falhou para {falhas} aprovador(es). O relatório está emitido e os links existem; veja o motivo na Caixa de saída.
+          </AlertDescription>
+        </Alert>
+      )}
+    </>
   );
 }
 
