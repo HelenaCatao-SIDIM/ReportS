@@ -4,11 +4,14 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { exigirGestorAcao } from "@/lib/dal";
 import { RAIO_PADRAO_METROS } from "@/lib/distancia";
-import { cnpjValido, emailValido, soDigitos } from "@/lib/format";
+import { cnpjValido, emailValido, normalizar, soDigitos } from "@/lib/format";
 import * as repo from "@/lib/repo/clientes";
 import type { NivelComprovacao } from "@/lib/types";
 
 // ---------- Cliente ----------
+
+/** Limite de nomes do cliente no Fortics (o fluxo do n8n aceita até 10). */
+const MAX_NOMES_FORTICS = 10;
 
 export interface AprovadorForm {
   nome: string;
@@ -17,10 +20,10 @@ export interface AprovadorForm {
 }
 
 export interface ClienteFormState {
-  erros?: Partial<Record<"nome" | "cnpj" | "contrato" | "aprovadores", string>>;
+  erros?: Partial<Record<"nome" | "cnpj" | "contrato" | "aprovadores" | "nomesFortics", string>>;
   /** Erro por linha de aprovador (índice → mensagem). */
   errosAprovadores?: Record<number, string>;
-  valores?: { nome: string; cnpj: string; contrato: string; nivel: NivelComprovacao; exigeCpf: boolean; ativo: boolean; aprovadores: AprovadorForm[] };
+  valores?: { nome: string; cnpj: string; contrato: string; nivel: NivelComprovacao; exigeCpf: boolean; ativo: boolean; aprovadores: AprovadorForm[]; nomesFortics: string[] };
 }
 
 function lerCliente(fd: FormData) {
@@ -41,6 +44,11 @@ function lerCliente(fd: FormData) {
     ativo: fd.get("ativo") !== null,
     // Linhas totalmente vazias são ignoradas.
     aprovadores: aprovadores.filter((a) => a.nome || a.cargo || a.email),
+    // Um nome por linha, sem repetidos (comparação sem acento e sem caixa).
+    nomesFortics: String(fd.get("nomesFortics") ?? "")
+      .split(/\r?\n/)
+      .map((n) => n.replace(/\s+/g, " ").trim())
+      .filter((n, i, todos) => n && todos.findIndex((x) => normalizar(x) === normalizar(n)) === i),
   };
 }
 
@@ -52,6 +60,8 @@ async function validarCliente(d: ReturnType<typeof lerCliente>, id?: string) {
   if (!cnpjValido(d.cnpj)) erros.cnpj = "CNPJ inválido.";
   else if (await repo.cnpjEmUso(d.cnpj, id)) erros.cnpj = "Já existe um cliente com este CNPJ.";
   if (!d.contrato) erros.contrato = "Informe o contrato (aparece na capa do relatório).";
+  if (d.nomesFortics.length > MAX_NOMES_FORTICS) erros.nomesFortics = `Informe no máximo ${MAX_NOMES_FORTICS} nomes.`;
+  else if (d.nomesFortics.some((n) => n.length > 120)) erros.nomesFortics = "Cada nome pode ter até 120 caracteres.";
 
   if (d.aprovadores.length === 0) erros.aprovadores = "Cadastre pelo menos um aprovador.";
   const vistos = new Set<string>();

@@ -14,6 +14,9 @@ import { selectClass } from "@/components/form/campo";
 import { FotoCampo } from "@/components/tecnico/foto-campo";
 import { guardarRascunho, lerRascunho } from "@/components/tecnico/rascunho";
 import { useGps } from "@/components/tecnico/use-gps";
+import { usePreviaCep } from "@/components/tecnico/use-previa-cep";
+import { TextoLocal } from "@/components/tecnico/texto-local";
+import { formatarCep } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,7 +58,14 @@ function Secao({ numero, titulo, children }: { numero: number; titulo: string; c
   );
 }
 
-export function CheckinForm({ clientes }: { clientes: ClienteCheckin[] }) {
+/** Linhas escritas no rodapé da foto do ambiente (nunca coordenadas). */
+function linhasCarimbo(cep: string | null, cidade: string | null, uf: string | null) {
+  const quando = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }).format(new Date());
+  const local = cep ? `CEP ${formatarCep(cep)} (aprox.)${cidade ? ` · ${[cidade, uf].filter(Boolean).join("/")}` : ""}` : "CEP não identificado";
+  return [quando, local];
+}
+
+export function CheckinForm({ clientes, porCep = false, carimbo = false }: { clientes: ClienteCheckin[]; porCep?: boolean; carimbo?: boolean }) {
   const [state, onSubmit, pending] = useAcao<CheckinState>(fazerCheckin, {});
   const e = state.erros ?? {};
 
@@ -100,6 +110,8 @@ export function CheckinForm({ clientes }: { clientes: ClienteCheckin[] }) {
     if (!restaurado.current) return;
     guardarRascunho(chaveRascunhoCheckin, { clienteId, unidadeId, setor, setorOutro, tipo, link } satisfies RascunhoCheckin);
   }, [clienteId, unidadeId, setor, setorOutro, tipo, link]);
+  const previa = usePreviaCep(gps, porCep);
+  const p = previa.fase === "pronto" ? previa.previa : null;
 
   const cliente = clientes.find((c) => c.id === clienteId);
   const unidade = cliente?.unidades.find((u) => u.id === unidadeId);
@@ -252,6 +264,8 @@ export function CheckinForm({ clientes }: { clientes: ClienteCheckin[] }) {
           <div className="rounded-lg border p-3">
             <input type="hidden" name="latitude" value={gps.fase === "ok" ? gps.latitude : ""} />
             <input type="hidden" name="longitude" value={gps.fase === "ok" ? gps.longitude : ""} />
+            <input type="hidden" name="precisao" value={gps.fase === "ok" ? gps.precisao : ""} />
+            <input type="hidden" name="capturadoEm" value={gps.fase === "ok" ? gps.capturadoEm : ""} />
             <div className="flex items-start gap-3">
               <div
                 className={cn(
@@ -265,11 +279,7 @@ export function CheckinForm({ clientes }: { clientes: ClienteCheckin[] }) {
                 <div className="font-medium">Localização</div>
                 {gps.fase === "parado" && <p className="text-xs text-muted-foreground">Registrada só agora e no check-out.</p>}
                 {gps.fase === "buscando" && <p className="text-xs text-muted-foreground">Obtendo a localização…</p>}
-                {gps.fase === "ok" && (
-                  <p className="font-mono text-xs text-muted-foreground">
-                    {gps.latitude.toFixed(5)}, {gps.longitude.toFixed(5)} · ±{Math.round(gps.precisao)} m
-                  </p>
-                )}
+                {gps.fase === "ok" && <TextoLocal gps={gps} porCep={porCep} previa={previa} />}
                 {gps.fase === "erro" && <p className="text-xs text-destructive">{gps.mensagem}</p>}
               </div>
               {(gps.fase === "parado" || gps.fase === "erro") && (
@@ -282,7 +292,14 @@ export function CheckinForm({ clientes }: { clientes: ClienteCheckin[] }) {
           </div>
           <div>
             <div className="mb-1.5 text-sm font-medium">Foto do ambiente</div>
-            <FotoCampo key={`foto-${tipo}`} name="fotoAmbiente" rotulo="Foto do ambiente" invalido={!!e.foto} onMudar={setTemFoto} />
+            <FotoCampo
+              key={`foto-${tipo}`}
+              name="fotoAmbiente"
+              rotulo="Foto do ambiente"
+              invalido={!!e.foto}
+              onMudar={setTemFoto}
+              carimbo={carimbo ? () => linhasCarimbo(p?.status === "ok" ? p.cep : null, p?.cidade ?? null, p?.uf ?? null) : undefined}
+            />
             <Erro msg={e.foto} />
           </div>
         </Secao>

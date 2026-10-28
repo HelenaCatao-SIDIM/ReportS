@@ -1,7 +1,7 @@
 /* eslint-disable jsx-a11y/alt-text -- Image do react-pdf não tem atributo alt */
 import "server-only";
 import { Document, Font, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
-import type { ConteudoCongelado, VisitaDetalhada } from "@/lib/types";
+import type { ContagemSuporte, ConteudoCongelado, ResumoSuporte, VisitaDetalhada } from "@/lib/types";
 import { formatarData, formatarDataHora, formatarDuracao, formatarHora } from "@/lib/datas";
 import { formatarCbo, formatarCnpj, mascararCpf } from "@/lib/format";
 import { ROTULO_MEIO } from "@/lib/meio";
@@ -154,7 +154,81 @@ function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao }: { v: Visit
   );
 }
 
-export function RelatorioPdf({ conteudo, versao, emitidoEm, imagens }: { conteudo: ConteudoCongelado; versao: number; emitidoEm: string; imagens: ImagensPdf }) {
+/** Top 5 + "Outros" (mesma regra da tela). */
+function top5(lista: ContagemSuporte[]): ContagemSuporte[] {
+  if (lista.length <= 5) return lista;
+  return [...lista.slice(0, 5), { nome: "Outros", quantidade: lista.slice(5).reduce((s, x) => s + x.quantidade, 0) }];
+}
+
+/** Resumo dos chamados de suporte na capa: só totais e contagens (sem lista de chamados e sem atendentes). */
+function ChamadosSuportePdf({ r }: { r: ResumoSuporte }) {
+  if (r.situacao === "sem_vinculo") return null;
+  const colunas: { titulo: string; itens: ContagemSuporte[] }[] = [
+    { titulo: "Por sistema", itens: top5(r.porSistema) },
+    { titulo: "Por assunto", itens: top5(r.porTopico) },
+    { titulo: "Por motivo de encerramento", itens: top5(r.porMotivoEncerramento) },
+  ];
+  return (
+    <View wrap={false}>
+      <Text style={s.secao}>Chamados de suporte</Text>
+      <View style={s.caixa}>
+        {r.situacao === "indisponivel" ? (
+          <Text style={s.vazio}>Dados de suporte indisponíveis no momento da emissão.</Text>
+        ) : r.totalAbertosEFechados === 0 ? (
+          <Text style={s.vazio}>Nenhum chamado no período.</Text>
+        ) : (
+          <>
+            <View style={{ flexDirection: "row", marginBottom: 8 }}>
+              <View style={{ width: "50%" }}>
+                <Text style={s.rotulo}>Chamados abertos e fechados</Text>
+                <Text style={[s.destaque, { fontSize: 16 }]}>{r.totalAbertosEFechados}</Text>
+              </View>
+              {r.tempoMedioEsperaMin !== null && (
+                <View style={{ width: "50%" }}>
+                  <Text style={s.rotulo}>Espera média pelo atendente</Text>
+                  <Text style={s.valor}>{r.tempoMedioEsperaMin.toLocaleString("pt-BR")} min</Text>
+                </View>
+              )}
+            </View>
+            <View style={{ flexDirection: "row" }}>
+              {colunas.map((col) => (
+                <View key={col.titulo} style={{ width: "33.33%", paddingRight: 8 }}>
+                  <Text style={s.rotulo}>{col.titulo}</Text>
+                  {col.itens.length ? (
+                    col.itens.map((x) => (
+                      <View key={x.nome} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 1.5 }}>
+                        <Text style={{ fontSize: 8.5, width: "80%" }}>{x.nome}</Text>
+                        <Text style={{ fontSize: 8.5 }}>{x.quantidade}</Text>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={s.vazio}>—</Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+        {r.situacao === "ok" && <Text style={[s.vazio, { fontSize: 7.5, marginTop: 6 }]}>Fonte: atendimentos do suporte (Fortics), consultados em {formatarDataHora(r.consultadoEm)}.</Text>}
+      </View>
+    </View>
+  );
+}
+
+export function RelatorioPdf({
+  conteudo,
+  versao,
+  emitidoEm,
+  imagens,
+  mostrarSuporte = false,
+}: {
+  conteudo: ConteudoCongelado;
+  versao: number;
+  emitidoEm: string;
+  imagens: ImagensPdf;
+  /** Bloco de chamados de suporte na capa (CHAMADOS_SUPORTE_PDF). */
+  mostrarSuporte?: boolean;
+}) {
   const c = conteudo;
   return (
     <Document title={`Relatório ${c.cliente.nome} ${formatarDataCurta(c.de)} a ${formatarDataCurta(c.ate)} v${versao}`} author="SIDIM" language="pt-BR">
@@ -188,6 +262,8 @@ export function RelatorioPdf({ conteudo, versao, emitidoEm, imagens }: { conteud
             </View>
           )}
         </View>
+
+        {mostrarSuporte && c.suporte && <ChamadosSuportePdf r={c.suporte} />}
 
         <Text style={s.secao}>Visitas do período</Text>
         <View style={s.tabela}>

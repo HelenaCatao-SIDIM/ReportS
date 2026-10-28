@@ -6,6 +6,8 @@ import { exigirTecnicoAcao } from "@/lib/dal";
 import { ehPresencial } from "@/lib/visitas";
 import { exigeParticipantes } from "@/lib/regras-visita";
 import { buscarVisita, encerrarPeloTecnico } from "@/lib/repo/visitas";
+import { lerLocal } from "@/lib/ler-local";
+import { agendarCepPendente, converterDepois } from "@/lib/cep-visitas";
 
 export interface CheckoutState {
   erros?: Partial<Record<"gps" | "participantes" | "geral", string>>;
@@ -24,13 +26,8 @@ export async function fazerCheckout(visitaId: string, _: CheckoutState, fd: Form
     erros.participantes = "Em treinamento, registre ao menos um participante antes do check-out.";
   }
 
-  let checkout = null;
-  if (ehPresencial(v.tipo)) {
-    const lat = Number(fd.get("latitude"));
-    const lng = Number(fd.get("longitude"));
-    if (fd.get("latitude") && fd.get("longitude") && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) checkout = { latitude: lat, longitude: lng };
-    else erros.gps = "É preciso a localização do aparelho para o check-out presencial.";
-  }
+  const checkout = ehPresencial(v.tipo) ? lerLocal(fd, `check-out da visita ${visitaId}`) : null;
+  if (ehPresencial(v.tipo) && !checkout) erros.gps = "É preciso a localização do aparelho para o check-out presencial.";
   if (Object.keys(erros).length) return { erros };
 
   const texto = (nome: string) => String(fd.get(nome) ?? "").trim().slice(0, TAMANHO_TEXTO);
@@ -40,6 +37,9 @@ export async function fazerCheckout(visitaId: string, _: CheckoutState, fd: Form
     pendencias: texto("pendencias"),
     proximosPassos: texto("proximosPassos"),
   });
+  // CEP calculado depois da resposta; aproveita para tentar de novo o do check-in, se ficou sem.
+  converterDepois(visitaId, "checkout", checkout);
+  agendarCepPendente(v);
 
   revalidatePath("/tecnico", "layout");
   revalidatePath("/admin/visitas", "layout");

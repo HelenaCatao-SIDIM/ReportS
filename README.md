@@ -41,6 +41,25 @@ node -e "console.log('SESSION_SECRET=' + require('crypto').randomBytes(32).toStr
 - `SESSION_SECRET`: chave usada para assinar a sessão de login (qualquer texto aleatório longo).
 - `APP_URL`: endereço usado nos links dos e-mails de aprovação.
 
+Opcional — **localização por CEP** (desligada por padrão; com ela desligada, nada muda):
+
+```bash
+LOCALIZACAO_POR_CEP=true
+CARIMBO_FOTO=true
+GEOCODING_USER_AGENT=SIDIM-Visitas/1.0 (contato@sidimsistemas.com.br)
+```
+
+- `LOCALIZACAO_POR_CEP`: converte a coordenada do check-in/check-out em **CEP + endereço** e mostra o CEP
+  no lugar da latitude/longitude em todas as telas (técnico, gestor e aprovador). A coordenada continua gravada.
+- `CARIMBO_FOTO`: escreve data/hora e CEP no rodapé da foto do ambiente (nunca coordenadas).
+- `GEOCODING_USER_AGENT`: nome do sistema e um e-mail de contato, exigidos pelo Nominatim.
+
+A conversão usa duas APIs gratuitas, sem chave, chamadas só pelo servidor (`src/lib/cep.ts`):
+[Nominatim/OpenStreetMap](https://operations.osmfoundation.org/policies/nominatim/) (no máximo 1 consulta por segundo,
+com cache) e, quando ele não traz o CEP, o [ViaCEP](https://viacep.com.br) pela rua — nesse caso o CEP aparece como
+"aproximado". Falha nas APIs nunca bloqueia o check-in: o CEP é buscado de novo depois. Roteiro de teste em
+`docs/teste-localizacao-cep.md`.
+
 Inicie o servidor de desenvolvimento:
 
 ```bash
@@ -98,3 +117,22 @@ nesse endereço — use um treinamento online para testar sem GPS.
 3. Envio real de e-mail (Resend) com o domínio da SIDIM.
 4. Importar a tabela CBO oficial do Ministério do Trabalho.
 5. Publicar (Vercel) e testar em celular com https.
+
+## Chamados de suporte no relatório (opcional)
+
+Mostra no relatório quantos chamados de suporte o cliente **abriu e teve fechados** no período, a partir dos
+atendimentos do Fortics que o n8n da SIDIM já guarda (tabela `atendimentos`). Desligado por padrão.
+
+```bash
+CHAMADOS_SUPORTE=true
+CHAMADOS_SUPORTE_PDF=false
+N8N_RESUMO_CHAMADOS_URL=https://<seu-n8n>/webhook/resumo-chamados-cliente
+N8N_RESUMO_CHAMADOS_CHAVE=<a mesma chave da credencial "Chave Reports Sidim" no n8n>
+```
+
+- O fluxo do n8n está em `docs/n8n-resumo-chamados.json` (importar no n8n) e o passo a passo em `docs/n8n-resumo-chamados.md`.
+- Em cada cliente, preencha **"Nome no Fortics"** (como ele aparece no campo Cliente / Município do Fortics).
+- Os números são buscados na emissão e **congelados na versão**: PDF, página do aprovador e versões antigas mostram sempre o mesmo número.
+- Só o servidor chama o n8n, com a chave. Se o n8n falhar, o relatório é emitido com "Dados de suporte indisponíveis".
+- O aprovador vê só os totais e as contagens (sem a lista de chamados e sem nomes de atendentes).
+- `CHAMADOS_SUPORTE_PDF=true` coloca o resumo também na capa do PDF.

@@ -9,17 +9,12 @@ import { ehPresencial, TIPOS_VISITA } from "@/lib/visitas";
 import { buscarCliente, buscarSetor, buscarUnidade } from "@/lib/repo/clientes";
 import { salvarImagem } from "@/lib/repo/arquivos";
 import { abrirVisita, visitaAbertaDoTecnico } from "@/lib/repo/visitas";
-import type { Coordenadas, MeioRegistro, TipoVisita } from "@/lib/types";
+import type { MeioRegistro, TipoVisita } from "@/lib/types";
+import { lerLocal } from "@/lib/ler-local";
+import { converterDepois } from "@/lib/cep-visitas";
 
 export interface CheckinState {
   erros?: Partial<Record<"cliente" | "unidade" | "setor" | "tipo" | "gps" | "foto" | "print" | "link" | "geral", string>>;
-}
-
-function lerCoordenadas(fd: FormData): Coordenadas | null {
-  const lat = Number(fd.get("latitude"));
-  const lng = Number(fd.get("longitude"));
-  const ok = fd.get("latitude") && fd.get("longitude") && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
-  return ok ? { latitude: lat, longitude: lng } : null;
 }
 
 const arquivo = (fd: FormData, nome: string) => {
@@ -58,7 +53,7 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
   if (!ehMeio(meioLido)) erros.geral = "Não foi possível identificar o aparelho. Atualize a página e tente de novo.";
 
   const presencial = ehPresencial(tipo);
-  const checkin = presencial ? lerCoordenadas(fd) : null;
+  const checkin = presencial ? lerLocal(fd, `check-in do técnico ${tecnico.id}`) : null;
   const linkReuniao = String(fd.get("linkReuniao") ?? "").trim();
   const fotoArquivo = arquivo(fd, presencial ? "fotoAmbiente" : "printTela");
 
@@ -95,6 +90,8 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
     printTela: presencial ? null : foto,
     linkReuniao: presencial ? null : linkReuniao,
   });
+  // CEP calculado depois da resposta: o técnico não espera pela consulta.
+  converterDepois(v.id, "checkin", v.checkin);
   revalidatePath("/tecnico", "layout");
   revalidatePath("/admin/visitas", "layout");
   redirect(`/tecnico/visita/${v.id}`);

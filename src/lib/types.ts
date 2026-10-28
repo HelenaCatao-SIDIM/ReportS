@@ -34,6 +34,8 @@ export interface Cliente {
   exigeCpf: boolean;
   ativo: boolean;
   aprovadores: Aprovador[];
+  /** Como o cliente aparece no Fortics (campo "Cliente / Município"), para cruzar os chamados de suporte. */
+  nomesFortics: string[];
 }
 
 export interface Unidade {
@@ -94,6 +96,39 @@ export interface Coordenadas {
   longitude: number;
 }
 
+/** Situação da conversão da coordenada em CEP. */
+export type StatusEndereco = "pendente" | "ok" | "sem_cep" | "falhou";
+
+/** Endereço obtido a partir da coordenada (geocodificação reversa). */
+export interface EnderecoVisita {
+  status: StatusEndereco;
+  /** Somente dígitos (8). Exibido como 87020-000. */
+  cep: string | null;
+  /** true quando o CEP veio pela rua (ViaCEP) ou é o CEP geral da cidade. */
+  aproximado: boolean;
+  logradouro: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  uf: string | null;
+  fonte: "nominatim" | "viacep" | null;
+  /** ISO. */
+  atualizadoEm: string;
+}
+
+/**
+ * Local capturado no check-in/check-out. A coordenada é a prova original e nunca é exibida
+ * quando a localização por CEP está ligada. Campos novos opcionais: as visitas antigas não têm.
+ */
+export interface LocalVisita extends Coordenadas {
+  /** Precisão informada pelo GPS, em metros. */
+  precisaoM?: number | null;
+  /** Hora do celular no momento da captura (ISO). */
+  capturadoEm?: string | null;
+  /** Hora do servidor ao receber (ISO). */
+  recebidoEm?: string | null;
+  endereco?: EnderecoVisita | null;
+}
+
 export interface Foto {
   id: string;
   url: string;
@@ -142,8 +177,8 @@ export interface Visita {
   /** Data e hora do servidor (ISO, UTC). */
   entrada: string;
   saida: string | null;
-  checkin: Coordenadas | null;
-  checkout: Coordenadas | null;
+  checkin: LocalVisita | null;
+  checkout: LocalVisita | null;
   /** Aparelho do check-in; aparece no relatório. */
   meio: MeioRegistro;
   /** Distância medida entre o check-in e a unidade, em metros. Null sem localização ou sem coordenadas da unidade. */
@@ -202,6 +237,35 @@ export interface VisitaDetalhada extends Visita {
   travada: boolean;
 }
 
+export interface ContagemSuporte {
+  nome: string;
+  quantidade: number;
+}
+
+/** Chamado de suporte (Fortics) aberto e fechado no período. Sem transcrição nem avaliação do agente. */
+export interface ChamadoSuporte {
+  protocolo: string;
+  abertura: string;
+  encerramento: string;
+  sistema: string;
+  topico: string;
+  motivoEncerramento: string;
+  agente: string;
+}
+
+/** Resumo dos chamados de suporte do cliente no período, vindo do n8n (congelado na emissão). */
+export interface ResumoSuporte {
+  situacao: "ok" | "sem_vinculo" | "indisponivel";
+  totalAbertosEFechados: number;
+  porSistema: ContagemSuporte[];
+  porTopico: ContagemSuporte[];
+  porMotivoEncerramento: ContagemSuporte[];
+  tempoMedioEsperaMin: number | null;
+  chamados: ChamadoSuporte[];
+  /** Quando foi consultado (ISO). */
+  consultadoEm: string;
+}
+
 export interface ConteudoCongelado {
   cliente: { nome: string; cnpj: string; contrato: string };
   de: string;
@@ -211,6 +275,8 @@ export interface ConteudoCongelado {
   deOutroPeriodo: string[];
   minutosPresenciais: number;
   minutosOnline: number;
+  /** Chamados de suporte no período. Opcional: versões emitidas antes desta funcionalidade não têm. */
+  suporte?: ResumoSuporte | null;
 }
 
 /** Link de aprovação: um por aprovador e por versão; vale até a primeira decisão ou uma nova versão. */

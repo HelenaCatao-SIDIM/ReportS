@@ -7,6 +7,8 @@ import { foraDoRaio, formatarDistancia } from "@/lib/distancia";
 import { formatarCbo, formatarCpf, mascararCpf } from "@/lib/format";
 import { ROTULO_MEIO } from "@/lib/meio";
 import { ehPresencial, rotuloTipo } from "@/lib/visitas";
+import { localizacaoPorCep } from "@/lib/config";
+import { LocalVisita } from "@/components/visita/local-visita";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -88,6 +90,8 @@ export function DetalheVisita({
   controle?: boolean;
 }) {
   const presencial = ehPresencial(v.tipo);
+  // Com a localização por CEP ligada, a coordenada nunca aparece (nem para o aprovador do cliente).
+  const porCep = localizacaoPorCep();
 
   return (
     <div className="space-y-4">
@@ -111,12 +115,8 @@ export function DetalheVisita({
             <Item rotulo="Registrado por">{ROTULO_MEIO[v.meio]}</Item>
             {presencial ? (
               <>
-                <Item rotulo="Local do check-in">
-                  <Coordenada c={v.checkin} />
-                </Item>
-                <Item rotulo="Local do check-out">
-                  <Coordenada c={v.checkout} />
-                </Item>
+                <Item rotulo="Local do check-in">{porCep ? <LocalVisita local={v.checkin} /> : <Coordenada c={v.checkin} />}</Item>
+                <Item rotulo="Local do check-out">{porCep ? <LocalVisita local={v.checkout} /> : <Coordenada c={v.checkout} />}</Item>
                 {controle && (
                   <Item rotulo="Distância da unidade">
                     <DistanciaCheckin v={v} />

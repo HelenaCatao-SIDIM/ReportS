@@ -8,6 +8,7 @@ import { formatarDataHora } from "@/lib/datas";
 import { rotuloTipo } from "@/lib/visitas";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { carimboFoto, localizacaoPorCep } from "@/lib/config";
 import { CheckinForm } from "./checkin-form";
 
 export default function TecnicoHome() {
@@ -60,7 +61,7 @@ async function Conteudo() {
         <h1 className="text-xl font-semibold">Novo check-in</h1>
         <p className="text-sm text-muted-foreground">Registre a chegada ao cliente.</p>
       </div>
-      <CheckinForm clientes={clientes} />
+      <CheckinForm clientes={clientes} porCep={localizacaoPorCep()} carimbo={carimboFoto()} />
     </div>
   );
 }

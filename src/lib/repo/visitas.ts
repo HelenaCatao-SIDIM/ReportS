@@ -1,7 +1,7 @@
 import "server-only";
 import { formatarDataHora } from "@/lib/datas";
 import { rotuloTipo } from "@/lib/visitas";
-import type { AlteracaoVisita, Foto, MudancaCampo, PresencaVisita, Tema, TipoVisita, UsuarioPublico, Visita, VisitaDetalhada } from "@/lib/types";
+import type { AlteracaoVisita, EnderecoVisita, Foto, MudancaCampo, PresencaVisita, Tema, TipoVisita, UsuarioPublico, Visita, VisitaDetalhada } from "@/lib/types";
 import { buscarCliente, buscarUnidade, buscarSetor } from "./clientes";
 import { listarTemas } from "./temas";
 import { buscarPorId as buscarUsuario } from "./usuarios";
@@ -39,23 +39,24 @@ function base(v: Partial<Visita> & Pick<Visita, "id" | "tecnicoId" | "clienteId"
 function seed(): Visita[] {
   const agora = Date.now();
   const haHoras = (h: number) => new Date(agora - h * 3600_000).toISOString();
-  const coords = { latitude: -22.9035, longitude: -47.0621 };
+  // Um objeto por visita: o CEP é gravado dentro do local (definirEndereco), então não pode ser compartilhado.
+  const coords = () => ({ latitude: -22.9035, longitude: -47.0621 });
   // ~178 m ao sul da Sede da Prefeitura (raio de 50 m): exemplo de check-in fora do raio.
-  const coordsLonge = { latitude: -22.9051, longitude: -47.0621 };
+  const coordsLonge = () => ({ latitude: -22.9051, longitude: -47.0621 });
   const noLocal = { distanciaCheckinM: 0, raioCheckinM: 50 };
 
   return [
     base({
       id: "v1", tecnicoId: "u2", clienteId: "c1", unidadeId: "un1", setorId: "s1", tipo: "suporte_presencial", status: "em_andamento",
-      entrada: haHoras(2), checkin: coords, ...noLocal, fotoAmbiente: foto(1), temaIds: ["t1"],
+      entrada: haHoras(2), checkin: coords(), ...noLocal, fotoAmbiente: foto(1), temaIds: ["t1"],
     }),
     base({
       id: "v2", tecnicoId: "u3", clienteId: "c2", unidadeId: "un3", setorId: "s6", tipo: "implantacao", status: "em_andamento",
-      entrada: haHoras(26), checkin: coords, fotoAmbiente: foto(2),
+      entrada: haHoras(26), checkin: coords(), fotoAmbiente: foto(2),
     }),
     base({
       id: "v3", tecnicoId: "u2", clienteId: "c1", unidadeId: "un1", setorId: "s2", tipo: "treinamento", status: "encerrada",
-      entrada: "2026-10-06T13:00:00.000Z", saida: "2026-10-06T16:30:00.000Z", checkin: coords, ...noLocal, checkout: coords,
+      entrada: "2026-10-06T13:00:00.000Z", saida: "2026-10-06T16:30:00.000Z", checkin: coords(), ...noLocal, checkout: coords(),
       fotoAmbiente: foto(3), fotosExtras: [foto(4), foto(5)], temaIds: ["t4", "t5"], temaAdicional: "Dúvidas sobre consignados",
       presencas: [presenca(PATRICIA, true), presenca(LUCIANA, true)],
       observacoes: "Treinamento realizado com a equipe de RH. Boa participação.",
@@ -70,12 +71,12 @@ function seed(): Visita[] {
     }),
     base({
       id: "v5", tecnicoId: "u2", clienteId: "c2", unidadeId: "un3", setorId: "s6", tipo: "reuniao", status: "encerrada",
-      entrada: "2026-10-14T12:00:00.000Z", saida: "2026-10-14T13:00:00.000Z", checkin: coords, checkout: coords, fotoAmbiente: foto(2),
+      entrada: "2026-10-14T12:00:00.000Z", saida: "2026-10-14T13:00:00.000Z", checkin: coords(), checkout: coords(), fotoAmbiente: foto(2),
       observacoes: "Reunião de alinhamento da implantação.", pendencias: "Cliente enviar a planilha de convênios.",
     }),
     base({
       id: "v6", tecnicoId: "u3", clienteId: "c1", unidadeId: "un1", setorOutro: "Gabinete do Prefeito", tipo: "visita_tecnica", status: "encerrada",
-      entrada: "2026-10-20T14:00:00.000Z", saida: "2026-10-20T15:10:00.000Z", checkin: coordsLonge, distanciaCheckinM: 178, raioCheckinM: 50, fotoAmbiente: foto(5), encerradaPorGestor: true,
+      entrada: "2026-10-20T14:00:00.000Z", saida: "2026-10-20T15:10:00.000Z", checkin: coordsLonge(), distanciaCheckinM: 178, raioCheckinM: 50, fotoAmbiente: foto(5), encerradaPorGestor: true,
       historico: [
         {
           id: "h1", autorId: "u1", autorNome: "Gestor SIDIM", em: "2026-10-21T11:00:00.000Z", acao: "encerramento",
@@ -86,7 +87,7 @@ function seed(): Visita[] {
     }),
     base({
       id: "v7", tecnicoId: "u2", clienteId: "c2", unidadeId: "un3", setorId: "s6", tipo: "suporte_presencial", status: "cancelada",
-      entrada: "2026-10-21T13:00:00.000Z", checkin: coords, fotoAmbiente: foto(1),
+      entrada: "2026-10-21T13:00:00.000Z", checkin: coords(), fotoAmbiente: foto(1),
       historico: [
         {
           id: "h2", autorId: "u1", autorNome: "Gestor SIDIM", em: "2026-10-21T13:20:00.000Z", acao: "cancelamento",
@@ -96,7 +97,7 @@ function seed(): Visita[] {
     }),
     base({
       id: "v8", tecnicoId: "u2", clienteId: "c1", unidadeId: "un1", setorId: "s3", tipo: "suporte_presencial", status: "encerrada",
-      entrada: "2026-09-15T12:30:00.000Z", saida: "2026-09-15T15:00:00.000Z", checkin: coords, ...noLocal, checkout: coords, fotoAmbiente: foto(4),
+      entrada: "2026-09-15T12:30:00.000Z", saida: "2026-09-15T15:00:00.000Z", checkin: coords(), ...noLocal, checkout: coords(), fotoAmbiente: foto(4),
       temaIds: ["t2", "t3"], observacoes: "Suporte na emissão de guias.", relatorioId: "r-2026-09-c1",
     }),
   ];
@@ -337,6 +338,16 @@ export async function encerrarPeloTecnico(id: string, tecnicoId: string, d: Dado
   const v = abertaDe(id, tecnicoId);
   Object.assign(v, d, { status: "encerrada", saida: new Date().toISOString() });
   return v;
+}
+
+/**
+ * Grava o endereço (CEP) obtido a partir da coordenada do check-in ou do check-out.
+ * É o sistema preenchendo um dado derivado: não toca na coordenada nem no resto da visita,
+ * não entra no histórico de alterações e vale mesmo para visita encerrada ou travada.
+ */
+export async function definirEndereco(id: string, momento: "checkin" | "checkout", endereco: EnderecoVisita) {
+  const local = visitas.find((x) => x.id === id)?.[momento];
+  if (local) local.endereco = endereco;
 }
 
 /** Todas as visitas do técnico com entrada no período (ISO inclusive), da mais recente para a mais antiga. */

@@ -1,10 +1,13 @@
 import "server-only";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { enviarEmail } from "@/lib/email";
+import { chamadosSuporte, chamadosSuportePdf } from "@/lib/config-suporte";
+import { buscarResumoSuporte } from "@/lib/suporte";
 import { formatarDataCurta } from "@/lib/visitas";
 import { RelatorioPdf, type ImagensPdf } from "@/lib/pdf/relatorio-pdf";
 import { lerImagemPorUrl, salvarArquivo } from "@/lib/repo/arquivos";
 import { congelar, montarConteudo, registrarEmissao } from "@/lib/repo/relatorios";
+import { preencherCepsPendentes } from "@/lib/cep-visitas";
 import type { ConteudoCongelado } from "@/lib/types";
 
 /** Acima disto, o e-mail vai sem anexo (só com o botão "Ver relatório"); o download continua disponível. */
@@ -40,16 +43,26 @@ async function carregarImagens(c: ConteudoCongelado): Promise<ImagensPdf> {
 
 /** Gera o PDF da versão, registra a emissão e envia o e-mail a todos os aprovadores do cliente. */
 export async function emitirRelatorio(id: string) {
-  const c = await montarConteudo(id);
+  let c = await montarConteudo(id);
   if (!c) throw new Error("Relatório não encontrado");
   if (c.relatorio.status !== "rascunho" && c.relatorio.status !== "ajuste_solicitado") throw new Error("Este relatório não pode ser emitido agora");
   if (!c.visitas.length) return { erro: "O relatório não tem visitas." };
   if (!c.cliente.aprovadores.length) return { erro: "O cliente não tem aprovadores cadastrados." };
 
+  // A versão congelada é o que o cliente vê: converte antes os locais que ainda estão sem CEP.
+  if ((await preencherCepsPendentes(c.visitas)) > 0) {
+    c = await montarConteudo(id);
+    if (!c) throw new Error("Relatório não encontrado");
+  }
+
   const conteudo = congelar(c);
   const numero = c.relatorio.versoes.length + 1;
   const emitidoEm = new Date().toISOString();
-  const pdf = await renderToBuffer(<RelatorioPdf conteudo={conteudo} versao={numero} emitidoEm={emitidoEm} imagens={await carregarImagens(conteudo)} />);
+  // Chamados de suporte congelados junto com a versão: PDF, página do aprovador e versões antigas mostram o mesmo número.
+  if (chamadosSuporte()) conteudo.suporte = await buscarResumoSuporte(c.cliente, c.relatorio.de, c.relatorio.ate);
+  const pdf = await renderToBuffer(
+    <RelatorioPdf conteudo={conteudo} versao={numero} emitidoEm={emitidoEm} imagens={await carregarImagens(conteudo)} mostrarSuporte={chamadosSuportePdf()} />,
+  );
   const arquivo = await salvarArquivo(pdf, "application/pdf");
 
   const { versao, links } = await registrarEmissao(id, { conteudo, pdfUrl: arquivo.url, pdfTamanho: pdf.length, emitidoEm });

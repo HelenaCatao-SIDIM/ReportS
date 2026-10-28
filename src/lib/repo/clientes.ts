@@ -25,6 +25,7 @@ function seed(): Store {
         nivel: "assinado",
         exigeCpf: true,
         ativo: true,
+        nomesFortics: [],
         aprovadores: [
           { id: "a1", nome: "Marta Ribeiro", cargo: "Secretária de Administração", email: "marta.ribeiro@valeverde.example" },
           { id: "a2", nome: "José Antunes", cargo: "Diretor de TI", email: "jose.antunes@valeverde.example" },
@@ -38,6 +39,7 @@ function seed(): Store {
         nivel: "nominal",
         exigeCpf: false,
         ativo: true,
+        nomesFortics: [],
         aprovadores: [{ id: "a3", nome: "Renata Lopes", cargo: "Gerente administrativa", email: "renata@bemviver.example" }],
       },
     ],

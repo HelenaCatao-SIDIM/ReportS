@@ -1,0 +1,227 @@
+{
+  "name": "Reports Sidim - Resumo de chamados por cliente",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Resumo de chamados por cliente (Reports Sidim)\nRecebe `{ clientes, inicio, fim, incluirLista }` e devolve quantos chamados **abertos e fechados** o cliente teve no período, lendo a tabela **atendimentos**.\n\nAntes de ativar:\n1. No nó **Webhook**, em *Credential for Header Auth*, crie a credencial **Chave Reports Sidim** (Name `x-api-key`, Value = uma chave longa e aleatória). A mesma chave vai no `.env.local` do Reports.\n2. No nó **Ler atendimentos**, confira se a tabela escolhida é **atendimentos**.\n3. No nó **Montar resumo**, confira `FUSO_DATAS` (veja o guia).\n\nNunca devolve transcrição nem avaliações das IAs.",
+        "height": 420,
+        "width": 420,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        -180
+      ],
+      "id": "50338c2a-e0bf-4a44-adc1-5356205fe1b3",
+      "name": "Nota - Como usar"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "resumo-chamados-cliente",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "a1e1e3fd-db4f-4d6d-be21-9c5a2cb71651",
+      "name": "Webhook",
+      "webhookId": "b6b39008-f068-4ed7-a6ff-9456192e4600"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Valida o corpo recebido pelo webhook. Saída: { ok, erro?, clientes, inicio, fim, incluirLista }.\nconst corpo = $input.first().json.body || {};\nconst DATA = /^\\d{4}-\\d{2}-\\d{2}$/;\nconst valida = (d) => DATA.test(d) && !Number.isNaN(Date.parse(d + 'T00:00:00Z'));\n\nconst clientes = Array.isArray(corpo.clientes)\n  ? [...new Set(corpo.clientes.map((c) => String(c ?? '').trim()).filter(Boolean))]\n  : [];\nconst inicio = String(corpo.inicio ?? '');\nconst fim = String(corpo.fim ?? '');\n\nlet erro = null;\nif (clientes.length < 1 || clientes.length > 10) erro = 'Informe de 1 a 10 nomes em \"clientes\".';\nelse if (clientes.some((c) => c.length > 120)) erro = 'Cada nome em \"clientes\" pode ter até 120 caracteres.';\nelse if (!valida(inicio) || !valida(fim)) erro = 'Use datas no formato AAAA-MM-DD em \"inicio\" e \"fim\".';\nelse if (inicio > fim) erro = '\"inicio\" precisa ser igual ou anterior a \"fim\".';\nelse if ((Date.parse(fim) - Date.parse(inicio)) / 86400000 > 366) erro = 'O período pode ter no máximo 12 meses.';\n\nreturn [{ json: { ok: !erro, erro, clientes, inicio, fim, incluirLista: corpo.incluirLista !== false } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "id": "07323214-a897-439c-bb44-41be760f222f",
+      "name": "Validar entrada"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e30c0b71-e9a6-454e-90fc-c193f33f1f31",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ],
+      "id": "9897a243-f64d-45fe-92cd-599407d917eb",
+      "name": "Entrada válida?"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "X2Dp6EriPK6ZyivV",
+          "mode": "list",
+          "cachedResultName": "atendimentos",
+          "cachedResultUrl": "/projects/CS7nYMP9EVeHGGqz/datatables/X2Dp6EriPK6ZyivV"
+        },
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        680,
+        -100
+      ],
+      "id": "980b52a7-2e47-4e54-9399-7b5033a931d8",
+      "name": "Ler atendimentos",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Resume os chamados (abertos e fechados) do cliente no período. Nunca devolve transcrição nem avaliações das IAs.\nconst entrada = $('Validar entrada').first().json;\n\n// Fuso de data_abertura na tabela. Conferido em 26/10/2026: os horários gravados vão das 07h às 17h e o\n// último chamado bate com o horário de Brasília, embora o texto termine em \"Z\". Ou seja, o \"Z\" não é UTC de\n// verdade: 'brasilia' usa a data como está gravada. Use 'utc' só se o capturador passar a gravar UTC real.\nconst FUSO_DATAS = 'brasilia';\n\nconst normalizar = (s) => String(s || '')\n  .normalize('NFD').replace(/[̀-ͯ]/g, '')\n  .toLowerCase().replace(/\\s+/g, ' ').trim();\n\nfunction diaBrasilia(texto) {\n  const s = String(texto || '');\n  const m = s.match(/^(\\d{4}-\\d{2}-\\d{2})[T ](\\d{2}):(\\d{2})/);\n  if (!m) return s.slice(0, 10);\n  if (FUSO_DATAS !== 'utc') return m[1];\n  const iso = /(Z|[+-]\\d{2}:?\\d{2})$/.test(s) ? s.replace(' ', 'T') : s.replace(' ', 'T') + 'Z';\n  const t = Date.parse(iso);\n  return Number.isNaN(t) ? m[1] : new Date(t - 3 * 3600000).toISOString().slice(0, 10);\n}\n\nconst alvos = new Set(entrada.clientes.map(normalizar));\nconst { inicio, fim } = entrada;\n\nconst linhas = $input.all().map((i) => i.json).filter((r) => {\n  if (!r || !r.id_atendimento || !alvos.has(normalizar(r.cliente_municipio))) return false;\n  const d = diaBrasilia(r.data_abertura);\n  return d >= inicio && d <= fim;\n});\n\n// O mesmo protocolo conta uma vez só.\nconst porProtocolo = new Map();\nfor (const r of linhas) if (!porProtocolo.has(String(r.id_atendimento))) porProtocolo.set(String(r.id_atendimento), r);\nconst chamados = [...porProtocolo.values()];\n\nconst contar = (campo, vazio) => {\n  const m = new Map();\n  for (const r of chamados) {\n    const k = (r[campo] && String(r[campo]).trim()) || vazio;\n    m.set(k, (m.get(k) || 0) + 1);\n  }\n  return [...m.entries()].map(([nome, quantidade]) => ({ nome, quantidade })).sort((a, b) => b.quantidade - a.quantidade || a.nome.localeCompare(b.nome));\n};\n\nconst esperas = chamados\n  .map((r) => r.tempo_espera_agente_min)\n  .filter((v) => v !== null && v !== undefined && v !== '')\n  .map(Number)\n  .filter((n) => Number.isFinite(n) && n >= 0);\nconst tempoMedioEsperaMin = esperas.length ? Math.round((esperas.reduce((a, b) => a + b, 0) / esperas.length) * 10) / 10 : null;\n\nconst resposta = {\n  periodo: { inicio, fim },\n  clientes: entrada.clientes,\n  totalAbertosEFechados: chamados.length,\n  porSistema: contar('sistema', 'Não informado'),\n  porTopico: contar('topico', 'Não identificado'),\n  porMotivoEncerramento: contar('motivo_encerramento', 'Não informado'),\n  tempoMedioEsperaMin,\n  geradoEm: new Date().toISOString(),\n  chamados: [],\n};\n\nif (entrada.incluirLista) {\n  resposta.chamados = chamados\n    .sort((a, b) => String(a.data_abertura).localeCompare(String(b.data_abertura)))\n    .map((r) => ({\n      protocolo: String(r.id_atendimento),\n      abertura: String(r.data_abertura || ''),\n      encerramento: String(r.data_encerramento || ''),\n      sistema: r.sistema || '',\n      topico: r.topico || 'Não identificado',\n      motivoEncerramento: r.motivo_encerramento || '',\n      agente: r.agente || '',\n    }));\n}\n\nreturn [{ json: resposta }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        -100
+      ],
+      "id": "903280f4-726b-4f3a-a040-44ee7217d9a7",
+      "name": "Montar resumo"
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1120,
+        -100
+      ],
+      "id": "fd237ad5-adc2-4a13-89b5-8d1244202c03",
+      "name": "Responder resumo"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"erro\": $json.erro } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        680,
+        120
+      ],
+      "id": "70198a92-ffd4-4b7b-96da-b07acdd9dc7c",
+      "name": "Responder erro (400)"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validar entrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar entrada": {
+      "main": [
+        [
+          {
+            "node": "Entrada válida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Entrada válida?": {
+      "main": [
+        [
+          {
+            "node": "Ler atendimentos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder erro (400)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler atendimentos": {
+      "main": [
+        [
+          {
+            "node": "Montar resumo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar resumo": {
+      "main": [
+        [
+          {
+            "node": "Responder resumo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all"
+  },
+  "pinData": {},
+  "tags": []
+}

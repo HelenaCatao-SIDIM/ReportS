@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronDown, ExternalLink, History } from "lucide-react";
-import type { VisitaDetalhada } from "@/lib/types";
+import type { ResumoSuporte, VisitaDetalhada } from "@/lib/types";
+import { ChamadosSuporte } from "@/components/relatorio/chamados-suporte";
 import { formatarData, formatarDuracao, formatarHora } from "@/lib/datas";
 import { formatarCnpj } from "@/lib/format";
 import { formatarDataCurta, formatarMinutos, rotuloTipo } from "@/lib/visitas";
@@ -16,6 +17,7 @@ export interface DadosConteudo {
   deOutroPeriodo: string[];
   minutosPresenciais: number;
   minutosOnline: number;
+  suporte?: ResumoSuporte | null;
 }
 
 /** Capa, resumo de horas e visitas (expansíveis) de um relatório — rascunho atual ou versão congelada. */
@@ -71,6 +73,8 @@ export function ConteudoRelatorio({ c, tituloVisitas, linkVisitas }: { c: DadosC
           </CardContent>
         </Card>
       </div>
+
+      {c.suporte && <ChamadosSuporte resumo={c.suporte} publico="gestor" />}
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">{tituloVisitas}</h2>
