@@ -13,7 +13,7 @@ Registro de alterações futuras e sugestões. O `README.md` continua sendo a re
 
 Registradas em 26/10/2026. Legenda: ✅ definido · ⚠ ponto de atenção · *Evolutiva* = entra numa versão seguinte · *Fora desta versão* = só entra quando a função existir. Onde aparece **Hoje no código**, é o que foi conferido no repositório no momento do registro.
 
-**Situação em 27/10/2026:** feitos **1, 2, 3, 6, 10, 11 e 12** (o 2 só para o participante) · parcial **9** (campo de telefone feito; falta o envio) · bloqueado **5** (o ambiente de desenvolvimento não alcança o serviço de endereços) · sem código por definição **4, 7 e 8**. Os motivos, as evidências e o que destrava cada um estão em **"Pontos bloqueados e decisões em aberto"**, mais abaixo.
+**Situação em 28/10/2026:** feitos **1, 2, 3, 6, 10, 11 e 12** (o 2 só para o participante) · parcial **9** (campo de telefone feito; falta o envio) · bloqueado **5** (o ambiente de desenvolvimento não alcança o serviço de endereços) · sem código por definição **4, 7 e 8**. Além dos pontos, entraram na `main` as duas entregas externas (**chamados de suporte** e **localização por CEP**): ver "Entregas externas integradas", mais abaixo. Os motivos, as evidências e o que destrava cada um estão em **"Pontos bloqueados e decisões em aberto"**, mais abaixo.
 
 - **1. Sistema da operação, não de uma pessoa.** O sistema tem três papéis — Gestor, Técnico e Aprovador — e qualquer pessoa pode ocupar qualquer um deles. Pode existir mais de um gestor, e a coordenação pode mudar de mão sem que nada quebre: nenhum cadastro, relatório ou fluxo tem nome de pessoa escrito dentro. O mesmo vale para o que é configurável (clientes, unidades, setores, temas): fica em cadastro, não no código. **Auditado e ajustado em 27/10/2026 (`c4c4c81`).**
    - **Nomes de pessoa:** só aparecem nos dados de exemplo (`src/lib/repo/*`), que o banco real substitui. O único nome fora disso, um exemplo no campo de ajuste da página do aprovador, virou texto genérico.
@@ -77,6 +77,7 @@ Atualizado em 27/10/2026. Aqui está tudo o que **não anda sem uma ação de fo
 
 - **O que está bloqueado:** a chamada ao serviço aberto que converte endereço em coordenadas. Sem testar a chamada real, não entregamos a função.
 - **Evidência (27/10/2026):** ao chamar `https://nominatim.openstreetmap.org/search?...` a partir do ambiente de desenvolvimento em nuvem, a resposta foi `CONNECT tunnel failed, response 403`. É o proxy do ambiente recusando o domínio (política de rede), não o serviço fora do ar.
+- **Confirmado em 28/10/2026:** no computador local, o Nominatim e o ViaCEP responderam normalmente (consulta inversa, coordenada → endereço, usada pela entrega do CEP). Ou seja, o bloqueio é só do ambiente em nuvem, e a saída 2 abaixo funciona.
 - **Duas saídas:**
   1. **Liberar o domínio.** Nas configurações do ambiente em nuvem (menu do ambiente na barra de título da sessão → *Edit* → *Network access*), ampliar o nível de acesso ou incluir `nominatim.openstreetmap.org` em *Allowed domains*, mantendo marcada a caixa dos gerenciadores de pacotes para o `npm install` continuar funcionando. Passo a passo oficial: https://code.claude.com/docs/en/cloud-environments#network-access
   2. **Fazer no computador local**, numa sessão que roda lá, sem a restrição de rede. Depois é só enviar a branch.
@@ -120,8 +121,26 @@ A definição diz apenas que entram "quando a função existir". Não há escopo
 | 3 | **Quem recebe o alerta de raio** (ponto 6) | Hoje só o gestor vê o selo e a distância. | Manter só o gestor, ou avisar também o técnico na hora do check-in. |
 | 4 | **Setor da presença de participante já cadastrado** (ponto 3) | Se o cadastro da pessoa não tem setor, a presença fica sem setor. | **Recomendação:** herdar o setor da visita, coerente com a definição "já preenchido com o setor da visita". É uma mudança pequena. |
 | 5 | **Tipos de visita como cadastro** (ponto 1) | São uma lista fixa em `src/lib/visitas.ts`. | Manter fixos ou virar cadastro, como temas e setores. |
-| 6 | **Destino da branch** | A `claude/practical-dijkstra-zfagzj` tem vários commits à frente da `main` (ver `git log origin/main..HEAD`). Nada disso está na `main`. | Abrir PR para a `main`, manter só na branch, ou desfazer. |
+| 6 | **Destino da branch** | A `claude/practical-dijkstra-zfagzj` tem vários commits à frente da `main` (ver `git log origin/main..HEAD`). **Em 28/10/2026** a `main` recebeu as duas entregas externas; a branch foi atualizada com ela (conflitos resolvidos, testes repetidos) e segue para PR. | Abrir PR para a `main` (**em andamento**), manter só na branch, ou desfazer. |
 | 7 | **Repositório público** | O repositório está público: o README (com os acessos de teste) e este arquivo (regras de negócio, o nome do fornecedor Fortics) podem ser lidos por qualquer pessoa. Este arquivo evita citar outros sistemas internos por nome. | Manter público, ou tornar privado antes de documentar mais. |
+
+### Entregas externas integradas (28/10/2026)
+
+Duas entregas vieram do time e entraram na `main` por PR, **desligadas por padrão** (sem as variáveis, o sistema fica como antes). Cada uma tem roteiro de teste em `docs/`.
+
+**Chamados de suporte no relatório** (mesclado na `main` em `9ac1ae2`)
+- Mostra, no rascunho e no relatório emitido, quantos chamados de suporte o cliente teve no período (total, por sistema, por assunto, por motivo de encerramento e espera média). Os números são **congelados na emissão**.
+- O gestor vê a lista de chamados com o atendente; o aprovador vê só totais e contagens. O PDF só traz o resumo se `CHAMADOS_SUPORTE_PDF=true`.
+- Os dados vêm de um fluxo do n8n da SIDIM, que lê a tabela `atendimentos` (alimentada por outro fluxo que já existia). O servidor do ReportS é o único a chamar o n8n, com a chave no cabeçalho. Se o n8n falhar, o relatório sai com "Dados de suporte indisponíveis".
+- **Testado em 28/10/2026** com o n8n real: o bloco trouxe o total, as três contagens e a lista, e a falha de configuração mostrou "indisponíveis" sem impedir o relatório. Os números ainda precisam ser **conferidos com a tabela `atendimentos`** pelo time que mantém o fluxo.
+- Em aberto: quem preenche o "Nome no Fortics" dos clientes que já existem; esconder esse campo quando o recurso está desligado (hoje ele aparece); trocar a chave do n8n usada nos testes locais.
+
+**Localização por CEP no check-in e no check-out** (mesclado na `main` em `974d774`)
+- Troca a coordenada pelo CEP e pelo endereço em todas as telas (técnico, gestor, aprovador e PDF). A coordenada continua gravada por baixo. Carimbo opcional na foto do ambiente (data, hora e CEP).
+- A conversão usa o OpenStreetMap (Nominatim) e, se faltar o CEP, o ViaCEP. Precisa de `GEOCODING_USER_AGENT` com um contato real da SIDIM.
+- **Decisão da Helena (28/10/2026): o CEP e a precisão aparecem sempre como aproximados**, no estilo do WhatsApp ("CEP … (aproximado)", "Precisão: aprox. 94 m"). Já aplicado.
+- **Testado em 28/10/2026** no computador, com os serviços reais: o CEP apareceu em todas as telas, sem coordenadas. Observação importante: o navegador do computador estima a posição por Wi-Fi e IP, e o mapa gratuito devolveu a via mais próxima, com um CEP diferente do oficial do endereço. Por isso o CEP é só uma referência, e a prova de presença mais confiável continua sendo a **distância até a unidade** (ponto 6). No celular, com GPS, a posição deve ser bem melhor, mas isso **ainda não foi testado**.
+- Em aberto: teste no celular com https; aviso de LGPD ao técnico (a coordenada vai a um serviço de terceiros); confirmar se o aprovador do cliente deve ver o CEP; o cadastro da unidade ainda pede latitude e longitude digitadas.
 
 ### Login único entre sistemas · dependência nova (a organizar em arquivo próprio)
 
@@ -141,7 +160,7 @@ Não sabemos se já existem; precisam ser confirmados antes de cada item começa
 ### Ordem sugerida para resolver
 
 1. **Decisões em aberto (2, 6 e 7).** São respostas rápidas e destravam o acabamento do que já foi feito.
-2. **Ponto 5**, liberando o domínio ou mudando para o computador local.
+2. **Ponto 5**, preferindo o computador local (a chamada ao serviço de endereços funcionou lá em 28/10) ou liberando o domínio na nuvem.
 3. **Login único**, antes do banco real.
 4. **Pontos 4 e 9**, que dependem do time e do Fortics.
 5. **Infraestrutura**, na ordem da seção "A fazer".
@@ -181,3 +200,5 @@ Não sabemos se já existem; precisam ser confirmados antes de cada item começa
 
 - [x] Mockup completo das três interfaces (Administração, App do Técnico e Aprovação), com dados em memória — `745a349`.
 - [x] README com como rodar, acessos de teste e situação atual — `c085435`.
+- [x] Chamados de suporte do cliente no relatório (n8n/Fortics), desligado por padrão — mesclado em `9ac1ae2` (28/10/2026).
+- [x] Localização por CEP no check-in/check-out, com CEP e precisão sempre "aproximados", desligado por padrão — mesclado em `974d774` (28/10/2026).
