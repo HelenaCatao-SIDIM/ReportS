@@ -6,6 +6,7 @@ import { getUsuarioAtual } from "@/lib/dal";
 import { buscarVisita } from "@/lib/repo/visitas";
 import { ehPresencial, rotuloTipo } from "@/lib/visitas";
 import { exigeParticipantes } from "@/lib/regras-visita";
+import { localizacaoPorCep } from "@/lib/config";
 import { CheckoutForm } from "./checkout-form";
 
 export default function CheckoutPage({ params }: PageProps<"/tecnico/visita/[id]/checkout">) {
@@ -37,6 +38,7 @@ async function Conteudo({ params }: Pick<PageProps<"/tecnico/visita/[id]/checkou
         entrada={v.entrada}
         presencial={ehPresencial(v.tipo)}
         faltaParticipantes={exigeParticipantes(v.tipo) && v.presencas.length === 0}
+        porCep={localizacaoPorCep()}
         resumo={{
           clienteNome: v.clienteNome,
           local: `${v.unidadeNome} · ${v.setorNome}`,

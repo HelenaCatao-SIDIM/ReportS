@@ -7,6 +7,7 @@ import { formatarDataCurta } from "@/lib/visitas";
 import { RelatorioPdf, type ImagensPdf } from "@/lib/pdf/relatorio-pdf";
 import { lerImagemPorUrl, salvarArquivo } from "@/lib/repo/arquivos";
 import { congelar, montarConteudo, registrarEmissao } from "@/lib/repo/relatorios";
+import { preencherCepsPendentes } from "@/lib/cep-visitas";
 import type { ConteudoCongelado } from "@/lib/types";
 
 /** Acima disto, o e-mail vai sem anexo (só com o botão "Ver relatório"); o download continua disponível. */
@@ -42,11 +43,17 @@ async function carregarImagens(c: ConteudoCongelado): Promise<ImagensPdf> {
 
 /** Gera o PDF da versão, registra a emissão e envia o e-mail a todos os aprovadores do cliente. */
 export async function emitirRelatorio(id: string) {
-  const c = await montarConteudo(id);
+  let c = await montarConteudo(id);
   if (!c) throw new Error("Relatório não encontrado");
   if (c.relatorio.status !== "rascunho" && c.relatorio.status !== "ajuste_solicitado") throw new Error("Este relatório não pode ser emitido agora");
   if (!c.visitas.length) return { erro: "O relatório não tem visitas." };
   if (!c.cliente.aprovadores.length) return { erro: "O cliente não tem aprovadores cadastrados." };
+
+  // A versão congelada é o que o cliente vê: converte antes os locais que ainda estão sem CEP.
+  if ((await preencherCepsPendentes(c.visitas)) > 0) {
+    c = await montarConteudo(id);
+    if (!c) throw new Error("Relatório não encontrado");
+  }
 
   const conteudo = congelar(c);
   const numero = c.relatorio.versoes.length + 1;

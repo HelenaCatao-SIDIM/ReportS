@@ -5,6 +5,8 @@ import type { Foto } from "@/lib/types";
 import { formatarData, formatarDuracao, formatarHora } from "@/lib/datas";
 import { formatarCbo, formatarCpf, mascararCpf } from "@/lib/format";
 import { ehPresencial, rotuloTipo } from "@/lib/visitas";
+import { localizacaoPorCep } from "@/lib/config";
+import { LocalVisita } from "@/components/visita/local-visita";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -59,6 +61,8 @@ function Texto({ rotulo, valor }: { rotulo: string; valor: string }) {
  */
 export function DetalheVisita({ visita: v, cpf = "mascarado" }: { visita: VisitaDetalhada; cpf?: "completo" | "mascarado" }) {
   const presencial = ehPresencial(v.tipo);
+  // Com a localização por CEP ligada, a coordenada nunca aparece (nem para o aprovador do cliente).
+  const porCep = localizacaoPorCep();
 
   return (
     <div className="space-y-4">
@@ -81,12 +85,8 @@ export function DetalheVisita({ visita: v, cpf = "mascarado" }: { visita: Visita
             <Item rotulo="Técnico">{v.tecnicoNome}</Item>
             {presencial ? (
               <>
-                <Item rotulo="Local do check-in">
-                  <Coordenada c={v.checkin} />
-                </Item>
-                <Item rotulo="Local do check-out">
-                  <Coordenada c={v.checkout} />
-                </Item>
+                <Item rotulo="Local do check-in">{porCep ? <LocalVisita local={v.checkin} /> : <Coordenada c={v.checkin} />}</Item>
+                <Item rotulo="Local do check-out">{porCep ? <LocalVisita local={v.checkout} /> : <Coordenada c={v.checkout} />}</Item>
               </>
             ) : (
               <div className="sm:col-span-2">

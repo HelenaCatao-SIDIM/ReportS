@@ -5,6 +5,7 @@ import { ArrowLeft, CheckCircle2, History, Lock, Pencil } from "lucide-react";
 import { buscarVisita } from "@/lib/repo/visitas";
 import { formatarData, formatarDataHora } from "@/lib/datas";
 import { DetalheVisita } from "@/components/visita/detalhe-visita";
+import { agendarCepPendente } from "@/lib/cep-visitas";
 import { SelosVisita } from "@/components/visita/selos";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -31,6 +32,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/visitas
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const v = await buscarVisita(id);
   if (!v) notFound();
+  agendarCepPendente(v);
   const podeCorrigir = v.status === "encerrada" && !v.travada;
 
   return (

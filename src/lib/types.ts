@@ -90,6 +90,39 @@ export interface Coordenadas {
   longitude: number;
 }
 
+/** Situação da conversão da coordenada em CEP. */
+export type StatusEndereco = "pendente" | "ok" | "sem_cep" | "falhou";
+
+/** Endereço obtido a partir da coordenada (geocodificação reversa). */
+export interface EnderecoVisita {
+  status: StatusEndereco;
+  /** Somente dígitos (8). Exibido como 87020-000. */
+  cep: string | null;
+  /** true quando o CEP veio pela rua (ViaCEP) ou é o CEP geral da cidade. */
+  aproximado: boolean;
+  logradouro: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  uf: string | null;
+  fonte: "nominatim" | "viacep" | null;
+  /** ISO. */
+  atualizadoEm: string;
+}
+
+/**
+ * Local capturado no check-in/check-out. A coordenada é a prova original e nunca é exibida
+ * quando a localização por CEP está ligada. Campos novos opcionais: as visitas antigas não têm.
+ */
+export interface LocalVisita extends Coordenadas {
+  /** Precisão informada pelo GPS, em metros. */
+  precisaoM?: number | null;
+  /** Hora do celular no momento da captura (ISO). */
+  capturadoEm?: string | null;
+  /** Hora do servidor ao receber (ISO). */
+  recebidoEm?: string | null;
+  endereco?: EnderecoVisita | null;
+}
+
 export interface Foto {
   id: string;
   url: string;
@@ -139,8 +172,8 @@ export interface Visita {
   /** Data e hora do servidor (ISO, UTC). */
   entrada: string;
   saida: string | null;
-  checkin: Coordenadas | null;
-  checkout: Coordenadas | null;
+  checkin: LocalVisita | null;
+  checkout: LocalVisita | null;
   fotoAmbiente: Foto | null;
   /** Treinamento online. */
   printTela: Foto | null;
