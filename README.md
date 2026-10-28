@@ -13,7 +13,7 @@ Tecnologia: Next.js 16 (App Router) + TypeScript + Tailwind CSS 4 + shadcn/ui (B
 
 ## Situação atual: mockup funcional com dados em memória
 
-Todas as telas e regras do guia estão implementadas, mas **os dados ficam na memória do servidor**:
+Todas as telas e regras do guia estão implementadas (as regras implementadas estão descritas em [`docs/regras.md`](docs/regras.md)), mas **os dados ficam na memória do servidor**:
 
 - ao reiniciar o servidor, tudo volta aos dados de exemplo;
 - e-mails não são enviados: aparecem em **Administração → Caixa de saída (teste)**;
@@ -32,7 +32,8 @@ cd ReportS
 npm install
 ```
 
-Crie o arquivo `.env.local` na raiz do projeto (ele não vai para o Git porque guarda uma chave secreta):
+Crie o arquivo `.env.local` na raiz do projeto (ele não vai para o Git porque guarda uma chave secreta).
+O comando abaixo cria o arquivo já com uma chave aleatória; outra opção é copiar o `.env.example` e preencher os valores.
 
 ```bash
 node -e "console.log('SESSION_SECRET=' + require('crypto').randomBytes(32).toString('base64')); console.log('APP_URL=http://localhost:3000')" > .env.local
@@ -81,6 +82,8 @@ nesse endereço — use um treinamento online para testar sem GPS.
 
 ## Estrutura
 
+- `docs/regras.md` — regras de negócio (o que o sistema exige e permite em cada etapa)
+- `AGENTS.md` — convenções do código, para quem for programar (pessoas ou agentes de IA)
 - `src/proxy.ts` — redireciona por perfil (checagem rápida do cookie de sessão)
 - `src/lib/session.ts`, `src/lib/dal.ts` — sessão (JWT em cookie httpOnly) e verificação de acesso
 - `src/lib/repo/*` — **camada de dados (mock em memória)**: usuários, clientes, temas, participantes, CBO, visitas, relatórios, arquivos
