@@ -90,8 +90,8 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
     printTela: presencial ? null : foto,
     linkReuniao: presencial ? null : linkReuniao,
   });
-  // CEP calculado depois da resposta: o técnico não espera pela consulta.
-  converterDepois(v.id, "checkin", v.checkin);
+  // Com a prévia já resolvida, o CEP é gravado na hora; senão, é calculado depois da resposta (o técnico não espera).
+  await converterDepois(v.id, "checkin", v.checkin);
   revalidatePath("/tecnico", "layout");
   revalidatePath("/admin/visitas", "layout");
   redirect(`/tecnico/visita/${v.id}`);
