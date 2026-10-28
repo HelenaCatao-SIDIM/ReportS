@@ -13,7 +13,7 @@ Registro de alterações futuras e sugestões. O `README.md` continua sendo a re
 
 Registradas em 26/10/2026. Legenda: ✅ definido · ⚠ ponto de atenção · *Evolutiva* = entra numa versão seguinte · *Fora desta versão* = só entra quando a função existir. Onde aparece **Hoje no código**, é o que foi conferido no repositório no momento do registro.
 
-**Situação em 28/10/2026:** feitos **1, 2, 3, 6, 10, 11 e 12** · **5 implementado, falta o teste com o serviço real** (botão de busca de coordenadas, desligado por padrão) (o 2 só para o participante) · parcial **9** (campo de telefone feito; falta o envio) · sem código por definição **4, 7 e 8**. Além dos pontos, entraram na `main` as duas entregas externas (**chamados de suporte** e **localização por CEP**): ver "Entregas externas integradas", mais abaixo. Os motivos, as evidências e o que destrava cada um estão em **"Pontos bloqueados e decisões em aberto"**, mais abaixo.
+**Situação em 28/10/2026:** feitos **1, 2, 3, 5, 6, 10, 11 e 12** (o 2 só para o participante; o 5 é o botão de busca de coordenadas, desligado por padrão e testado com o serviço real em 28/10/2026) · parcial **9** (campo de telefone feito; falta o envio) · sem código por definição **4, 7 e 8**. Além dos pontos, entraram na `main` as duas entregas externas (**chamados de suporte** e **localização por CEP**): ver "Entregas externas integradas", mais abaixo. Os motivos, as evidências e o que destrava cada um estão em **"Pontos bloqueados e decisões em aberto"**, mais abaixo.
 
 - **1. Sistema da operação, não de uma pessoa.** O sistema tem três papéis — Gestor, Técnico e Aprovador — e qualquer pessoa pode ocupar qualquer um deles. Pode existir mais de um gestor, e a coordenação pode mudar de mão sem que nada quebre: nenhum cadastro, relatório ou fluxo tem nome de pessoa escrito dentro. O mesmo vale para o que é configurável (clientes, unidades, setores, temas): fica em cadastro, não no código. **Auditado e ajustado em 27/10/2026 (`c4c4c81`).**
    - **Nomes de pessoa:** só aparecem nos dados de exemplo (`src/lib/repo/*`), que o banco real substitui. O único nome fora disso, um exemplo no campo de ajuste da página do aprovador, virou texto genérico.
@@ -73,10 +73,10 @@ Atualizado em 27/10/2026. Aqui está tudo o que **não anda sem uma ação de fo
 | **3 decisões em aberto (2, 6 e 7)** | Decisão | Uma resposta para cada. As decisões 1, 3, 4 e 5 foram respondidas em 27/10/2026. | Quem decide o produto |
 | **Login único entre sistemas** | Dependência (nova) | Decidir antes do banco real | Quem decide a arquitetura |
 
-### Ponto 5 — Coordenadas da unidade sem digitação · implementado (28/10/2026), falta testar com o serviço real
+### Ponto 5 — Coordenadas da unidade sem digitação · feito e testado com o serviço real (28/10/2026)
 
 - **Entregue:** botão **"Buscar coordenadas pelo endereço"** em Clientes → unidade → Editar. A chamada ao Nominatim roda no servidor (`src/lib/geocodificar.ts`, mesma fila de 1 consulta por segundo da localização por CEP), latitude e longitude são preenchidas e **continuam editáveis**, a mensagem mostra o endereço que o mapa achou e há um link "Ver no mapa". Trata endereço não encontrado, serviço fora do ar e excesso de buscas (10 por minuto por gestor). **Desligado por padrão** (`BUSCA_COORDENADAS=true`). Roteiro em `docs/teste-busca-coordenadas.md`.
-- **Testado** com o Nominatim simulado (14/14). **Falta** testar no computador local, com o serviço real e o endereço real de uma unidade, e conferir se o ponto cai no lugar certo.
+- **Testado** com o Nominatim simulado (14/14) e, em 28/10/2026, no computador local, com o serviço real: a busca preencheu as coordenadas de uma unidade. Para ligar em produção: `BUSCA_COORDENADAS=true` e um `GEOCODING_USER_AGENT` com contato real.
 - **Não entregue (decisão pendente):** refinar o ponto pelo primeiro check-in. Recomendação: só sugerir ao gestor, nunca alterar sozinho.
 - **Histórico do bloqueio:** o ambiente em nuvem não alcança o domínio do serviço (veja abaixo); por isso o teste real é feito no computador local.
 
@@ -119,7 +119,7 @@ A definição diz apenas que entram "quando a função existir". Não há escopo
 
 ### Decisões em aberto (bloqueiam o acabamento de pontos já feitos)
 
-**Situação em 27/10/2026:** respondidas as decisões **1** (manter o cargo do aprovador), **3** (alerta só para o gestor), **4** (herdar o setor da visita, feito em `7cb5a6d`) e **5** (tipos de visita continuam fixos). Seguem abertas a **2** (falta o motivo da troca para "Aprovado"), a **6** (depende de a conferência terminar) e a **7** (decisão do dono do repositório).
+**Situação em 27/10/2026:** respondidas as decisões **1** (manter o cargo do aprovador), **3** (alerta só para o gestor), **4** (herdar o setor da visita, feito em `7cb5a6d`) e **5** (tipos de visita continuam fixos). A **6** foi resolvida em 28/10/2026 (PR com os 12 pontos mesclada na `main`). Seguem abertas a **2** (falta o motivo da troca para "Aprovado") e a **7** (decisão do dono do repositório).
 
 | # | Decisão | Fato verificado | Opções |
 |---|---|---|---|
@@ -128,7 +128,7 @@ A definição diz apenas que entram "quando a função existir". Não há escopo
 | 3 | **Quem recebe o alerta de raio** (ponto 6) | Hoje só o gestor vê o selo e a distância. | Manter só o gestor, ou avisar também o técnico na hora do check-in. |
 | 4 | **Setor da presença de participante já cadastrado** (ponto 3) | Se o cadastro da pessoa não tem setor, a presença fica sem setor. | **Recomendação:** herdar o setor da visita, coerente com a definição "já preenchido com o setor da visita". É uma mudança pequena. |
 | 5 | **Tipos de visita como cadastro** (ponto 1) | São uma lista fixa em `src/lib/visitas.ts`. | Manter fixos ou virar cadastro, como temas e setores. |
-| 6 | **Destino da branch** | A `claude/practical-dijkstra-zfagzj` tem vários commits à frente da `main` (ver `git log origin/main..HEAD`). **Em 28/10/2026** a `main` recebeu as duas entregas externas; a branch foi atualizada com ela (conflitos resolvidos, testes repetidos) e segue para PR. | Abrir PR para a `main` (**em andamento**), manter só na branch, ou desfazer. |
+| 6 | **Destino da branch** | A `claude/practical-dijkstra-zfagzj` tem vários commits à frente da `main` (ver `git log origin/main..HEAD`). **Em 28/10/2026** a `main` recebeu as duas entregas externas; a branch foi atualizada com ela (conflitos resolvidos, testes repetidos) e mesclada na `main` pela PR 3. **Resolvida.** | Feito: PR para a `main`. |
 | 7 | **Repositório público** | O repositório está público: o README (com os acessos de teste) e este arquivo (regras de negócio, o nome do fornecedor Fortics) podem ser lidos por qualquer pessoa. Este arquivo evita citar outros sistemas internos por nome. | Manter público, ou tornar privado antes de documentar mais. |
 
 ### Entregas externas integradas (28/10/2026)
@@ -209,3 +209,7 @@ Não sabemos se já existem; precisam ser confirmados antes de cada item começa
 - [x] README com como rodar, acessos de teste e situação atual — `c085435`.
 - [x] Chamados de suporte do cliente no relatório (n8n/Fortics), desligado por padrão — mesclado em `9ac1ae2` (28/10/2026).
 - [x] Localização por CEP no check-in/check-out, com CEP e precisão sempre "aproximados", desligado por padrão — mesclado em `974d774` (28/10/2026).
+- [x] Definições 1, 2, 3, 6, 10, 11 e 12 e telefone do usuário — PR 3, mesclada em `ace1b3f` (28/10/2026).
+- [x] CEP gravado na hora quando a prévia já o resolveu, e tela da visita que se atualiza sozinha enquanto o CEP está pendente — `c9b632a` e `5f182b9` (28/10/2026).
+- [x] Selo "Dentro do raio" para o gestor, ao lado do "Fora do raio" — `f9581d2` (28/10/2026).
+- [x] Ponto 5: botão "Buscar coordenadas pelo endereço" no cadastro da unidade, testado com o serviço real — `8cc34fd` (28/10/2026).
