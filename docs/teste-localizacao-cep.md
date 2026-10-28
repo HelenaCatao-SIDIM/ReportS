@@ -12,12 +12,12 @@ de contato. Pare e rode `npm run dev` de novo depois de mudar o `.env.local`.
 2. Entre como `ana@sidim.com.br` (senha `sidim123`). Ela tem uma visita aberta: no cabeçalho aparece
    "Localização registrada" (visita de exemplo, sem CEP) e, ao recarregar a página alguns segundos depois, o **CEP**
    (a coordenada de exemplo fica em Campinas/SP).
-3. Faça o check-out dessa visita. Na tela de check-out, a linha da localização mostra **"CEP … · ±… m"**, nunca a coordenada.
+3. Faça o check-out dessa visita. Na tela de check-out, a linha da localização mostra **"CEP … (aproximado) · aprox. … m"**, nunca a coordenada.
 4. Volte ao início e faça um check-in presencial:
    - ao escolher um tipo presencial, a localização é pedida e aparece "Identificando o CEP…" e depois o CEP;
    - tire a foto do ambiente: com `CARIMBO_FOTO=true`, a prévia mostra a faixa com data/hora e CEP;
    - confirme o check-in.
-5. Entre como `gestor@sidim.com.br`, abra a visita em **Visitas**: "Local do check-in" mostra CEP + endereço + precisão.
+5. Entre como `gestor@sidim.com.br`, abra a visita em **Visitas**: "Local do check-in" mostra CEP (aproximado) + endereço + precisão ("Precisão: aprox. … m").
 6. **Relatórios → Novo relatório** → emita → **Caixa de saída** → **Ver relatório** (página do aprovador):
    as visitas mostram CEP, sem coordenadas.
 7. Desligue `LOCALIZACAO_POR_CEP` e reinicie: tudo volta a mostrar a coordenada, como antes.
@@ -26,10 +26,10 @@ de contato. Pare e rode `npm run dev` de novo depois de mudar o `.env.local`.
 
 | Caso | Esperado |
 |---|---|
-| Check-in numa capital | CEP da rua (sem "aproximado") ou "aproximado" quando veio pela rua no ViaCEP |
+| Check-in numa capital | CEP da rua, sempre marcado "aproximado" (a localização nunca é apresentada como exata, como no WhatsApp) |
 | Check-in numa cidade pequena | CEP geral da cidade, marcado "aproximado" |
 | Localização negada | Mesma mensagem de sempre, com "Tentar de novo"; check-in bloqueado |
-| GPS fraco (dentro de prédio) | Precisão alta (ex.: ±80 m), CEP pode sair aproximado |
+| GPS fraco (dentro de prédio) | Precisão baixa (ex.: aprox. 80 m), CEP pode sair aproximado |
 | Servidor sem internet / APIs fora do ar | Check-in funciona; aparece "Endereço indisponível no momento"; ao abrir a visita mais tarde, o CEP é buscado de novo |
 | Correção pelo gestor | O local (CEP, precisão) não muda |
 | Treinamento online | Nada de GPS nem CEP |

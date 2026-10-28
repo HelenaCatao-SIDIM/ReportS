@@ -1,6 +1,6 @@
 "use client";
 
-import { formatarCep, textoEndereco } from "@/lib/format";
+import { formatarCep, textoEndereco, textoPrecisao } from "@/lib/format";
 import type { EstadoGps } from "./use-gps";
 import type { EstadoPrevia } from "./use-previa-cep";
 
@@ -9,7 +9,7 @@ import type { EstadoPrevia } from "./use-previa-cep";
  * sem, mantém o comportamento antigo (coordenada).
  */
 export function TextoLocal({ gps, porCep, previa }: { gps: Extract<EstadoGps, { fase: "ok" }>; porCep: boolean; previa: EstadoPrevia }) {
-  const precisao = `±${Math.round(gps.precisao)} m`;
+  const precisao = textoPrecisao(gps.precisao);
 
   if (!porCep) {
     return (
@@ -26,7 +26,7 @@ export function TextoLocal({ gps, porCep, previa }: { gps: Extract<EstadoGps, { 
     return (
       <div className="text-xs text-muted-foreground">
         <span className="font-medium text-foreground">CEP {formatarCep(p.cep)}</span>
-        {p.aproximado && <span> (aproximado)</span>} · {precisao}
+        <span> (aproximado)</span> · {precisao}
         {endereco && <div className="truncate">{endereco}</div>}
       </div>
     );

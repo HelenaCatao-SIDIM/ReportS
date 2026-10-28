@@ -67,6 +67,9 @@ export const formatarCbo = (codigo: string) => codigo.replace(/^(\d{4})(\d{2})$/
 /** 87020000 → 87020-000 */
 export const formatarCep = (cep: string) => soDigitos(cep).replace(/^(\d{5})(\d{3})$/, "$1-$2");
 
+/** Precisão do GPS no estilo "aprox. 15 m": a localização nunca é apresentada como exata. */
+export const textoPrecisao = (metros: number) => `aprox. ${Math.round(metros)} m`;
+
 /** Partes do endereço em uma linha: "Rua X, Bairro, Cidade/UF" (só o que existir). */
 export function textoEndereco(e: { logradouro: string | null; bairro: string | null; cidade: string | null; uf: string | null }) {
   const cidade = [e.cidade, e.uf].filter(Boolean).join("/");

@@ -43,7 +43,7 @@ function Secao({ numero, titulo, children }: { numero: number; titulo: string; c
 /** Linhas escritas no rodapé da foto do ambiente (nunca coordenadas). */
 function linhasCarimbo(cep: string | null, cidade: string | null, uf: string | null) {
   const quando = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }).format(new Date());
-  const local = cep ? `CEP ${formatarCep(cep)}${cidade ? ` · ${[cidade, uf].filter(Boolean).join("/")}` : ""}` : "CEP não identificado";
+  const local = cep ? `CEP ${formatarCep(cep)} (aprox.)${cidade ? ` · ${[cidade, uf].filter(Boolean).join("/")}` : ""}` : "CEP não identificado";
   return [quando, local];
 }
 
