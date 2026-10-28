@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mudancas } from "@/components/relatorio/mudancas";
+import { ChamadosSuporte } from "@/components/relatorio/chamados-suporte";
 import { Decisao } from "./decisao";
 
 export const metadata: Metadata = { title: "Relatório de atendimento · SIDIM", robots: { index: false, follow: false } };
@@ -175,6 +176,8 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/aprovacao/[to
           </div>
         </CardContent>
       </Card>
+
+      {c.suporte && <ChamadosSuporte resumo={c.suporte} publico="aprovador" />}
 
       {pdf && (
         <a href={pdf} className="flex items-center justify-center gap-2 rounded-xl border bg-background p-3 text-sm font-medium text-primary hover:bg-muted/50">

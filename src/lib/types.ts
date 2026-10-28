@@ -32,6 +32,8 @@ export interface Cliente {
   exigeCpf: boolean;
   ativo: boolean;
   aprovadores: Aprovador[];
+  /** Como o cliente aparece no Fortics (campo "Cliente / Município"), para cruzar os chamados de suporte. */
+  nomesFortics: string[];
 }
 
 export interface Unidade {
@@ -191,6 +193,35 @@ export interface VisitaDetalhada extends Visita {
   travada: boolean;
 }
 
+export interface ContagemSuporte {
+  nome: string;
+  quantidade: number;
+}
+
+/** Chamado de suporte (Fortics) aberto e fechado no período. Sem transcrição nem avaliação do agente. */
+export interface ChamadoSuporte {
+  protocolo: string;
+  abertura: string;
+  encerramento: string;
+  sistema: string;
+  topico: string;
+  motivoEncerramento: string;
+  agente: string;
+}
+
+/** Resumo dos chamados de suporte do cliente no período, vindo do n8n (congelado na emissão). */
+export interface ResumoSuporte {
+  situacao: "ok" | "sem_vinculo" | "indisponivel";
+  totalAbertosEFechados: number;
+  porSistema: ContagemSuporte[];
+  porTopico: ContagemSuporte[];
+  porMotivoEncerramento: ContagemSuporte[];
+  tempoMedioEsperaMin: number | null;
+  chamados: ChamadoSuporte[];
+  /** Quando foi consultado (ISO). */
+  consultadoEm: string;
+}
+
 export interface ConteudoCongelado {
   cliente: { nome: string; cnpj: string; contrato: string };
   de: string;
@@ -200,6 +231,8 @@ export interface ConteudoCongelado {
   deOutroPeriodo: string[];
   minutosPresenciais: number;
   minutosOnline: number;
+  /** Chamados de suporte no período. Opcional: versões emitidas antes desta funcionalidade não têm. */
+  suporte?: ResumoSuporte | null;
 }
 
 /** Link de aprovação: um por aprovador e por versão; vale até a primeira decisão ou uma nova versão. */

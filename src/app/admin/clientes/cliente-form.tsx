@@ -160,6 +160,29 @@ export function ClienteForm({ acao, cliente }: { acao: Acao; cliente?: Cliente }
         </CardContent>
       </Card>
 
+      <Card key={`fortics-${JSON.stringify(state.valores ?? null)}`}>
+        <CardHeader>
+          <CardTitle>Chamados de suporte</CardTitle>
+          <CardDescription>Liga este cliente aos atendimentos do Fortics, para o relatório mostrar os chamados abertos e fechados no período.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Campo
+            id="nomesFortics"
+            label="Nome no Fortics"
+            erro={e.nomesFortics}
+            dica="Como este cliente aparece no Fortics, no campo Cliente / Município (ex.: Prefeitura de Vale Verde / Vale Verde). Um por linha; pode ter mais de um."
+          >
+            <Textarea
+              id="nomesFortics"
+              name="nomesFortics"
+              rows={3}
+              defaultValue={(v?.nomesFortics ?? []).join("\n")}
+              aria-invalid={!!e.nomesFortics}
+            />
+          </Campo>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Aprovadores</CardTitle>
