@@ -60,7 +60,7 @@ GEOCODING_USER_AGENT=SIDIM-Visitas/1.0 (contato@sidimsistemas.com.br)
 
 Opcional — **envio real de e-mail** (desligado por padrão; com ele desligado, os e-mails só aparecem na Caixa de saída,
 como antes). O caminho da SIDIM é o **servidor SMTP da própria empresa** (Oracle Cloud Email Delivery), o mesmo que os outros
-sistemas usam. O Resend (plano gratuito) fica como alternativa.
+sistemas usam. O Resend, usado nos primeiros testes, sai do plano da plataforma (decisão D-04).
 
 ```bash
 EMAIL_REAL=true
@@ -85,8 +85,8 @@ EMAIL_REDIRECIONAR_PARA=voce@sidimsistemas.com.br
 - As credenciais do SMTP são segredos: ficam só no `.env.local` (ou nas variáveis do servidor de produção), nunca no repositório, no chat
   ou em e-mail.
 
-Alternativa: `EMAIL_PROVEDOR=resend` com `RESEND_API_KEY` (chave do painel do Resend, que só entrega ao dono da conta até verificar um domínio);
-sem `EMAIL_PROVEDOR`, vale o SMTP quando `SMTP_HOST` está definido, e o Resend nos demais casos. Gmail e Microsoft 365 também funcionam por SMTP.
+O código ainda aceita `EMAIL_PROVEDOR=resend` com `RESEND_API_KEY`, herança dos primeiros testes. Esse suporte será removido (ver `MELHORIAS.md`); não use em produção.
+Sem `EMAIL_PROVEDOR`, vale o SMTP quando `SMTP_HOST` está definido. Gmail e Microsoft 365 também funcionam por SMTP.
 
 Roteiro de teste em `docs/teste-email-real.md`.
 
@@ -166,7 +166,7 @@ Decisão de 29/10/2026: o ReportS e o SINC passam a ser dois serviços de um mes
 - **Sai** o plano anterior (Supabase, Vercel, Resend). **Entram** o servidor do SINC (https em `reports.sidim.com.br`), o banco `reports`, a base `plataforma` (só o SINC cria e altera tabelas lá), o disco do servidor para fotos, assinaturas e PDFs, e o SMTP da SIDIM para e-mails.
 - Sistemas (SERP, SCA, SE, Saúde), clientes, participantes e usuários da SIDIM passam a ter **uma fonte só**, na plataforma. O ReportS deixa de ter cadastro próprio de usuários e de clientes; o perfil "gestor" vira permissões.
 - O ReportS adapta o protótipo **em memória** enquanto o SINC faz as Fases 0 a 3, e só passa a usar banco na Fase 4.
-- **Biblioteca de banco: Prisma 7.x**, com um schema por banco: `reports` com migrações próprias e `plataforma` só por introspecção (o ReportS nunca altera a estrutura dela). Detalhes e cuidados no `MELHORIAS.md`.
+- **Biblioteca de banco: Prisma 7.x**, como o plano sugere: um schema do Prisma por banco, `reports` com migrações próprias e `plataforma` só por introspecção (o ReportS nunca altera a estrutura dela). Detalhes no `MELHORIAS.md`.
 
 Andamento do ReportS (detalhes no `MELHORIAS.md`): **Fase 0** com a documentação e a biblioteca de banco decididas; **Fase 1** feita (sistemas como cadastro só de leitura; temas escolhem o sistema numa lista). Próximas: Fase 2 (cliente, sistemas do cliente, contrato por sistema e aprovador próprio) e Fase 3 (permissões no lugar do perfil).
 

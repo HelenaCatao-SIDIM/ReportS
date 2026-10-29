@@ -168,24 +168,24 @@ Pontos para alinhar com a Helena que afetam o ReportS: o campo hoje chamado "Nom
 
 #### Decisão técnica: biblioteca de banco — Prisma 7 (29/10/2026)
 
-O plano deixava a escolha para o desenvolvimento (sugestão: Prisma, com a plataforma só por introspecção). **Escolhido: Prisma 7.x** (`prisma` e `@prisma/client`, com `@prisma/adapter-pg`). Foi feito um teste prático em PostgreSQL 16 com tabelas no estilo do Rails (ids `bigint`, índices únicos parciais, `check`, `now()` como padrão), comparando com o Drizzle. O que o teste mostrou:
+**Segue o artefato.** A Fase 0 do plano diz: "Prisma com dois esquemas, o `reports` com migrações próprias e o `plataforma` só por introspecção, nunca migrado pelo ReportS (D-03)"; "Pontos a confirmar" deixa a escolha com o Desenvolvimento; a Fase 4 pede um teste que falhe se a introspecção estiver desatualizada. Escolhido: **Prisma 7.x** (`prisma`, `@prisma/client` e `@prisma/adapter-pg`).
 
-- **Dois bancos = dois schemas Prisma.** Cada banco tem o seu `schema.prisma`, o seu arquivo de configuração e o seu client gerado, e os dois clients funcionam juntos no mesmo processo. O "dois esquemas" do plano deve ser lido assim: um schema do Prisma por banco (`reports` e `plataforma`), não dois schemas dentro de um banco.
-- **`reports`**: schema com migrações do Prisma (`migrate dev` e `migrate deploy`).
-- **`plataforma`**: schema só por introspecção (`prisma db pull`), **sem pasta de migrações e sem `migrate`**. A proteção de verdade é o usuário de banco do ReportS, sem permissão de alterar estrutura (D-03).
-- **Conferência de atualização**: `prisma db pull --print` e comparar com o `schema.prisma` versionado; qualquer coluna nova ou removida na plataforma aparece na diferença. Vai virar um teste que falha se a leitura estiver desatualizada (Fase 4).
-- **Padrão `now()` em `created_at`/`updated_at`** (regra da plataforma): o insert do ReportS funciona sem informar as datas.
-- **Restrições do banco são respeitadas**: o índice único parcial do CNPJ devolve o erro `P2002`; o `check` "cliente ou tenant" devolve `P2039`/`23514`. O Prisma não entende `check` (só avisa na introspecção), então a restrição fica só no banco e o código do ReportS precisa tratar o erro.
-- **Ids `bigint` voltam como `BigInt` do JavaScript**, que não vai para JSON nem para componentes de cliente. Regra: os repositórios (`src/lib/repo/*`) convertem os ids da plataforma para texto na fronteira, como já fazem com os ids do protótipo. As tabelas do `reports` guardam o id da plataforma como `BigInt` simples, sem chave estrangeira.
+Como o plano será seguido (a "dois esquemas" foi lida como **um schema do Prisma por banco**, `reports` e `plataforma`, porque os dois são bancos separados pela D-02):
 
-Cuidados que valem para a Fase 4:
+- **`reports`**: schema com migrações do Prisma.
+- **`plataforma`**: schema só por introspecção (`prisma db pull`), sem pasta de migrações e sem `migrate`. A proteção de verdade é o usuário de banco do ReportS, sem permissão de alterar estrutura.
+- **Teste de atualização (Fase 4)**: `prisma db pull --print` comparado com o `schema.prisma` versionado; falha se a plataforma mudou.
+- **Rails**: a leitura aceita as tabelas da plataforma como o plano as descreve, com `now()` como padrão de `created_at`/`updated_at`, índices únicos parciais (CNPJ, opção do ClickUp, tenant) e `check`.
 
-- Fixar a versão 7.x. Já existe a 8.0 em candidata a lançamento (RC); não usar até ser estável.
-- O Prisma 7 exige Node `^20.19`, `^22.12` ou `24+` no servidor; o plano dizia "Node 20 ou mais novo", então vale conferir o mínimo 20.19.
-- O client é gerado (`prisma generate`) e fica fora do Git; o script de publicação e o build precisam gerar os dois clients.
-- Nomes: as tabelas do Rails vêm em inglês e snake_case (`users`, `email_address`, `active`). O mapeamento para os nomes do ReportS (`Usuario`, `ativo`) é feito nos repositórios, não nas telas.
-- Em desenvolvimento, `migrate dev` precisa de permissão para criar o banco sombra; em produção só `migrate deploy`.
-- **Plano B: Drizzle.** Também leu as mesmas tabelas (inclusive as de índice parcial e `check`) e não tem etapa de geração nem exigência de versão do Node. Foi descartado porque o `drizzle-kit pull` grava arquivos de migração a cada leitura, o que aumenta o risco de alguém migrar a plataforma por engano, e porque o Prisma traz o fluxo de migrações do `reports` pronto e é o que o plano já indicava. Se o Prisma 7 der problema no servidor, a troca fica restrita a `src/lib/repo/*`.
+**Observações do desenvolvimento (não constam no artefato; não mudam nenhuma decisão dele).** Vêm de um teste prático feito em 29/10/2026, em PostgreSQL 16 com tabelas no estilo do Rails, comparando com o Drizzle:
+
+- O Prisma não entende `check` (só avisa na introspecção): a restrição fica no banco e o código do ReportS precisa tratar o erro. O índice único parcial devolve `P2002`.
+- Os ids `bigint` da plataforma voltam como `BigInt` do JavaScript, que não vai para JSON nem para componentes de cliente. Os repositórios (`src/lib/repo/*`) convertem para texto na fronteira.
+- Versão: usar a 7.x estável; a 8.0 ainda é candidata a lançamento (RC).
+- O Prisma 7 exige Node `^20.19`, `^22.12` ou `24+`. O plano diz "Node 20 ou mais novo" para o servidor; conferir que seja pelo menos 20.19.
+- O client é gerado (`prisma generate`); o build e o script de publicação precisam gerar os dois clients.
+- As tabelas do Rails vêm em inglês e snake_case (`users`, `email_address`, `active`); o mapeamento para os nomes do ReportS fica nos repositórios.
+- Se o Prisma der problema no servidor, o Drizzle leu as mesmas tabelas no teste e a troca ficaria restrita a `src/lib/repo/*`. Não foi escolhido porque o plano indica o Prisma.
 
 ### Pré-requisitos externos dos itens de infraestrutura (não verificados)
 
@@ -212,7 +212,8 @@ Não sabemos se já existem; precisam ser confirmados antes de cada item começa
 
 - [ ] **Alta** — Banco de dados real (Fase 4 do plano da plataforma): banco `reports` no PostgreSQL do SINC e leitura/escrita na base `plataforma`. A troca fica concentrada em `src/lib/repo/*`; as telas não mudam.
 - [ ] **Alta** — Armazenamento de fotos, assinaturas e PDFs no disco do servidor, fora da pasta pública (Fase 4). Hoje ficam em memória.
-- [ ] **Média** — Envio real de e-mail. **Decisão da Helena (29/10/2026): usar o SMTP da própria SIDIM** (Oracle Cloud Email Delivery, o mesmo dos outros sistemas; porta 587 com STARTTLS; remetente aprovado no OCI). **Testado de ponta a ponta com o SMTP real da SIDIM em 29/10/2026**: o e-mail chegou com o PDF e o botão, e a aprovação pelo link pessoal funcionou (com a trava `EMAIL_REDIRECIONAR_PARA`). Na máquina de desenvolvimento foi preciso `NODE_OPTIONS=--use-system-ca`, porque o antivírus ou o firewall da rede troca o certificado; em produção isso não deve ser necessário. O Resend ficou como alternativa, também testado com o serviço real. **Falta** para enviar aos aprovadores de verdade: `APP_URL` público (https), remover a trava, e confirmar com a equipe do e-mail o SPF/DKIM do remetente (domínio dinâmico) para não cair no spam. **As credenciais do SMTP foram coladas no chat em 29/10/2026: a equipe responsável deve trocá-las.** Sem as variáveis, segue simulado na Caixa de saída (`src/lib/email.ts`).
+- [ ] **Média** — Envio real de e-mail. **Decisão da Helena (29/10/2026): usar o SMTP da própria SIDIM** (Oracle Cloud Email Delivery, o mesmo dos outros sistemas; porta 587 com STARTTLS; remetente aprovado no OCI). **Testado de ponta a ponta com o SMTP real da SIDIM em 29/10/2026**: o e-mail chegou com o PDF e o botão, e a aprovação pelo link pessoal funcionou (com a trava `EMAIL_REDIRECIONAR_PARA`). Na máquina de desenvolvimento foi preciso `NODE_OPTIONS=--use-system-ca`, porque o antivírus ou o firewall da rede troca o certificado; em produção isso não deve ser necessário. O Resend, usado nos primeiros testes, sai do plano (D-04 do plano da plataforma); o suporte a ele no código será removido (próximo item). **Falta** para enviar aos aprovadores de verdade: `APP_URL` público (https), remover a trava, e confirmar com a equipe do e-mail o SPF/DKIM do remetente (domínio dinâmico) para não cair no spam. **As credenciais do SMTP foram coladas no chat em 29/10/2026: a equipe responsável deve trocá-las.** Sem as variáveis, segue simulado na Caixa de saída (`src/lib/email.ts`).
+- [ ] **Baixa** — Remover do código o envio pelo Resend (`enviarPeloResend`, `EMAIL_PROVEDOR`, `RESEND_API_KEY`) e do roteiro `docs/teste-email-real.md`, porque o plano da plataforma tira o Resend (D-04) e deixa só o SMTP da SIDIM. Até lá o código ainda o aceita, mas não deve ser usado em produção.
 - [ ] **Média** — Importar a tabela CBO oficial do Ministério do Trabalho. Hoje é uma amostra de 25 ocupações, com códigos não conferidos. Ganha peso com a definição 2, em que o CBO passa a ser o único campo de ocupação.
 - [ ] **Média** — Publicar no servidor do SINC (`reports.sidim.com.br`, https) e testar no celular. O GPS do check-in presencial só funciona em https ou em `localhost`.
 
