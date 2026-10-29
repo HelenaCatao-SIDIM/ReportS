@@ -88,7 +88,9 @@ class ErroDefinitivo extends Error {}
 /** Mensagem curta e sem dados sensíveis (nunca inclui usuário nem senha). */
 function motivo(erro: unknown): { texto: string; definitivo: boolean } {
   if (erro instanceof ErroDefinitivo) return { texto: erro.message, definitivo: true };
-  const e = erro as { code?: string; responseCode?: number; response?: string; message?: string };
+  const e = erro as { code?: string; command?: string; responseCode?: number; response?: string; message?: string };
+  if (e.command === "STARTTLS" || e.code === "ETLS")
+    return { texto: "O servidor SMTP não oferece conexão criptografada (STARTTLS). Por segurança, o usuário e a senha não foram enviados. Confira o servidor e a porta (587 ou 465).", definitivo: true };
   if (e.code === "EAUTH") return { texto: "O servidor SMTP recusou o usuário ou a senha. No Gmail, use uma senha de app.", definitivo: true };
   // Resposta do servidor: 5xx é definitiva (endereço recusado, política); 4xx é temporária e vale uma nova tentativa.
   if (e.responseCode && e.responseCode >= 500) return { texto: `O servidor SMTP recusou a mensagem (${e.responseCode}): ${(e.response ?? "").slice(0, 160)}`, definitivo: true };

@@ -1,59 +1,68 @@
-# Teste do envio real de e-mail (Resend)
+# Teste do envio real de e-mail
 
-Sem `EMAIL_REAL=true` e `RESEND_API_KEY`, nada muda: os e-mails só aparecem em **Administração → Caixa de saída**.
-O Resend é o provedor padrão e tem plano gratuito (confira o limite atual no site). O SMTP fica como alternativa, no fim deste roteiro.
+Sem `EMAIL_REAL=true` e as credenciais de um provedor, nada muda: os e-mails só aparecem em **Administração → Caixa de saída**.
+O caminho da SIDIM é o **SMTP da própria empresa** (Oracle Cloud Email Delivery). O Resend e o SMTP de Gmail ficam como alternativas, no fim.
 
-## 1. Preparar o Resend (uma vez)
+## 1. Com o SMTP da SIDIM
 
-1. Crie uma conta em https://resend.com. Para o teste, **use o seu e-mail** (pessoal ou o da SIDIM): é nele que os e-mails chegam,
-   e não precisa de domínio. Confirme o e-mail que o Resend enviar.
-2. **API Keys → Create API Key**, permissão **Sending access**. Copie a chave (ela só aparece uma vez). **Não cole no chat nem no Git.**
-3. No `.env.local`, com cada variável em uma linha própria:
+Peça à equipe responsável (a mesma que configura os outros sistemas) os dados do SMTP: servidor, usuário, senha e o remetente aprovado.
+**Esses dados são segredos: não cole no chat nem no Git.**
+
+1. No `.env.local` (cada variável em uma linha própria):
 
 ```
 EMAIL_REAL=true
-RESEND_API_KEY=<a chave>
-EMAIL_REDIRECIONAR_PARA=<o e-mail da conta do Resend>
+SMTP_HOST=smtp.email.<região>.oci.oraclecloud.com
+SMTP_PORTA=587
+SMTP_USUARIO=<usuário SMTP do OCI>
+SMTP_SENHA=<senha SMTP do OCI>
+EMAIL_REMETENTE=Sidim Sistemas <remetente aprovado no OCI>
+EMAIL_REDIRECIONAR_PARA=<o seu e-mail, para receber os testes>
 ```
 
-Sem `EMAIL_REMETENTE`, o sistema usa `onboarding@resend.dev`, o remetente de testes do Resend, que **só entrega ao e-mail dono da
-conta**. Por isso a trava `EMAIL_REDIRECIONAR_PARA` aponta para esse mesmo e-mail.
-
-4. Reinicie o `npm run dev`.
-
-## 2. Primeiro envio real
-
-1. Entre como `gestor@sidim.com.br`, gere um relatório (ex.: Prefeitura de Vale Verde, 01/10 a 31/10) e clique em **Emitir e enviar**.
-2. A página avisa "e-mail enviado a 2 de 2 aprovador(es)". Na **Caixa de saída**, cada e-mail aparece como **Enviado**, com o
-   identificador do Resend e o aviso da trava de teste. No painel do Resend (**Emails**) aparecem os mesmos envios.
-3. Abra a caixa de entrada (e o spam). Devem chegar dois e-mails, com assunto `[TESTE → Nome <e-mail do aprovador>] Relatório de
+   O `EMAIL_REMETENTE` é obrigatório: o usuário do OCI não é um e-mail, e o remetente precisa estar aprovado lá. Não defina `SMTP_SEGURO`.
+2. Reinicie o `npm run dev`.
+3. Entre como `gestor@sidim.com.br`, gere um relatório (ex.: Prefeitura de Vale Verde, 01/10 a 31/10) e clique em **Emitir e enviar**.
+4. A página avisa "e-mail enviado a 2 de 2 aprovador(es)". Na **Caixa de saída**, cada e-mail aparece como **Enviado**, com o
+   identificador da mensagem e o aviso da trava de teste.
+5. Abra a caixa de entrada **e o spam**. Devem chegar dois e-mails, com assunto `[TESTE → Nome <e-mail do aprovador>] Relatório de
    atendimento SIDIM …`, o **PDF em anexo** e o botão **Ver relatório**.
-4. Clique no botão: abre a página do aprovador com o link pessoal daquele aprovador. Aprove. O outro aprovador é avisado por e-mail
+6. Clique no botão: abre a página do aprovador com o link pessoal daquele aprovador. Aprove. O outro aprovador é avisado por e-mail
    (que também chega a você, pela trava).
 
-Os aprovadores **não precisam de conta nenhuma**: recebem um e-mail comum.
+Com `EMAIL_REDIRECIONAR_PARA` definida, **nada** vai para os aprovadores de verdade. Os aprovadores não precisam de conta nenhuma.
 
-## 3. Enviar aos aprovadores de verdade
+## 2. Enviar aos aprovadores de verdade
 
-1. No Resend: **Domains → Add Domain** (ex.: `sidimsistemas.com.br` ou um subdomínio como `relatorios.sidimsistemas.com.br`) e peça a
-   quem cuida do DNS para criar os registros que ele mostrar (SPF e DKIM). Espere o domínio ficar **Verified**.
-2. No `.env.local`: `EMAIL_REMETENTE=SIDIM Relatórios <relatorios@<domínio verificado>>`.
-3. Ajuste `APP_URL` para o endereço público do sistema (https), para o link abrir fora do seu computador.
-4. **Só então** remova `EMAIL_REDIRECIONAR_PARA` e reinicie. A partir daí os e-mails vão aos aprovadores cadastrados.
+1. Confirme com a equipe do e-mail que o remetente está aprovado e que o domínio dele tem SPF e DKIM (sem isso, os e-mails podem cair no spam).
+2. Ajuste `APP_URL` para o endereço público do sistema (https), para o link abrir fora do seu computador.
+3. **Só então** remova `EMAIL_REDIRECIONAR_PARA` e reinicie. A partir daí os e-mails vão aos aprovadores cadastrados.
 
 ## O que conferir quando algo falha
 
 | Sintoma na Caixa de saída | Causa provável |
 |---|---|
-| "O Resend respondeu 403/422 … domain is not verified" | Remetente de um domínio ainda não verificado, ou destinatário que não é o dono da conta usando `onboarding@resend.dev` |
-| "O Resend respondeu 401" | Chave errada, revogada ou com espaço sobrando |
-| "O Resend respondeu 429" | Limite de envios do plano; o sistema já tenta uma segunda vez |
+| "O servidor SMTP recusou o usuário ou a senha" | Usuário ou senha errados, copiados com espaço, ou credencial revogada |
+| "O servidor SMTP não oferece conexão criptografada (STARTTLS)" | Servidor ou porta errados (use 587 com STARTTLS, ou 465). Por segurança, usuário e senha não foram enviados |
+| "Não foi possível falar com o servidor SMTP" | Servidor ou porta errados, ou firewall/rede bloqueando a porta de envio |
+| "O servidor SMTP recusou a mensagem (5xx …)" | Remetente não aprovado no OCI, destinatário inexistente ou política do servidor |
+| "O servidor SMTP respondeu 4xx" | Limite de envios ou problema temporário; o sistema já tenta uma segunda vez |
 | Página: "O envio falhou para N aprovador(es)" | O relatório está emitido e os links existem; corrija a causa e emita uma nova versão |
-| Nada na Caixa de saída como "Enviado" | `EMAIL_REAL` ou `RESEND_API_KEY` não foram lidos: reinicie o servidor |
+| Nada na Caixa de saída como "Enviado" | `EMAIL_REAL` ou `SMTP_HOST` não foram lidos: reinicie o servidor |
 
-## Alternativa: SMTP (Gmail, Microsoft 365 ou o e-mail da SIDIM)
+## Alternativa: Resend (plano gratuito)
 
-No `.env.local`, em vez da chave do Resend:
+```
+EMAIL_REAL=true
+EMAIL_PROVEDOR=resend
+RESEND_API_KEY=<chave criada no painel do Resend>
+EMAIL_REDIRECIONAR_PARA=<o e-mail da conta do Resend>
+```
+
+Sem domínio verificado, o Resend só entrega ao e-mail dono da conta (por isso a trava aponta para ele). Para os clientes, verifique um
+domínio em **Domains** no painel e use `EMAIL_REMETENTE=SIDIM Relatórios <endereço do domínio>`.
+
+## Alternativa: Gmail (só para teste)
 
 ```
 EMAIL_REAL=true
@@ -65,7 +74,4 @@ SMTP_SENHA=<senha de app do Gmail>
 EMAIL_REDIRECIONAR_PARA=seu-email@gmail.com
 ```
 
-No Gmail, a senha é uma **senha de app** (Verificação em duas etapas ligada → Segurança → Senhas de app). No Google Workspace é o
-mesmo servidor; no Microsoft 365, `smtp.office365.com`, porta 587, e a TI precisa liberar o envio por SMTP da caixa. Gmail e Microsoft 365
-só aceitam o próprio endereço da conta como remetente. Erros comuns: "recusou o usuário ou a senha" (senha comum no lugar da senha de app)
-e "Não foi possível falar com o servidor SMTP" (servidor, porta ou firewall).
+A senha é uma **senha de app** (Verificação em duas etapas ligada → Segurança → Senhas de app).

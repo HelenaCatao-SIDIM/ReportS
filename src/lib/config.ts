@@ -17,12 +17,17 @@ export const carimboFoto = () => localizacaoPorCep() && ligado("CARIMBO_FOTO");
 export const buscaCoordenadas = () => ligado("BUSCA_COORDENADAS");
 
 /**
- * Envio real de e-mail. Provedor: Resend (padrão, plano gratuito) ou SMTP (Gmail, Microsoft 365, e-mail da SIDIM),
- * escolhido por EMAIL_PROVEDOR. Exige EMAIL_REAL=true e as credenciais do provedor (só no servidor).
+ * Envio real de e-mail. Provedor: SMTP (o servidor da SIDIM, Gmail, Microsoft 365) ou Resend (plano gratuito), escolhido por
+ * EMAIL_PROVEDOR; sem ele, vale o SMTP quando SMTP_HOST está definido e o Resend nos demais casos. Exige EMAIL_REAL=true e as credenciais do provedor (só no servidor).
  * Sem isso, o e-mail é apenas gravado na Caixa de saída (simulado).
  */
 export type ProvedorEmail = "resend" | "smtp";
-export const provedorEmail = (): ProvedorEmail => (process.env.EMAIL_PROVEDOR?.trim().toLowerCase() === "smtp" ? "smtp" : "resend");
+export const provedorEmail = (): ProvedorEmail => {
+  const escolhido = process.env.EMAIL_PROVEDOR?.trim().toLowerCase();
+  if (escolhido === "smtp" || escolhido === "resend") return escolhido;
+  // Sem escolha explícita: quem configurou um servidor SMTP quer o SMTP; senão, o Resend.
+  return process.env.SMTP_HOST?.trim() ? "smtp" : "resend";
+};
 
 export const emailReal = () =>
   ligado("EMAIL_REAL") && (provedorEmail() === "smtp" ? !!process.env.SMTP_HOST?.trim() : !!process.env.RESEND_API_KEY?.trim());
