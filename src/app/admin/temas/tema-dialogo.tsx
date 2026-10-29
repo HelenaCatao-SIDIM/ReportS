@@ -2,16 +2,16 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { AlertCircle, Loader2, Plus } from "lucide-react";
-import type { Tema } from "@/lib/types";
+import type { Sistema, Tema } from "@/lib/types";
 import { salvarTema, type TemaFormState } from "./actions";
-import { Campo } from "@/components/form/campo";
+import { Campo, selectClass } from "@/components/form/campo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Sugestoes {
-  sistemas: string[];
+  sistemas: Sistema[];
   modulos: string[];
 }
 
@@ -19,6 +19,11 @@ function TemaForm({ tema, sugestoes, onSalvo }: { tema?: Tema; sugestoes: Sugest
   const [state, action, pending] = useActionState<TemaFormState, FormData>(salvarTema.bind(null, tema?.id ?? null), {});
   const e = state.erros ?? {};
   const v = state.valores ?? tema;
+  // Tema antigo de um sistema desativado continua podendo ser editado (RN-PL-02).
+  const sistemas =
+    tema && !sugestoes.sistemas.some((s) => s.codigo === tema.sistema)
+      ? [...sugestoes.sistemas, { codigo: tema.sistema, nome: `${tema.sistemaNome} (desativado)` } as Sistema]
+      : sugestoes.sistemas;
 
   useEffect(() => {
     if (state.ok) onSalvo();
@@ -37,17 +42,21 @@ function TemaForm({ tema, sugestoes, onSalvo }: { tema?: Tema; sugestoes: Sugest
       </Campo>
       <div className="grid gap-4 sm:grid-cols-2">
         <Campo id="t-sistema" label="Sistema" erro={e.sistema}>
-          <Input id="t-sistema" name="sistema" list="lista-sistemas" defaultValue={v?.sistema} className="h-9" aria-invalid={!!e.sistema} />
+          <select id="t-sistema" name="sistema" defaultValue={v?.sistema ?? ""} className={selectClass} aria-invalid={!!e.sistema}>
+            <option value="" disabled>
+              Escolha…
+            </option>
+            {sistemas.map((s) => (
+              <option key={s.codigo} value={s.codigo}>
+                {s.nome}
+              </option>
+            ))}
+          </select>
         </Campo>
         <Campo id="t-modulo" label="Módulo" erro={e.modulo}>
           <Input id="t-modulo" name="modulo" list="lista-modulos" defaultValue={v?.modulo} className="h-9" aria-invalid={!!e.modulo} />
         </Campo>
       </div>
-      <datalist id="lista-sistemas">
-        {sugestoes.sistemas.map((s) => (
-          <option key={s} value={s} />
-        ))}
-      </datalist>
       <datalist id="lista-modulos">
         {sugestoes.modulos.map((m) => (
           <option key={m} value={m} />

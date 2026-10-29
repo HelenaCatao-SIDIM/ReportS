@@ -154,7 +154,7 @@ export function DetalheVisita({
                   <li key={t.id} className="text-sm">
                     {t.nome}
                     <span className="ml-1 text-xs text-muted-foreground">
-                      · {t.sistema} / {t.modulo}
+                      · {t.sistemaNome} / {t.modulo}
                     </span>
                   </li>
                 ))}

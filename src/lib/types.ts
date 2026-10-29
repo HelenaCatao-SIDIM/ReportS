@@ -56,11 +56,29 @@ export interface Setor {
   nome: string;
 }
 
+/**
+ * Sistema (ERP) da SIDIM. O cadastro é do SINC; o ReportS só lê.
+ * O código é a chave gravada em todos os registros e nunca muda.
+ */
+export interface Sistema {
+  codigo: string;
+  nome: string;
+  /** Nome da opção no campo "Sistemas" do ClickUp; vazio = o próprio código. */
+  nomeClickUp: string | null;
+  /** Como o sistema aparece no Fortics, para filtrar os chamados de suporte. */
+  nomeFortics: string | null;
+  ativo: boolean;
+  ordem: number;
+}
+
 /** Tema trabalhado na visita. Nome, sistema e módulo pertencem ao mesmo registro (sem hierarquia). */
 export interface Tema {
   id: string;
   nome: string;
+  /** Código do sistema (ver `Sistema`). */
   sistema: string;
+  /** Nome do sistema para mostrar; preenchido na leitura. */
+  sistemaNome: string;
   modulo: string;
   ativo: boolean;
 }

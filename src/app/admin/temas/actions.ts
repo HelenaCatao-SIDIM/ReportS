@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { exigirGestorAcao } from "@/lib/dal";
-import { atualizarTema, criarTema, definirTemaAtivo, grafiaCanonica, temaDuplicado } from "@/lib/repo/temas";
+import { atualizarTema, criarTema, definirTemaAtivo, grafiaCanonica, sistemaValido, temaDuplicado } from "@/lib/repo/temas";
 
 export interface TemaFormState {
   ok?: boolean;
@@ -21,7 +21,8 @@ export async function salvarTema(temaId: string | null, _: TemaFormState, fd: Fo
 
   const erros: NonNullable<TemaFormState["erros"]> = {};
   if (!d.nome) erros.nome = "Informe o nome do tema.";
-  if (!d.sistema) erros.sistema = "Informe o sistema.";
+  if (!d.sistema) erros.sistema = "Escolha o sistema.";
+  else if (!(await sistemaValido(d.sistema, temaId ?? undefined))) erros.sistema = "Escolha um dos sistemas da lista.";
   if (!d.modulo) erros.modulo = "Informe o módulo.";
   if (!Object.keys(erros).length && (await temaDuplicado(d, temaId ?? undefined))) {
     erros.geral = "Já existe um tema com este nome, sistema e módulo.";

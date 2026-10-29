@@ -72,7 +72,7 @@ function Texto({ rotulo, valor }: { rotulo: string; valor: string }) {
 
 function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao }: { v: VisitaDetalhada; outroPeriodo: boolean; imagens: ImagensPdf; conteudo: ConteudoCongelado; versao: number }) {
   const fotos = [v.fotoAmbiente, v.printTela, ...v.fotosExtras].filter((f): f is NonNullable<typeof f> => !!f && imagens.has(f.url));
-  const temas = [...v.temas.map((t) => `${t.nome} (${t.sistema} / ${t.modulo})`), ...(v.temaAdicional ? [`${v.temaAdicional} (adicional)`] : [])];
+  const temas = [...v.temas.map((t) => `${t.nome} (${t.sistemaNome} / ${t.modulo})`), ...(v.temaAdicional ? [`${v.temaAdicional} (adicional)`] : [])];
 
   return (
     <Page size="A4" style={s.pagina}>

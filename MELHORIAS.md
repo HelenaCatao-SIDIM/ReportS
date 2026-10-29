@@ -71,7 +71,7 @@ Atualizado em 27/10/2026. Aqui está tudo o que **não anda sem uma ação de fo
 | **4. Lista de presença por seleção** | Dependência | Definir de onde vem a base de pessoas do cliente | Time de desenvolvimento |
 | **7 e 8. Implantação e check-list** | Não é bloqueio: adiados por definição | Entram quando a função existir | — |
 | **3 decisões em aberto (2, 6 e 7)** | Decisão | Uma resposta para cada. As decisões 1, 3, 4 e 5 foram respondidas em 27/10/2026. | Quem decide o produto |
-| **Login único entre sistemas** | Dependência (nova) | Decidir antes do banco real | Quem decide a arquitetura |
+| **Plataforma SIDIM (SINC + ReportS)** | Plano aprovado em 29/10/2026 | Fases 0 a 3 do SINC antes do banco real do ReportS | Helena e desenvolvimento do SINC |
 
 ### Ponto 5 — Coordenadas do estabelecimento sem digitação · feito e testado com o serviço real (28/10/2026)
 
@@ -149,9 +149,22 @@ Duas entregas vieram do time e entraram na `main` por PR, **desligadas por padr�
 - **Testado em 28/10/2026** no computador, com os serviços reais: o CEP apareceu em todas as telas, sem coordenadas. Observação importante: o navegador do computador estima a posição por Wi-Fi e IP, e o mapa gratuito devolveu a via mais próxima, com um CEP diferente do oficial do endereço. Por isso o CEP é só uma referência, e a prova de presença mais confiável continua sendo a **distância até o estabelecimento** (ponto 6). No celular, com GPS, a posição deve ser bem melhor, mas isso **ainda não foi testado**.
 - Em aberto: teste no celular com https; aviso de LGPD ao técnico (a coordenada vai a um serviço de terceiros); confirmar se o aprovador do cliente deve ver o CEP; o cadastro do estabelecimento ainda pede latitude e longitude digitadas.
 
-### Login único entre sistemas · dependência nova (a organizar em arquivo próprio)
+### Plataforma SIDIM — unificação SINC + ReportS · plano aprovado (29/10/2026)
 
-Surgiu em 27/10/2026: a ideia de unificar os acessos dos sistemas internos, com um cadastro central de usuários e um portal comum. O ponto que interessa aqui é a **ordem**: o banco real do ReportS (item de infraestrutura abaixo) prevê uma tabela de usuários. Se ela for criada antes da decisão de identidade, será descartada depois. Na parte do ReportS, a troca fica concentrada em `src/lib/repo/usuarios.ts`, `src/lib/session.ts` e `src/lib/dal.ts`. O plano completo será escrito à parte, a pedido.
+Substitui a antiga ideia de "login único". A Helena fechou 24 decisões (documento "Plataforma SIDIM — Unificação SINC + ReportS: plano e documentação"). Em resumo: banco `plataforma` comum no PostgreSQL do SINC (só o SINC altera a estrutura), banco `reports` próprio, ReportS no mesmo servidor, sistemas e clientes (por CNPJ) com uma fonte só, usuários da SIDIM com papéis e permissões geridos no Admin do SINC, participantes confirmados/provisórios com junção. O plano anterior (Prisma + Supabase + Vercel + Resend) foi substituído.
+
+O ReportS adapta o protótipo **em memória** enquanto o SINC faz as Fases 0 a 3; só na Fase 4 troca a camada de dados. Trilha do ReportS:
+
+| Fase | No ReportS | Situação |
+|---|---|---|
+| 0 | README e MELHORIAS atualizados; biblioteca de banco (sugestão: Prisma, um schema por banco); inventário do que depende de perfil, cliente e participante | Docs atualizados em 29/10/2026; biblioteca e inventário pendentes |
+| 1 | Cadastro de sistemas (SERP, SCA, SE, Saúde) só de leitura; tema escolhe o sistema numa lista; dados de exemplo sem sistemas fictícios | **Feito** em 29/10/2026 (`src/lib/repo/sistemas.ts`) |
+| 2 | Cliente em três (cliente, sistemas do cliente, contrato por sistema); aprovador próprio; check-in cliente → sistema → estabelecimento → setor; relatório por contrato; chamados por sistema | Pendente |
+| 3 | Perfil gestor/técnico sai; permissões; sessão só com o id; telas de usuários saem | Pendente |
+| 4 | Banco `reports`, leitura/escrita na plataforma, arquivos em disco, SMTP, deploy | Depende das Fases 1 a 3 do SINC em produção e da decisão de LGPD sobre guardar CPF |
+| 5 | Junção de participantes | Depende da Fase 4 |
+
+Pontos para alinhar com a Helena que afetam o ReportS: o campo hoje chamado "Nome no SINC" (nomes do cliente nos chamados) é "Nomes no Fortics" no plano, e o plano também prevê "nome no Fortics" por sistema; um cliente pode ter dois tenants do mesmo sistema?; cargo do aprovador (um só, mesmo aprovando para vários clientes); como o Prisma lida com dois bancos separados (um schema e um client por banco).
 
 ### Pré-requisitos externos dos itens de infraestrutura (não verificados)
 
@@ -159,16 +172,16 @@ Não sabemos se já existem; precisam ser confirmados antes de cada item começa
 
 | Item | Precisa de |
 |---|---|
-| Banco de dados real e armazenamento | Um projeto Supabase (conta e credenciais) e a decisão de identidade acima |
+| Banco de dados real e armazenamento | Banco `reports` e acesso à base `plataforma` no servidor do SINC (Fases 0 a 3 do SINC); disco do servidor para os arquivos |
 | Envio real de e-mail | As credenciais do SMTP da SIDIM (usuário, senha e remetente aprovado no OCI), guardadas só no servidor; SPF/DKIM do domínio do remetente |
 | Tabela CBO oficial | O arquivo oficial do Ministério do Trabalho. Não testamos se o ambiente consegue baixá-lo |
-| Publicação e teste no celular com https | Conta Vercel e o domínio |
+| Publicação e teste no celular com https | Servidor do SINC e o domínio `reports.sidim.com.br` |
 
 ### Ordem sugerida para resolver
 
 1. **Decisões em aberto (2, 6 e 7).** São respostas rápidas e destravam o acabamento do que já foi feito.
 2. **Ponto 5**: testar no computador local, com o serviço real e o endereço real de um estabelecimento (roteiro em `docs/teste-busca-coordenadas.md`).
-3. **Login único**, antes do banco real.
+3. **Plataforma SIDIM**: trilha do ReportS em memória (Fases 1 a 3), em paralelo ao SINC; banco real só depois.
 4. **Pontos 4 e 9**, que dependem do time e do Fortics.
 5. **Infraestrutura**, na ordem da seção "A fazer".
 
@@ -176,11 +189,11 @@ Não sabemos se já existem; precisam ser confirmados antes de cada item começa
 
 ### Infraestrutura (vem do "Próximos passos" do README)
 
-- [ ] **Alta** — Banco de dados real (Prisma + PostgreSQL/Supabase). A troca fica concentrada em `src/lib/repo/*`; as telas não mudam.
-- [ ] **Alta** — Armazenamento de fotos, assinaturas e PDFs (Supabase Storage). Hoje ficam em memória.
+- [ ] **Alta** — Banco de dados real (Fase 4 do plano da plataforma): banco `reports` no PostgreSQL do SINC e leitura/escrita na base `plataforma`. A troca fica concentrada em `src/lib/repo/*`; as telas não mudam.
+- [ ] **Alta** — Armazenamento de fotos, assinaturas e PDFs no disco do servidor, fora da pasta pública (Fase 4). Hoje ficam em memória.
 - [ ] **Média** — Envio real de e-mail. **Decisão da Helena (29/10/2026): usar o SMTP da própria SIDIM** (Oracle Cloud Email Delivery, o mesmo dos outros sistemas; porta 587 com STARTTLS; remetente aprovado no OCI). **Testado de ponta a ponta com o SMTP real da SIDIM em 29/10/2026**: o e-mail chegou com o PDF e o botão, e a aprovação pelo link pessoal funcionou (com a trava `EMAIL_REDIRECIONAR_PARA`). Na máquina de desenvolvimento foi preciso `NODE_OPTIONS=--use-system-ca`, porque o antivírus ou o firewall da rede troca o certificado; em produção isso não deve ser necessário. O Resend ficou como alternativa, também testado com o serviço real. **Falta** para enviar aos aprovadores de verdade: `APP_URL` público (https), remover a trava, e confirmar com a equipe do e-mail o SPF/DKIM do remetente (domínio dinâmico) para não cair no spam. **As credenciais do SMTP foram coladas no chat em 29/10/2026: a equipe responsável deve trocá-las.** Sem as variáveis, segue simulado na Caixa de saída (`src/lib/email.ts`).
 - [ ] **Média** — Importar a tabela CBO oficial do Ministério do Trabalho. Hoje é uma amostra de 25 ocupações, com códigos não conferidos. Ganha peso com a definição 2, em que o CBO passa a ser o único campo de ocupação.
-- [ ] **Média** — Publicar (Vercel) e testar no celular com https. O GPS do check-in presencial só funciona em https ou em `localhost`.
+- [ ] **Média** — Publicar no servidor do SINC (`reports.sidim.com.br`, https) e testar no celular. O GPS do check-in presencial só funciona em https ou em `localhost`.
 
 ### Documentação
 
