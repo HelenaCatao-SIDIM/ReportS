@@ -9,6 +9,7 @@ import { ROTULO_MEIO } from "@/lib/meio";
 import { ehPresencial, rotuloTipo } from "@/lib/visitas";
 import { localizacaoPorCep } from "@/lib/config";
 import { LocalVisita } from "@/components/visita/local-visita";
+import { SeloParticipante } from "@/components/participante/selo-participante";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -80,15 +81,18 @@ function Texto({ rotulo, valor }: { rotulo: string; valor: string }) {
  * Conteúdo completo de uma visita, em modo leitura.
  * `cpf`: "completo" só para a administração dentro do sistema; nos demais lugares, "mascarado".
  * `controle`: só na Administração; mostra a distância do check-in ao estabelecimento (não aparece para técnico nem aprovador).
+ * `selos`: mostra o estado do participante (confirmado ou provisório); só na Administração e no App do Técnico, nunca para o aprovador.
  */
 export function DetalheVisita({
   visita: v,
   cpf = "mascarado",
   controle = false,
+  selos = false,
 }: {
   visita: VisitaDetalhada;
   cpf?: "completo" | "mascarado";
   controle?: boolean;
+  selos?: boolean;
 }) {
   const presencial = ehPresencial(v.tipo);
   // Com a localização por CEP ligada, a coordenada nunca aparece (nem para o aprovador do cliente).
@@ -199,7 +203,10 @@ export function DetalheVisita({
               <TableBody>
                 {v.presencas.map((p) => (
                   <TableRow key={p.participanteId}>
-                    <TableCell className="pl-4 font-medium">{p.nome}</TableCell>
+                    <TableCell className="pl-4 font-medium">
+                      {p.nome}
+                      {selos && <SeloParticipante estado={p.estado} className="ml-2" />}
+                    </TableCell>
                     <TableCell className="text-xs">
                       <span className="font-mono text-muted-foreground">{formatarCbo(p.cbo.codigo)}</span> {p.cbo.titulo}
                     </TableCell>

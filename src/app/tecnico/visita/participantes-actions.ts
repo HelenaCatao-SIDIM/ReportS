@@ -5,58 +5,70 @@ import { exigirPermissaoAcao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
 import { cpfValido, mascararCpf, normalizar, soDigitos } from "@/lib/format";
 import { ehPresencial } from "@/lib/visitas";
-import { buscarCliente } from "@/lib/repo/clientes";
 import { buscarContrato } from "@/lib/repo/contratos";
 import { buscarCbo } from "@/lib/repo/cbo";
 import { salvarImagem } from "@/lib/repo/arquivos";
-import { buscarParticipante, cpfEmUso, criarParticipante, homonimo, listarParticipantes } from "@/lib/repo/participantes";
+import { buscarParticipante, buscarSemelhantes, criarProvisorio, listarParticipantes } from "@/lib/repo/participantes";
 import { adicionarPresenca, buscarVisita, removerPresenca } from "@/lib/repo/visitas";
-import type { Cbo } from "@/lib/types";
+import type { Cbo, EstadoParticipante, Participante } from "@/lib/types";
 
 async function contexto(visitaId: string) {
   const tecnico = await exigirPermissaoAcao(PERMISSOES.tecnico);
   const v = await buscarVisita(visitaId);
   if (!v || v.tecnicoId !== tecnico.id) throw new Error("Visita não encontrada");
-  const cliente = await buscarCliente(v.clienteId);
   const contrato = await buscarContrato(v.contratoId);
-  if (!cliente || !contrato) throw new Error("Cliente não encontrado");
+  if (!contrato) throw new Error("Contrato não encontrado");
   // A forma de comprovação e o CPF seguem o contrato da visita. Assinatura só no presencial; treinamento online é sempre nominal.
   const exigeAssinatura = contrato.nivel === "assinado" && ehPresencial(v.tipo);
-  return { tecnico, v, cliente, exigeAssinatura, exigeCpf: contrato.exigeCpf };
+  // Os participantes são do sistema do cliente do contrato (a mesma pessoa pode ter cadastros diferentes em cada sistema).
+  return { tecnico, v, sistemaDoClienteId: contrato.sistemaDoClienteId, exigeAssinatura, exigeCpf: contrato.exigeCpf };
 }
 
 export interface SugestaoParticipante {
   id: string;
   nome: string;
+  estado: EstadoParticipante;
   cbo: Cbo;
   setor: string;
   cpfMascarado: string;
 }
 
-/** Participantes do cliente cujo nome contém o termo, fora os que já estão na visita. CPF só mascarado. */
+const sugestao = (p: Participante): SugestaoParticipante => ({
+  id: p.id,
+  nome: p.nome,
+  estado: p.estado,
+  cbo: p.cbo,
+  setor: p.setor,
+  cpfMascarado: p.cpf ? mascararCpf(p.cpf) : "",
+});
+
+/** Participantes do sistema do cliente cujo nome contém o termo, fora os que já estão na visita. CPF só mascarado. */
 export async function sugerirParticipantes(visitaId: string, termo: string): Promise<SugestaoParticipante[]> {
-  const { v } = await contexto(visitaId);
+  const { v, sistemaDoClienteId } = await contexto(visitaId);
   if (normalizar(termo).length < 2) return [];
   const presentes = new Set(v.presencas.map((p) => p.participanteId));
   const n = normalizar(termo);
-  return (await listarParticipantes(v.clienteId))
+  return (await listarParticipantes(sistemaDoClienteId))
     .filter((p) => !presentes.has(p.id) && normalizar(p.nome).includes(n))
     .slice(0, 8)
-    .map((p) => ({ id: p.id, nome: p.nome, cbo: p.cbo, setor: p.setor, cpfMascarado: p.cpf ? mascararCpf(p.cpf) : "" }));
+    .map(sugestao);
 }
 
 export interface PresencaState {
   ok?: boolean;
   erros?: Partial<Record<"nome" | "cbo" | "cpf" | "assinatura" | "geral", string>>;
-  pedirHomonimo?: boolean;
+  /** O CPF já é de alguém no sistema do cliente: a criação é bloqueada e o técnico usa essa pessoa. */
+  existente?: SugestaoParticipante;
+  /** Nomes iguais ou parecidos: "É esta pessoa?". Só cria um novo depois de o técnico confirmar que não é. */
+  semelhantes?: SugestaoParticipante[];
 }
 
 /**
- * Registra a presença: de um participante já cadastrado (`participanteId`) ou de um novo,
- * que também entra no cadastro do cliente marcado como "criado em campo".
+ * Registra a presença: de um participante já cadastrado (`participanteId`) ou de um novo, que entra no cadastro
+ * do sistema do cliente como provisório ("campo_reports"), depois da busca por CPF e por nome (RN-PL-34).
  */
 export async function registrarPresenca(visitaId: string, _: PresencaState, fd: FormData): Promise<PresencaState> {
-  const { tecnico, v, cliente, exigeAssinatura, exigeCpf } = await contexto(visitaId);
+  const { tecnico, v, sistemaDoClienteId, exigeAssinatura, exigeCpf } = await contexto(visitaId);
   if (v.status !== "em_andamento") return { erros: { geral: "Esta visita já foi encerrada." } };
 
   const erros: NonNullable<PresencaState["erros"]> = {};
@@ -66,7 +78,7 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
 
   const existenteId = String(fd.get("participanteId") ?? "");
   let participante = existenteId ? await buscarParticipante(existenteId) : null;
-  if (existenteId && (!participante || participante.clienteId !== cliente.id)) return { erros: { geral: "Participante não encontrado." } };
+  if (existenteId && (!participante || participante.sistemaDoClienteId !== sistemaDoClienteId)) return { erros: { geral: "Participante não encontrado." } };
   if (participante && v.presencas.some((p) => p.participanteId === participante!.id)) {
     return { erros: { geral: `${participante.nome} já está na lista.` } };
   }
@@ -78,17 +90,23 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
     const cbo = await buscarCbo(String(fd.get("cbo") ?? ""));
 
     if (nome.length < 3) erros.nome = "Informe o nome completo.";
-    else if (fd.get("homonimo") === null && (await homonimo(cliente.id, nome))) {
-      erros.nome = "Já existe alguém com este nome no cadastro. Escolha na lista de sugestões ou confirme que é outra pessoa.";
-    }
     if (!cbo) erros.cbo = "Escolha a ocupação (CBO) na lista.";
-    if (exigeCpf) {
-      if (!cpfValido(cpf)) erros.cpf = "CPF inválido.";
-      else if (await cpfEmUso(cliente.id, cpf)) erros.cpf = "Este CPF já está cadastrado. Busque a pessoa pelo nome.";
-    }
-    if (Object.keys(erros).length) return { erros, pedirHomonimo: erros.nome?.startsWith("Já existe") };
+    if (exigeCpf && !cpfValido(cpf)) erros.cpf = "CPF inválido.";
+    if (Object.keys(erros).length) return { erros };
 
-    participante = await criarParticipante(cliente.id, { nome, cbo: cbo!, setor, cpf: exigeCpf ? cpf : null }, true);
+    // Busca antes de criar: CPF igual bloqueia; nome igual ou parecido pede a confirmação de que é outra pessoa.
+    const achados = await buscarSemelhantes(sistemaDoClienteId, { nome, cpf: exigeCpf ? cpf : null });
+    if (achados.mesmoCpf) {
+      return {
+        erros: { cpf: `Este CPF já está cadastrado em ${achados.mesmoCpf.nome}. Use essa pessoa em vez de cadastrar de novo.` },
+        existente: sugestao(achados.mesmoCpf),
+      };
+    }
+    if (achados.nomesParecidos.length && fd.get("homonimo") === null) {
+      return { erros: { nome: "Já existe alguém com nome igual ou parecido. Confira se é a mesma pessoa." }, semelhantes: achados.nomesParecidos.map(sugestao) };
+    }
+
+    participante = await criarProvisorio(sistemaDoClienteId, { nome, cbo: cbo!, setor, cpf: exigeCpf ? cpf : null }, "campo_reports");
   } else if (Object.keys(erros).length) {
     return { erros };
   }
@@ -105,6 +123,7 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
 
   await adicionarPresenca(visitaId, tecnico.id, {
     participanteId: participante.id,
+    estado: participante.estado,
     nome: participante.nome,
     cbo: participante.cbo,
     setor: participante.setor || setorDaVisita,

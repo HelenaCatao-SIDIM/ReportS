@@ -113,7 +113,7 @@ export function ConteudoRelatorio({ c, tituloVisitas, linkVisitas }: { c: DadosC
               )}
             </summary>
             <div className="border-t p-4">
-              <DetalheVisita visita={v} cpf="mascarado" />
+              <DetalheVisita visita={v} cpf="mascarado" selos />
             </div>
           </details>
         ))}

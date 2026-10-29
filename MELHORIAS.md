@@ -172,7 +172,7 @@ O ReportS adapta o protótipo **em memória** enquanto o SINC faz as Fases 0 a 3
 - **Check-in**: cliente → sistema → estabelecimento → setor (sistema único já vem escolhido; o rascunho do aparelho guarda o contrato). A visita guarda o contrato; comprovação, assinatura e CPF seguem o contrato da visita. Os **temas** da visita (técnico e correção do gestor) são só do sistema do contrato.
 - **Relatório por contrato e período**: visitas elegíveis, sobreposição de períodos, capa, PDF, e-mail e página do aprovador mostram o sistema; só os aprovadores do contrato recebem. Cliente com dois sistemas tem dois relatórios por período.
 - Contrato inativo some do check-in, mas continua podendo gerar relatório das visitas antigas.
-- **Ficou fora** (não pedido nesta etapa): filtro dos chamados de suporte por sistema (parâmetro novo no fluxo do n8n); remover um sistema de um cliente; participantes por sistema do cliente (continuam por cliente; o CPF fora de uma visita segue "algum contrato ativo exige"); o inventário da Fase 0.
+- **Ficou fora** (não pedido nesta etapa): filtro dos chamados de suporte por sistema (parâmetro novo no fluxo do n8n); remover um sistema de um cliente; o inventário da Fase 0. *(Os participantes por sistema do cliente entraram depois: ver "Participantes: confirmado e provisório".)*
 
 #### Fase 3 no ReportS: como ficou (29/10/2026)
 
@@ -184,6 +184,16 @@ O ReportS adapta o protótipo **em memória** enquanto o SINC faz as Fases 0 a 3
 - **Telas de usuários removidas**: `/admin/usuarios` virou o aviso "Usuários e permissões são gerenciados no SINC", com o link (`SINC_URL`) e a lista das permissões do ReportS.
 - "Gestor" virou "administração" nos nomes e textos (`encerradaPelaAdministracao`, `encerrarPelaAdministracao`, `cancelarPelaAdministracao`, `corrigirPelaAdministracao`, "Encerrada pela administração"). Os e-mails de teste continuam os mesmos (`gestor@sidim.com.br` agora é a "Coordenação ReportS").
 - **Ficou fora**: "esqueci minha senha" apontando para o SINC e limite de 10 tentativas em 3 minutos por IP no login (RN-PL-55); o catálogo é registrado na plataforma só na Fase 4.
+
+#### Participantes: confirmado e provisório (29/10/2026)
+
+- **Participante é do sistema do cliente** (RN-PL-30), não do cliente: a mesma pessoa pode ter cadastros diferentes em cada sistema, e a lista, o CPF único e a busca são por sistema. A visita usa os participantes do sistema do contrato dela.
+- **Estados (RN-PL-31):** *confirmado pelo ERP* (tem o id do usuário no ERP; nome vem do ERP e não se edita no ReportS; nos dados de exemplo representa a captura do painel do SINC, sem CPF) e *provisório* (criado no ReportS, sem id do ERP). O "unido" e a junção são a fase seguinte. Origem do registro: painel do SINC, em campo (técnico) ou cadastro no ReportS (Administração).
+- **Quem edita o quê (RN-PL-42):** nome do confirmado, o ERP; nome do provisório, CBO, setor e CPF, o ReportS.
+- **Busca antes de criar (RN-PL-34):** ao criar um provisório (técnico em campo ou Administração), o ReportS procura, no mesmo sistema do cliente, quem já tem o **CPF** e quem tem **nome igual ou parecido** (sem acento; mesma semelhança do SINC: Levenshtein, a partir de 0,75). CPF igual **bloqueia** a criação e, no técnico, oferece "Usar esta pessoa". Nome parecido mostra **"É esta pessoa?"** com a lista e só cria depois de o usuário marcar que não é nenhuma delas.
+- **Selos** "Confirmado pelo ERP" e "Provisório" na lista de participantes, na escolha de presenças, no detalhe da visita (técnico e Administração) e no relatório da Administração. O aprovador e o PDF mostram só os nomes. A presença guarda o estado do dia.
+- **Temas com os 4 sistemas reais:** os temas escolhem o sistema entre SERP, SCA, SE e Saúde desde a Fase 1; agora os dados de exemplo têm temas para os quatro.
+- **Ficou fora (fase seguinte):** junção automática por CPF e pela revisão, desfazer junção, o estado "unido", a lista de revisão e a permissão `reports.participantes.revisar` em uso; a importação do ERP.
 
 Pontos para alinhar com a Helena que afetam o ReportS: o campo hoje chamado "Nome no SINC" (nomes do cliente nos chamados) é "Nomes no Fortics" no plano, e o plano também prevê "nome no Fortics" por sistema; um cliente pode ter dois tenants do mesmo sistema?; cargo do aprovador (um só, mesmo aprovando para vários clientes).
 

@@ -122,11 +122,6 @@ export async function contratosDoAprovador(aprovadorId: string): Promise<Contrat
   return lista.filter((c): c is ContratoDetalhado => !!c);
 }
 
-/** O cliente exige CPF se algum contrato ativo dele exige (usado fora de uma visita, no cadastro de participantes). */
-export async function clienteExigeCpf(clienteId: string): Promise<boolean> {
-  return (await listarContratosDoCliente(clienteId)).some((c) => c.ativo && c.exigeCpf);
-}
-
 /** Aprovadores ativos do contrato (quem recebe o relatório). */
 export async function aprovadoresAtivosDoContrato(contratoId: string): Promise<Aprovador[]> {
   const c = await buscarContrato(contratoId);

@@ -139,16 +139,28 @@ export interface Cbo {
   titulo: string;
 }
 
+/**
+ * Confirmado: veio do ERP (tem o id do usuário no ERP); o nome é do ERP e não se edita no ReportS.
+ * Provisório: criado no ReportS, sem o id do ERP. (A junção de provisório com confirmado é uma fase futura.)
+ */
+export type EstadoParticipante = "confirmado" | "provisorio";
+
+/** De onde veio o registro: captura do painel do SINC, técnico em campo ou cadastro na Administração do ReportS. */
+export type OrigemParticipante = "painel_sinc" | "campo_reports" | "cadastro_reports";
+
+/** Pessoa que participa dos treinamentos, identificada dentro de um sistema do cliente (o mesmo cliente tem listas diferentes por sistema). */
 export interface Participante {
   id: string;
-  clienteId: string;
+  sistemaDoClienteId: string;
+  /** Id do usuário no ERP (o userId que o ERP manda ao SINC). Obrigatório no confirmado; vazio no provisório. */
+  idErp: string | null;
+  estado: EstadoParticipante;
+  origem: OrigemParticipante;
   nome: string;
   cbo: Cbo;
   setor: string;
-  /** Somente dígitos; preenchido só quando o cliente exige CPF. */
+  /** Somente dígitos; preenchido só quando o contrato exige CPF. */
   cpf: string | null;
-  /** Cadastrado pelo técnico durante uma visita. */
-  criadoEmCampo: boolean;
 }
 
 export type TipoVisita = "treinamento" | "implantacao" | "suporte_presencial" | "reuniao" | "visita_tecnica" | "treinamento_online";
@@ -204,6 +216,8 @@ export interface Foto {
 /** Participante registrado na visita (cópia dos dados no momento da presença). */
 export interface PresencaVisita {
   participanteId: string;
+  /** Situação do participante no dia da presença (selo "Confirmado" ou "Provisório"; o aprovador e o PDF só mostram o nome). */
+  estado: EstadoParticipante;
   nome: string;
   cbo: Cbo;
   setor: string;

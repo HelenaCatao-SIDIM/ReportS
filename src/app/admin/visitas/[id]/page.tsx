@@ -79,7 +79,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/visitas
         </Alert>
       )}
 
-      <DetalheVisita visita={v} cpf="completo" controle />
+      <DetalheVisita visita={v} cpf="completo" controle selos />
 
       <Card>
         <CardHeader>

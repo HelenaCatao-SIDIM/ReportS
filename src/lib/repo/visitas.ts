@@ -24,9 +24,9 @@ const presenca = (p: Omit<PresencaVisita, "assinatura" | "confirmacao">, assinad
   assinatura: assinada ? ASSINATURA : null,
 });
 
-const LUCIANA = { participanteId: "p1", nome: "Luciana Ferraz", cbo: { codigo: "411010", titulo: "Assistente administrativo" }, setor: "Protocolo", cpf: "12345678909" };
-const PATRICIA = { participanteId: "p3", nome: "Patrícia Gomes", cbo: { codigo: "252405", titulo: "Analista de recursos humanos" }, setor: "Recursos Humanos", cpf: "11144477735" };
-const SANDRA = { participanteId: "p4", nome: "Sandra Moura", cbo: { codigo: "223505", titulo: "Enfermeiro" }, setor: "Recepção", cpf: "52998224725" };
+const PATRICIA = { participanteId: "p3", estado: "confirmado" as const, nome: "Patrícia Gomes", cbo: { codigo: "252405", titulo: "Analista de recursos humanos" }, setor: "Recursos Humanos", cpf: "11144477735" };
+const EDUARDO = { participanteId: "p7", estado: "provisorio" as const, nome: "Eduardo Pires", cbo: { codigo: "411010", titulo: "Assistente administrativo" }, setor: "Recursos Humanos", cpf: "39053344705" };
+const SANDRA = { participanteId: "p4", estado: "provisorio" as const, nome: "Sandra Moura", cbo: { codigo: "223505", titulo: "Enfermeiro" }, setor: "Recepção", cpf: "52998224725" };
 
 function base(v: Partial<Visita> & Pick<Visita, "id" | "tecnicoId" | "clienteId" | "contratoId" | "unidadeId" | "tipo" | "status" | "entrada">): Visita {
   return {
@@ -59,7 +59,7 @@ function seed(): Visita[] {
       id: "v3", tecnicoId: "u2", clienteId: "c1", contratoId: "ct2", unidadeId: "un1", setorId: "s2", tipo: "treinamento", status: "encerrada",
       entrada: "2026-10-06T13:00:00.000Z", saida: "2026-10-06T16:30:00.000Z", checkin: coords(), ...noLocal, checkout: coords(),
       fotoAmbiente: foto(3), fotosExtras: [foto(4), foto(5)], temaIds: ["t4", "t5"], temaAdicional: "Dúvidas sobre consignados",
-      presencas: [presenca(PATRICIA, true), presenca(LUCIANA, true)],
+      presencas: [presenca(PATRICIA, true), presenca(EDUARDO, true)],
       observacoes: "Treinamento realizado com a equipe de RH. Boa participação.",
       pendencias: "Enviar o manual de cálculo de férias atualizado.",
       proximosPassos: "Acompanhar o fechamento da folha de outubro.",

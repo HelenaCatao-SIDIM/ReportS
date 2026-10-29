@@ -153,7 +153,7 @@ function Leitura({ v, acabouDeEncerrar }: { v: VisitaDetalhada; acabouDeEncerrar
         </p>
         {v.saida && <p className="mt-1 text-xs text-muted-foreground">Encerrada em {formatarDataHora(v.saida)}. Correções só pela coordenação.</p>}
       </div>
-      <DetalheVisita visita={v} cpf="mascarado" />
+      <DetalheVisita visita={v} cpf="mascarado" selos />
     </div>
   );
 }

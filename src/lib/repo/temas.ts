@@ -23,6 +23,8 @@ function seed(): TemaRegistro[] {
     t("t7", "Agendamento de consultas", "saude", "Recepção"),
     t("t8", "Dispensação de medicamentos", "saude", "Farmácia"),
     t("t9", "Relatórios gerenciais (versão antiga)", "saude", "Relatórios", false),
+    t("t10", "Cadastros básicos", "se", "Cadastros"),
+    t("t11", "Emissão de relatórios", "se", "Relatórios"),
   ];
 }
 

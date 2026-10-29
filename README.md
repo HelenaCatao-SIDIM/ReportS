@@ -166,6 +166,7 @@ nesse endereço — use um treinamento online para testar sem GPS.
 - `src/proxy.ts` — só confere se há sessão; a área certa (Administração ou App do Técnico) é decidida pelas permissões, na página `/inicio`
 - `src/lib/session.ts`, `src/lib/dal.ts`, `src/lib/permissoes.ts` — sessão (JWT em cookie httpOnly com só o id do usuário), verificação de permissão (uma para páginas, outra para ações; lida a cada requisição, sem cache) e catálogo de permissões
 - `src/lib/repo/*` — **camada de dados (mock em memória)**: usuários, clientes, temas, participantes, CBO, visitas, relatórios, arquivos
+- Participantes: por sistema do cliente, **confirmado pelo ERP** ou **provisório**, com busca por CPF e nome parecido antes de criar (`src/lib/repo/participantes.ts`, `src/lib/similaridade.ts`)
 - `src/lib/emissao.tsx`, `src/lib/pdf/` — geração do PDF e envio (simulado) dos e-mails do relatório
 - `src/lib/email.ts` — envio de e-mail (simulado; trocar pelo provedor real)
 - `src/app/admin/*` — Administração (cada tela exige a sua permissão)
