@@ -160,7 +160,7 @@ Não sabemos se já existem; precisam ser confirmados antes de cada item começa
 | Item | Precisa de |
 |---|---|
 | Banco de dados real e armazenamento | Um projeto Supabase (conta e credenciais) e a decisão de identidade acima |
-| Envio real de e-mail | Uma caixa de e-mail da SIDIM dedicada (ex.: `relatorios@`), com SMTP liberado e SPF/DKIM no DNS do domínio |
+| Envio real de e-mail | Conta no Resend e acesso ao DNS do domínio da SIDIM (para verificar o domínio de envio); o LGPD dos PDFs que passam por um serviço de terceiros |
 | Tabela CBO oficial | O arquivo oficial do Ministério do Trabalho. Não testamos se o ambiente consegue baixá-lo |
 | Publicação e teste no celular com https | Conta Vercel e o domínio |
 
@@ -178,7 +178,7 @@ Não sabemos se já existem; precisam ser confirmados antes de cada item começa
 
 - [ ] **Alta** — Banco de dados real (Prisma + PostgreSQL/Supabase). A troca fica concentrada em `src/lib/repo/*`; as telas não mudam.
 - [ ] **Alta** — Armazenamento de fotos, assinaturas e PDFs (Supabase Storage). Hoje ficam em memória.
-- [ ] **Média** — Envio real de e-mail por **SMTP** (o Resend foi descartado por decisão de 28/10/2026). **Implementado, falta o teste real** (`EMAIL_REAL`, `SMTP_*`, trava `EMAIL_REDIRECIONAR_PARA`; roteiro em `docs/teste-email-real.md`). Falta ainda definir o e-mail da SIDIM que enviará aos aprovadores (caixa dedicada, SMTP liberado, SPF/DKIM). Sem as variáveis, segue simulado na Caixa de saída (`src/lib/email.ts`).
+- [ ] **Média** — Envio real de e-mail. **Resend (plano gratuito) escolhido em 28/10/2026**, com SMTP como alternativa (`EMAIL_PROVEDOR=smtp`). **Implementado, falta o teste real** (`EMAIL_REAL`, `RESEND_API_KEY`, trava `EMAIL_REDIRECIONAR_PARA`; roteiro em `docs/teste-email-real.md`). Falta verificar o domínio da SIDIM no Resend (acesso ao DNS) para enviar aos aprovadores de verdade e conferir o limite do plano gratuito. Sem as variáveis, segue simulado na Caixa de saída (`src/lib/email.ts`).
 - [ ] **Média** — Importar a tabela CBO oficial do Ministério do Trabalho. Hoje é uma amostra de 25 ocupações, com códigos não conferidos. Ganha peso com a definição 2, em que o CBO passa a ser o único campo de ocupação.
 - [ ] **Média** — Publicar (Vercel) e testar no celular com https. O GPS do check-in presencial só funciona em https ou em `localhost`.
 

@@ -54,27 +54,29 @@ GEOCODING_USER_AGENT=SIDIM-Visitas/1.0 (contato@sidimsistemas.com.br)
 - `CARIMBO_FOTO`: escreve data/hora e CEP no rodapé da foto do ambiente (nunca coordenadas).
 - `GEOCODING_USER_AGENT`: nome do sistema e um e-mail de contato, exigidos pelo Nominatim.
 
-Opcional — **envio real de e-mail** por SMTP (desligado por padrão; com ele desligado, os e-mails só aparecem na Caixa de
-saída, como antes). Funciona com qualquer e-mail que tenha SMTP (Gmail, Microsoft 365, o e-mail da própria SIDIM):
+Opcional — **envio real de e-mail** (desligado por padrão; com ele desligado, os e-mails só aparecem na Caixa de saída,
+como antes). O provedor padrão é o [Resend](https://resend.com), que tem plano gratuito; o SMTP (Gmail, Microsoft 365, o e-mail
+da própria SIDIM) fica como alternativa.
 
 ```bash
 EMAIL_REAL=true
-SMTP_HOST=smtp.gmail.com
-SMTP_PORTA=465
-SMTP_USUARIO=voce@gmail.com
-SMTP_SENHA=<senha de app do Gmail; nunca vai para o Git>
-EMAIL_REDIRECIONAR_PARA=voce@gmail.com
+RESEND_API_KEY=<chave criada no painel do Resend; nunca vai para o Git>
+EMAIL_REMETENTE=SIDIM Relatórios <relatorios@seu-dominio-verificado>
+EMAIL_REDIRECIONAR_PARA=voce@sidimsistemas.com.br
 ```
 
-- `EMAIL_REAL` + `SMTP_HOST`: ligam o envio real (`src/lib/email.ts`). Usuário e senha ficam só no servidor.
-- `SMTP_PORTA`: 465 abre a conexão já criptografada; 587 (padrão) usa STARTTLS, e o sistema se recusa a mandar usuário e senha
-  sem criptografia a um servidor fora do seu computador. `SMTP_SEGURO=true|false` força um dos dois modos.
-- `EMAIL_REMETENTE` (opcional): de quem o e-mail sai, no formato `SIDIM Relatórios <relatorios@dominio>`. Sem ele, usa o
-  `SMTP_USUARIO`. Gmail e Microsoft 365 só aceitam o próprio endereço da conta como remetente.
+- `EMAIL_REAL` + `RESEND_API_KEY`: ligam o envio real (`src/lib/email.ts`). A chave fica só no servidor.
+- `EMAIL_REMETENTE` (opcional no teste): de quem o e-mail sai. Sem ele, usa o remetente de testes do Resend
+  (`onboarding@resend.dev`), que **só entrega ao e-mail dono da conta**. Para enviar aos aprovadores, verifique um domínio da SIDIM
+  no Resend e use um endereço dele.
 - `EMAIL_REDIRECIONAR_PARA`: **trava de teste**. Enquanto estiver definida, todo e-mail vai para este endereço, com o destinatário
   original no assunto (`[TESTE → Nome <email>]`). Remova só quando for enviar de verdade aos clientes.
 - O PDF vai em anexo (até 8 MB), há versão só texto, e uma falha de envio nunca desfaz a emissão: aparece como "Falhou" na Caixa de saída.
 - `APP_URL` precisa ser o endereço **público** do sistema; com `localhost`, o link do e-mail só abre no mesmo computador.
+
+Alternativa por SMTP: `EMAIL_PROVEDOR=smtp`, `SMTP_HOST`, `SMTP_PORTA` (465 já criptografada; 587 usa STARTTLS), `SMTP_USUARIO` e
+`SMTP_SENHA` (no Gmail, uma senha de app). Fora do seu computador, o sistema se recusa a mandar usuário e senha sem criptografia.
+No SMTP, sem `EMAIL_REMETENTE`, o remetente é o próprio `SMTP_USUARIO` (Gmail e Microsoft 365 só aceitam o endereço da conta).
 
 Roteiro de teste em `docs/teste-email-real.md`.
 
@@ -151,7 +153,7 @@ nesse endereço — use um treinamento online para testar sem GPS.
 
 1. Banco de dados real (Prisma + Supabase) em `src/lib/repo/*`.
 2. Armazenamento de fotos, assinaturas e PDFs (Supabase Storage).
-3. Envio real de e-mail por SMTP: implementado (veja acima); falta testar e definir a caixa de e-mail da SIDIM que enviará aos aprovadores.
+3. Envio real de e-mail (Resend, com SMTP como alternativa): implementado (veja acima); falta testar com a conta real e verificar o domínio da SIDIM.
 4. Importar a tabela CBO oficial do Ministério do Trabalho.
 5. Publicar (Vercel) e testar em celular com https.
 

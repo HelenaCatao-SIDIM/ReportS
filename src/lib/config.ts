@@ -17,10 +17,15 @@ export const carimboFoto = () => localizacaoPorCep() && ligado("CARIMBO_FOTO");
 export const buscaCoordenadas = () => ligado("BUSCA_COORDENADAS");
 
 /**
- * Envio real de e-mail por SMTP (Gmail, Microsoft 365, e-mail da própria SIDIM...): exige EMAIL_REAL=true e SMTP_HOST.
- * Usuário e senha ficam só no servidor. Sem isso, o e-mail é apenas gravado na Caixa de saída (simulado).
+ * Envio real de e-mail. Provedor: Resend (padrão, plano gratuito) ou SMTP (Gmail, Microsoft 365, e-mail da SIDIM),
+ * escolhido por EMAIL_PROVEDOR. Exige EMAIL_REAL=true e as credenciais do provedor (só no servidor).
+ * Sem isso, o e-mail é apenas gravado na Caixa de saída (simulado).
  */
-export const emailReal = () => ligado("EMAIL_REAL") && !!process.env.SMTP_HOST?.trim();
+export type ProvedorEmail = "resend" | "smtp";
+export const provedorEmail = (): ProvedorEmail => (process.env.EMAIL_PROVEDOR?.trim().toLowerCase() === "smtp" ? "smtp" : "resend");
+
+export const emailReal = () =>
+  ligado("EMAIL_REAL") && (provedorEmail() === "smtp" ? !!process.env.SMTP_HOST?.trim() : !!process.env.RESEND_API_KEY?.trim());
 
 export const smtp = () => {
   const porta = Number(process.env.SMTP_PORTA) || 587;
@@ -34,10 +39,14 @@ export const smtp = () => {
   };
 };
 
-/** Remetente. Gmail e Microsoft 365 só aceitam o próprio endereço da conta; se não houver EMAIL_REMETENTE, usa o usuário do SMTP. */
+/**
+ * Remetente. No Resend, o padrão é o de testes (`onboarding@resend.dev`), que só entrega ao dono da conta; para os clientes,
+ * use um domínio verificado. No SMTP, Gmail e Microsoft 365 só aceitam o próprio endereço da conta: o padrão é o usuário.
+ */
 export const emailRemetente = () => {
   const definido = process.env.EMAIL_REMETENTE?.trim();
   if (definido) return definido;
+  if (provedorEmail() === "resend") return "SIDIM Visitas <onboarding@resend.dev>";
   const usuario = process.env.SMTP_USUARIO?.trim();
   return usuario?.includes("@") ? `SIDIM Visitas <${usuario}>` : "SIDIM Visitas <nao-responda@localhost>";
 };

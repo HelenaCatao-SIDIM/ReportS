@@ -1,11 +1,11 @@
 import "server-only";
 import nodemailer from "nodemailer";
-import { emailRedirecionarPara, emailReal, emailRemetente, smtp } from "@/lib/config";
+import { emailRedirecionarPara, emailReal, emailRemetente, provedorEmail, smtp } from "@/lib/config";
 import { lerArquivo } from "@/lib/repo/arquivos";
 
 /*
- * Envio de e-mail. Com EMAIL_REAL=true e SMTP_HOST, envia de verdade por SMTP; sem isso, só grava na caixa de saída
- * (visível em /admin/emails), como antes. Quem chama `enviarEmail` não muda, e a função nunca lança exceção:
+ * Envio de e-mail. Com EMAIL_REAL=true e as credenciais do provedor (Resend, por padrão, ou SMTP), envia de verdade;
+ * sem isso, só grava na caixa de saída (visível em /admin/emails), como antes. Quem chama `enviarEmail` não muda, e a função nunca lança exceção:
  * uma falha de envio vira situação "falhou" na caixa de saída, para não desfazer uma emissão já registrada.
  */
 
@@ -29,7 +29,7 @@ export interface EmailEnviado {
   enviadoEm: string;
   relatorioId: string | null;
   situacao: SituacaoEmail;
-  /** Identificador da mensagem no servidor de e-mail, quando enviada de verdade. */
+  /** Identificador da mensagem no provedor, quando enviada de verdade. */
   idMensagem: string | null;
   /** Motivo da falha, quando a situação é "falhou". */
   erro: string | null;
@@ -43,6 +43,8 @@ const g = globalThis as unknown as { __emails?: EmailEnviado[] };
 const caixa = (g.__emails ??= []);
 
 const ESPERA_NOVA_TENTATIVA_MS = 1500;
+const RESEND = "https://api.resend.com/emails";
+const TIMEOUT_RESEND_MS = 15_000;
 
 const esc = (t: string) => t.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]!);
 const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -92,7 +94,47 @@ function motivo(erro: unknown): { texto: string; definitivo: boolean } {
   if (e.responseCode && e.responseCode >= 500) return { texto: `O servidor SMTP recusou a mensagem (${e.responseCode}): ${(e.response ?? "").slice(0, 160)}`, definitivo: true };
   if (e.responseCode) return { texto: `O servidor SMTP respondeu ${e.responseCode}: ${(e.response ?? "").slice(0, 160)}`, definitivo: false };
   if (e.code === "EENVELOPE" || e.code === "EMESSAGE") return { texto: "O servidor SMTP recusou a mensagem.", definitivo: true };
-  return { texto: "Não foi possível falar com o servidor SMTP (conexão, porta ou tempo esgotado).", definitivo: false };
+  return { texto: `Não foi possível falar com o ${provedorEmail() === "smtp" ? "servidor SMTP" : "Resend"} (conexão, porta ou tempo esgotado).`, definitivo: false };
+}
+
+/** Envia pelo Resend. Tenta uma segunda vez em erro de rede, limite (429) ou erro do servidor (5xx). Devolve o id do e-mail no Resend. */
+async function enviarPeloResend(e: NovoEmail, idEnvio: string, destino: string | null): Promise<string> {
+  const corpo = {
+    from: emailRemetente(),
+    to: [destino ?? e.para.email],
+    subject: destino ? `[TESTE → ${e.para.nome} <${e.para.email}>] ${e.assunto}` : e.assunto,
+    html: htmlCompleto(e),
+    text: textoSimples(e),
+    attachments: (await anexosDoEmail(e.anexos)).map((a) => ({ filename: a.filename, content: a.content.toString("base64") })),
+  };
+
+  for (let tentativa = 1; tentativa <= 2; tentativa++) {
+    try {
+      const r = await fetch(RESEND, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+          // Evita e-mail duplicado se a primeira tentativa chegou ao Resend mas a resposta se perdeu.
+          "Idempotency-Key": idEnvio,
+        },
+        body: JSON.stringify(corpo),
+        signal: AbortSignal.timeout(TIMEOUT_RESEND_MS),
+        cache: "no-store",
+      });
+      const json = (await r.json().catch(() => null)) as { id?: unknown; message?: unknown } | null;
+      if (r.ok && json?.id) return String(json.id);
+      if ((r.status === 429 || r.status >= 500) && tentativa === 1) {
+        await espera(ESPERA_NOVA_TENTATIVA_MS);
+        continue;
+      }
+      throw new ErroDefinitivo(`O Resend respondeu ${r.status}${typeof json?.message === "string" ? `: ${json.message}` : ""}`);
+    } catch (erro) {
+      if (erro instanceof ErroDefinitivo || tentativa === 2) throw erro;
+      await espera(ESPERA_NOVA_TENTATIVA_MS);
+    }
+  }
+  throw new Error("Falha ao enviar o e-mail");
 }
 
 /** Envia por SMTP. Tenta uma segunda vez em erro de conexão ou resposta temporária (4xx). Devolve o id da mensagem. */
@@ -143,7 +185,8 @@ export async function enviarEmail(e: NovoEmail): Promise<EmailEnviado> {
   if (emailReal()) {
     email.redirecionadoPara = emailRedirecionarPara();
     try {
-      email.idMensagem = await enviarPorSmtp(e, email.redirecionadoPara);
+      email.idMensagem =
+        provedorEmail() === "smtp" ? await enviarPorSmtp(e, email.redirecionadoPara) : await enviarPeloResend(e, id, email.redirecionadoPara);
       email.situacao = "enviado";
     } catch (erro) {
       email.situacao = "falhou";
