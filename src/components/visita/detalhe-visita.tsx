@@ -78,7 +78,7 @@ function Texto({ rotulo, valor }: { rotulo: string; valor: string }) {
 
 /**
  * Conteúdo completo de uma visita, em modo leitura.
- * `cpf`: "completo" só para o gestor dentro do sistema; nos demais lugares, "mascarado".
+ * `cpf`: "completo" só para a administração dentro do sistema; nos demais lugares, "mascarado".
  * `controle`: só na Administração; mostra a distância do check-in ao estabelecimento (não aparece para técnico nem aprovador).
  */
 export function DetalheVisita({

@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { exigirTecnicoAcao } from "@/lib/dal";
+import { exigirPermissaoAcao } from "@/lib/dal";
+import { PERMISSOES } from "@/lib/permissoes";
 import { ehPresencial } from "@/lib/visitas";
 import { exigeParticipantes } from "@/lib/regras-visita";
 import { buscarVisita, encerrarPeloTecnico } from "@/lib/repo/visitas";
@@ -16,7 +17,7 @@ export interface CheckoutState {
 const TAMANHO_TEXTO = 4000;
 
 export async function fazerCheckout(visitaId: string, _: CheckoutState, fd: FormData): Promise<CheckoutState> {
-  const tecnico = await exigirTecnicoAcao();
+  const tecnico = await exigirPermissaoAcao(PERMISSOES.tecnico);
   const v = await buscarVisita(visitaId);
   if (!v || v.tecnicoId !== tecnico.id) throw new Error("Visita não encontrada");
   if (v.status !== "em_andamento") return { erros: { geral: "Esta visita já foi encerrada." } };

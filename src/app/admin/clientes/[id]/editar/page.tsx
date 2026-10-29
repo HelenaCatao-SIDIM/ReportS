@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import { exigirAdministracao } from "@/lib/dal";
+import { PERMISSOES } from "@/lib/permissoes";
 import { buscarCliente, listarSistemasDoCliente } from "@/lib/repo/clientes";
 import { listarSistemas } from "@/lib/repo/sistemas";
 import { PageHeader } from "@/components/shell/placeholder";
@@ -19,7 +21,7 @@ export default function EditarClientePage({ params }: PageProps<"/admin/clientes
 }
 
 async function Formulario({ params }: Pick<PageProps<"/admin/clientes/[id]/editar">, "params">) {
-  const { id } = await params;
+  const [{ id }] = await Promise.all([params, exigirAdministracao(PERMISSOES.clientesCadastrar)]);
   const [cliente, atuais, ativos] = await Promise.all([buscarCliente(id), listarSistemasDoCliente(id), listarSistemas()]);
   if (!cliente) notFound();
   const jaTem = new Set(atuais.map((x) => x.sistema));

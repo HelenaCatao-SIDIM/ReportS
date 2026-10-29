@@ -1,4 +1,6 @@
 import { Suspense } from "react";
+import { exigirAdministracao } from "@/lib/dal";
+import { PERMISSOES } from "@/lib/permissoes";
 import { listarSistemas } from "@/lib/repo/sistemas";
 import { PageHeader } from "@/components/shell/placeholder";
 import { ClienteForm } from "../cliente-form";
@@ -17,5 +19,6 @@ export default function NovoClientePage() {
 }
 
 async function Formulario() {
+  await exigirAdministracao(PERMISSOES.clientesCadastrar);
   return <ClienteForm acao={criarCliente} chamadosAtivos={chamadosSuporte()} sistemasDisponiveis={await listarSistemas()} />;
 }

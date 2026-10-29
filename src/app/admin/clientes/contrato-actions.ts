@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { exigirGestorAcao } from "@/lib/dal";
+import { exigirPermissaoAcao } from "@/lib/dal";
+import { PERMISSOES } from "@/lib/permissoes";
 import { emailValido } from "@/lib/format";
 import { buscarSistemaDoCliente } from "@/lib/repo/clientes";
 import { buscarAprovador, buscarAprovadorPorEmail, criarAprovador } from "@/lib/repo/aprovadores";
@@ -44,7 +45,7 @@ function lerContrato(fd: FormData) {
 
 /** Cria ou atualiza o contrato do sistema do cliente. Aprovadores novos entram no cadastro de aprovadores. */
 export async function salvarContratoDoSistema(clienteId: string, sistemaDoClienteId: string, _: ContratoFormState, fd: FormData): Promise<ContratoFormState> {
-  await exigirGestorAcao();
+  await exigirPermissaoAcao(PERMISSOES.contratosGerenciar);
   const sdc = await buscarSistemaDoCliente(sistemaDoClienteId);
   if (!sdc || sdc.clienteId !== clienteId) return { erros: { geral: "Sistema do cliente não encontrado." } };
   const existente = await buscarContratoDoSistemaDoCliente(sistemaDoClienteId);

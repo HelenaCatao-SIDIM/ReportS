@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AcoesAndamento } from "../acoes-andamento";
 
-const ACAO = { encerramento: "Encerrada pelo gestor", cancelamento: "Check-in cancelado", correcao: "Correção" } as const;
+const ACAO = { encerramento: "Encerrada pela administração", cancelamento: "Check-in cancelado", correcao: "Correção" } as const;
 
 export default function VisitaPage({ params, searchParams }: PageProps<"/admin/visitas/[id]">) {
   return (

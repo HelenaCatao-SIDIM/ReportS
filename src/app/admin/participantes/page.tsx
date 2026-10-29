@@ -111,7 +111,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/participantes">
         </div>
       </Card>
       <p className="mt-3 text-xs text-muted-foreground">
-        {participantes.length} {participantes.length === 1 ? "participante" : "participantes"}. &quot;Em campo&quot; = cadastrado pelo técnico durante uma visita. O CPF completo só aparece aqui, para o gestor.
+        {participantes.length} {participantes.length === 1 ? "participante" : "participantes"}. &quot;Em campo&quot; = cadastrado pelo técnico durante uma visita. O CPF completo só aparece aqui, para quem tem a permissão de gerenciar participantes.
       </p>
     </>
   );

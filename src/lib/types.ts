@@ -1,18 +1,33 @@
-export type Perfil = "gestor" | "tecnico";
-
+/** Pessoa da SIDIM (cadastro único da plataforma). O que ela pode fazer vem dos papéis e permissões. */
 export interface Usuario {
   id: string;
   nome: string;
   email: string;
   senhaHash: string;
-  perfil: Perfil;
   ativo: boolean;
   /** Só dígitos, com DDD (10 ou 11). Opcional; será o destino do aviso de visita aberta por WhatsApp. */
   telefone: string | null;
+  /** Papéis atribuídos (ligação usuário-papel). */
+  papelIds: string[];
 }
 
 /** Dados do usuário que podem ir para a tela (sem o hash da senha). */
 export type UsuarioPublico = Omit<Usuario, "senhaHash">;
+
+/** Usuário da sessão com o que ele pode fazer, lido a cada requisição. */
+export interface UsuarioLogado extends UsuarioPublico {
+  /** Códigos das permissões somadas dos papéis. */
+  permissoes: string[];
+  papeis: string[];
+}
+
+/** Papel: agrupa permissões. Na plataforma é gerido no Admin do SINC; aqui é um exemplo em memória. */
+export interface Papel {
+  id: string;
+  nome: string;
+  descricao: string;
+  permissoes: string[];
+}
 
 export type NivelComprovacao = "nominal" | "assinado";
 
@@ -80,7 +95,7 @@ export interface Unidade {
   /** Digitadas à mão; com elas, o check-in presencial grava a distância até o estabelecimento. */
   latitude: number | null;
   longitude: number | null;
-  /** Raio de verificação do check-in, em metros. Fora dele gera alerta ao gestor; nunca bloqueia o técnico. */
+  /** Raio de verificação do check-in, em metros. Fora dele gera alerta para a administração; nunca bloqueia o técnico. */
   raioMetros: number;
 }
 
@@ -250,7 +265,7 @@ export interface Visita {
   observacoes: string;
   pendencias: string;
   proximosPassos: string;
-  encerradaPorGestor: boolean;
+  encerradaPelaAdministracao: boolean;
   /** Relatório em que a visita foi incluída. */
   relatorioId: string | null;
   historico: AlteracaoVisita[];

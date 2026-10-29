@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { exigirGestorAcao } from "@/lib/dal";
+import { exigirPermissaoAcao } from "@/lib/dal";
+import { PERMISSOES } from "@/lib/permissoes";
 import { cpfValido, normalizar, soDigitos } from "@/lib/format";
 import { buscarCliente } from "@/lib/repo/clientes";
 import { clienteExigeCpf } from "@/lib/repo/contratos";
@@ -24,7 +25,7 @@ export async function salvarParticipante(
   _: ParticipanteFormState,
   fd: FormData,
 ): Promise<ParticipanteFormState> {
-  await exigirGestorAcao();
+  await exigirPermissaoAcao(PERMISSOES.participantesGerenciar);
   const cliente = await buscarCliente(clienteId);
   if (!cliente) throw new Error("Cliente não encontrado");
 

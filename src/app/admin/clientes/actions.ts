@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { exigirGestorAcao } from "@/lib/dal";
+import { exigirPermissaoAcao } from "@/lib/dal";
+import { PERMISSOES } from "@/lib/permissoes";
 import { RAIO_PADRAO_METROS } from "@/lib/distancia";
 import { cnpjValido, normalizar, soDigitos } from "@/lib/format";
 import * as repo from "@/lib/repo/clientes";
@@ -54,7 +55,7 @@ async function validarCliente(d: ReturnType<typeof lerCliente>, opcoes: { id?: s
 }
 
 export async function criarCliente(_: ClienteFormState, fd: FormData): Promise<ClienteFormState> {
-  await exigirGestorAcao();
+  await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
   const d = lerCliente(fd);
   const erros = await validarCliente(d, { exigirSistema: true });
   if (Object.keys(erros).length) return { erros, valores: d };
@@ -66,7 +67,7 @@ export async function criarCliente(_: ClienteFormState, fd: FormData): Promise<C
 }
 
 export async function editarCliente(id: string, _: ClienteFormState, fd: FormData): Promise<ClienteFormState> {
-  await exigirGestorAcao();
+  await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
   const atual = await repo.buscarCliente(id);
   if (!atual) return { erros: { nome: "Cliente não encontrado." } };
   // Com os chamados de suporte desligados o campo não aparece no formulário; os nomes já cadastrados ficam como estão.
@@ -112,7 +113,7 @@ export async function salvarUnidade(
   _: UnidadeFormState,
   fd: FormData,
 ): Promise<UnidadeFormState> {
-  await exigirGestorAcao();
+  await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
   const nome = String(fd.get("nome") ?? "").trim();
   const endereco = String(fd.get("endereco") ?? "").trim();
   const latitude = lerCoordenada(fd.get("latitude"), 90);
@@ -140,7 +141,7 @@ export async function salvarUnidade(
 }
 
 export async function removerUnidade(unidadeId: string) {
-  await exigirGestorAcao();
+  await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
   const u = await repo.buscarUnidade(unidadeId);
   if (!u) return;
   await repo.removerUnidade(unidadeId);
@@ -156,7 +157,7 @@ async function revalidarPorUnidade(unidadeId: string) {
 
 /** Cria (setorId null) ou renomeia um setor. Retorna mensagem de erro, se houver. */
 export async function salvarSetor(unidadeId: string, setorId: string | null, nome: string): Promise<string | null> {
-  await exigirGestorAcao();
+  await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
   const n = nome.trim();
   if (!n) return "Informe o nome do setor.";
   if (await repo.setorDuplicado(unidadeId, n, setorId ?? undefined)) return "Este setor já existe no estabelecimento.";
@@ -168,7 +169,7 @@ export async function salvarSetor(unidadeId: string, setorId: string | null, nom
 }
 
 export async function removerSetor(setorId: string) {
-  await exigirGestorAcao();
+  await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
   const s = await repo.buscarSetor(setorId);
   if (!s) return;
   await repo.removerSetor(setorId);

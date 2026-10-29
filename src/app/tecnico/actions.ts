@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { exigirTecnicoAcao } from "@/lib/dal";
+import { exigirPermissaoAcao } from "@/lib/dal";
+import { PERMISSOES } from "@/lib/permissoes";
 import { distanciaMetros } from "@/lib/distancia";
 import { ehMeio } from "@/lib/meio";
 import { ehPresencial, TIPOS_VISITA } from "@/lib/visitas";
@@ -24,7 +25,7 @@ const arquivo = (fd: FormData, nome: string) => {
 };
 
 export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<CheckinState> {
-  const tecnico = await exigirTecnicoAcao();
+  const tecnico = await exigirPermissaoAcao(PERMISSOES.tecnico);
 
   const aberta = await visitaAbertaDoTecnico(tecnico.id);
   if (aberta) return { erros: { geral: "Você já tem uma visita em andamento. Encerre-a antes de abrir outra." } };
@@ -74,7 +75,7 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
   const foto = await salvarImagem(fotoArquivo!);
   if (!foto) return { erros: { [presencial ? "foto" : "print"]: "Imagem inválida ou muito grande. Tente de novo." } };
 
-  // A distância é só registrada: fora do raio vira alerta para o gestor, nunca impede o check-in.
+  // A distância é só registrada: fora do raio vira alerta para a administração, nunca impede o check-in.
   const distanciaCheckinM =
     checkin && unidade?.latitude != null && unidade.longitude != null
       ? Math.round(distanciaMetros(checkin, { latitude: unidade.latitude, longitude: unidade.longitude }))

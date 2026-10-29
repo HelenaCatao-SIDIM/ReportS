@@ -32,7 +32,7 @@ function base(v: Partial<Visita> & Pick<Visita, "id" | "tecnicoId" | "clienteId"
   return {
     setorId: null, setorOutro: null, saida: null, checkin: null, checkout: null, meio: "celular", distanciaCheckinM: null, raioCheckinM: null, fotoAmbiente: null, printTela: null, linkReuniao: null,
     temaIds: [], temaAdicional: "", fotosExtras: [], presencas: [], observacoes: "", pendencias: "", proximosPassos: "",
-    encerradaPorGestor: false, relatorioId: null, historico: [],
+    encerradaPelaAdministracao: false, relatorioId: null, historico: [],
     ...v,
   };
 }
@@ -77,10 +77,10 @@ function seed(): Visita[] {
     }),
     base({
       id: "v6", tecnicoId: "u3", clienteId: "c1", contratoId: "ct1", unidadeId: "un1", setorOutro: "Gabinete do Prefeito", tipo: "visita_tecnica", status: "encerrada",
-      entrada: "2026-10-20T14:00:00.000Z", saida: "2026-10-20T15:10:00.000Z", checkin: coordsLonge(), distanciaCheckinM: 178, raioCheckinM: 50, fotoAmbiente: foto(5), encerradaPorGestor: true,
+      entrada: "2026-10-20T14:00:00.000Z", saida: "2026-10-20T15:10:00.000Z", checkin: coordsLonge(), distanciaCheckinM: 178, raioCheckinM: 50, fotoAmbiente: foto(5), encerradaPelaAdministracao: true,
       historico: [
         {
-          id: "h1", autorId: "u1", autorNome: "Gestor SIDIM", em: "2026-10-21T11:00:00.000Z", acao: "encerramento",
+          id: "h1", autorId: "u1", autorNome: "Coordenação SIDIM", em: "2026-10-21T11:00:00.000Z", acao: "encerramento",
           motivo: "Técnico esqueceu de fazer o check-out; saída confirmada por telefone.",
           mudancas: [{ campo: "Saída", antes: "—", depois: "20/10/2026 12:10" }],
         },
@@ -91,7 +91,7 @@ function seed(): Visita[] {
       entrada: "2026-10-21T13:00:00.000Z", checkin: coords(), fotoAmbiente: foto(1),
       historico: [
         {
-          id: "h2", autorId: "u1", autorNome: "Gestor SIDIM", em: "2026-10-21T13:20:00.000Z", acao: "cancelamento",
+          id: "h2", autorId: "u1", autorNome: "Coordenação SIDIM", em: "2026-10-21T13:20:00.000Z", acao: "cancelamento",
           motivo: "Check-in feito por engano no cliente errado.", mudancas: [{ campo: "Situação", antes: "Em andamento", depois: "Cancelada" }],
         },
       ],
@@ -171,24 +171,24 @@ export async function buscarVisita(id: string): Promise<VisitaDetalhada | null> 
   return v ? detalhar(v) : null;
 }
 
-// ---------- Alterações pelo gestor ----------
+// ---------- Alterações pela administração ----------
 
 function registrar(v: Visita, autor: UsuarioPublico, acao: AlteracaoVisita["acao"], motivo: string, mudancas: MudancaCampo[]) {
   v.historico.push({ id: crypto.randomUUID(), autorId: autor.id, autorNome: autor.nome, em: new Date().toISOString(), acao, motivo, mudancas });
 }
 
-/** Encerra uma visita esquecida aberta, com o horário de saída informado pelo gestor. */
-export async function encerrarPeloGestor(id: string, saida: string, autor: UsuarioPublico, justificativa: string) {
+/** Encerra uma visita esquecida aberta, com o horário de saída informado pela administração. */
+export async function encerrarPelaAdministracao(id: string, saida: string, autor: UsuarioPublico, justificativa: string) {
   const v = visitas.find((x) => x.id === id);
   if (!v || v.status !== "em_andamento") throw new Error("Visita não está em andamento");
   v.status = "encerrada";
   v.saida = saida;
-  v.encerradaPorGestor = true;
+  v.encerradaPelaAdministracao = true;
   registrar(v, autor, "encerramento", justificativa, [{ campo: "Saída", antes: "—", depois: formatarDataHora(saida) }]);
 }
 
 /** Cancela um check-in feito por engano. A visita não entra em relatório. */
-export async function cancelarPeloGestor(id: string, autor: UsuarioPublico, justificativa: string) {
+export async function cancelarPelaAdministracao(id: string, autor: UsuarioPublico, justificativa: string) {
   const v = visitas.find((x) => x.id === id);
   if (!v || v.status !== "em_andamento") throw new Error("Visita não está em andamento");
   v.status = "cancelada";
@@ -214,7 +214,7 @@ export interface CorrecaoVisita {
 }
 
 /** Aplica a correção e registra o histórico. Retorna as mudanças (vazio = nada mudou, nada é gravado). */
-export async function corrigirPeloGestor(id: string, c: CorrecaoVisita, autor: UsuarioPublico, motivo: string): Promise<MudancaCampo[]> {
+export async function corrigirPelaAdministracao(id: string, c: CorrecaoVisita, autor: UsuarioPublico, motivo: string): Promise<MudancaCampo[]> {
   const v = visitas.find((x) => x.id === id);
   if (!v || v.status !== "encerrada") throw new Error("Só visitas encerradas podem ser corrigidas");
   if (relatorioAprovado(v.relatorioId)) throw new Error("Visita em relatório aprovado");

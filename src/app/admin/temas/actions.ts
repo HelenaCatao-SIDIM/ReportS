@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { exigirGestorAcao } from "@/lib/dal";
+import { exigirPermissaoAcao } from "@/lib/dal";
+import { PERMISSOES } from "@/lib/permissoes";
 import { atualizarTema, criarTema, definirTemaAtivo, grafiaCanonica, sistemaValido, temaDuplicado } from "@/lib/repo/temas";
 
 export interface TemaFormState {
@@ -12,7 +13,7 @@ export interface TemaFormState {
 
 /** Cria (temaId null) ou edita um tema. */
 export async function salvarTema(temaId: string | null, _: TemaFormState, fd: FormData): Promise<TemaFormState> {
-  await exigirGestorAcao();
+  await exigirPermissaoAcao(PERMISSOES.temasGerenciar);
   const d = {
     nome: String(fd.get("nome") ?? "").trim(),
     sistema: String(fd.get("sistema") ?? "").trim(),
@@ -37,7 +38,7 @@ export async function salvarTema(temaId: string | null, _: TemaFormState, fd: Fo
 }
 
 export async function alternarTema(id: string, ativo: boolean) {
-  await exigirGestorAcao();
+  await exigirPermissaoAcao(PERMISSOES.temasGerenciar);
   await definirTemaAtivo(id, ativo);
   revalidatePath("/admin/temas");
 }

@@ -19,7 +19,7 @@ async function decidir(token: string, tipo: "aprovado" | "ajuste", motivo: strin
   const r = await registrarDecisao(token, tipo, motivo);
   if (!r.ok) return { erro: r.erro };
 
-  // Avisa os demais aprovadores do cliente (o gestor acompanha pelo status no sistema).
+  // Avisa os demais aprovadores do cliente (a administração acompanha pelo status no sistema).
   const { link, relatorio, versao } = r.acesso;
   const cliente = await buscarCliente(relatorio.clienteId);
   const sistema = versao.conteudo?.sistema.nome ?? "";

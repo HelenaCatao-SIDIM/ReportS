@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { exigirGestorAcao } from "@/lib/dal";
+import { exigirPermissaoAcao } from "@/lib/dal";
+import { PERMISSOES } from "@/lib/permissoes";
 import { buscarContrato } from "@/lib/repo/contratos";
 import { atualizarVisitasDoRascunho, criarRascunho, excluirRascunho } from "@/lib/repo/relatorios";
 import { emitirRelatorio } from "@/lib/emissao";
@@ -14,7 +15,7 @@ export interface NovoRelatorioState {
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function criarRelatorio(_: NovoRelatorioState, fd: FormData): Promise<NovoRelatorioState> {
-  await exigirGestorAcao();
+  await exigirPermissaoAcao(PERMISSOES.relatoriosGerenciar);
   const clienteId = String(fd.get("clienteId") ?? "");
   const contratoId = String(fd.get("contratoId") ?? "");
   const de = String(fd.get("de") ?? "");
@@ -39,7 +40,7 @@ export async function criarRelatorio(_: NovoRelatorioState, fd: FormData): Promi
 }
 
 export async function recalcularVisitas(id: string) {
-  await exigirGestorAcao();
+  await exigirPermissaoAcao(PERMISSOES.relatoriosGerenciar);
   const { antes, depois } = await atualizarVisitasDoRascunho(id);
   revalidatePath("/admin/relatorios", "layout");
   revalidatePath("/admin/visitas", "layout");
@@ -47,7 +48,7 @@ export async function recalcularVisitas(id: string) {
 }
 
 export async function apagarRascunho(id: string) {
-  await exigirGestorAcao();
+  await exigirPermissaoAcao(PERMISSOES.relatoriosGerenciar);
   await excluirRascunho(id);
   revalidatePath("/admin/relatorios", "layout");
   revalidatePath("/admin/visitas", "layout");
@@ -55,7 +56,7 @@ export async function apagarRascunho(id: string) {
 }
 
 export async function emitir(id: string): Promise<string | null> {
-  await exigirGestorAcao();
+  await exigirPermissaoAcao(PERMISSOES.relatoriosGerenciar);
   const r = await emitirRelatorio(id);
   if ("erro" in r) return r.erro ?? "Não foi possível emitir.";
   revalidatePath("/admin/relatorios", "layout");

@@ -13,6 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Unidades } from "./unidades";
 import { buscaCoordenadas } from "@/lib/config";
 import { chamadosSuporte } from "@/lib/config-suporte";
+import { exigirAdministracao } from "@/lib/dal";
+import { PERMISSOES } from "@/lib/permissoes";
 
 const MENSAGENS: Record<string, string> = {
   criado: "Cliente criado. Agora cadastre o contrato de cada sistema e os estabelecimentos.",
@@ -44,7 +46,10 @@ function Item({ rotulo, children }: { rotulo: string; children: React.ReactNode 
 }
 
 async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/clientes/[id]">, "params" | "searchParams">) {
-  const [{ id }, sp] = await Promise.all([params, searchParams]);
+  const [{ id }, sp, usuario] = await Promise.all([params, searchParams, exigirAdministracao()]);
+  // O cliente é visto por quem cadastra clientes ou gerencia contratos; cada botão segue a sua permissão.
+  const podeCadastrar = usuario.permissoes.includes(PERMISSOES.clientesCadastrar);
+  const podeContratos = usuario.permissoes.includes(PERMISSOES.contratosGerenciar);
   const [cliente, unidades, sistemas, contratos] = await Promise.all([
     buscarCliente(id),
     listarUnidades(id),
@@ -72,10 +77,12 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/cliente
             )}
           </p>
         </div>
-        <Button variant="outline" nativeButton={false} render={<Link href={`/admin/clientes/${id}/editar`} />}>
-          <Pencil />
-          Editar dados
-        </Button>
+        {podeCadastrar && (
+          <Button variant="outline" nativeButton={false} render={<Link href={`/admin/clientes/${id}/editar`} />}>
+            <Pencil />
+            Editar dados
+          </Button>
+        )}
       </div>
 
       {ok && (
@@ -93,10 +100,12 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/cliente
               Cada sistema do cliente tem o seu contrato, a sua forma de comprovação e os seus aprovadores. Cliente com dois sistemas tem dois relatórios por período.
             </p>
           </div>
-          <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/admin/clientes/${id}/editar`} />}>
-            <Plus />
-            Acrescentar sistema
-          </Button>
+          {podeCadastrar && (
+            <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/admin/clientes/${id}/editar`} />}>
+              <Plus />
+              Acrescentar sistema
+            </Button>
+          )}
         </div>
         {sistemas.length === 0 && <Card className="items-center py-8 text-sm text-muted-foreground">Nenhum sistema cadastrado.</Card>}
         <div className="grid gap-4 lg:grid-cols-2">
@@ -150,10 +159,12 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/cliente
                       Contrato pendente. Enquanto não for cadastrado, o técnico não consegue escolher este sistema no check-in.
                     </p>
                   )}
-                  <Button variant={contrato ? "outline" : "default"} size="sm" nativeButton={false} render={<Link href={`/admin/clientes/${id}/contratos/${x.id}`} />}>
-                    <FileSignature />
-                    {contrato ? "Editar contrato" : "Cadastrar contrato"}
-                  </Button>
+                  {podeContratos && (
+                    <Button variant={contrato ? "outline" : "default"} size="sm" nativeButton={false} render={<Link href={`/admin/clientes/${id}/contratos/${x.id}`} />}>
+                      <FileSignature />
+                      {contrato ? "Editar contrato" : "Cadastrar contrato"}
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -161,7 +172,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/cliente
         </div>
       </section>
 
-      <Unidades clienteId={id} unidades={unidades} buscaAtiva={buscaCoordenadas()} />
+      <Unidades clienteId={id} unidades={unidades} buscaAtiva={buscaCoordenadas()} podeEditar={podeCadastrar} />
     </div>
   );
 }

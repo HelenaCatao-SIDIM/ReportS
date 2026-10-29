@@ -5,7 +5,7 @@ do check-in em campo até o relatório periódico aprovado pelo cliente (que lib
 
 Três interfaces:
 
-- **Administração** (gestor, computador): usuários, clientes (sistemas e contratos, estabelecimentos e setores), aprovadores, temas, participantes, gestão de visitas e relatórios.
+- **Administração** (computador; as telas que cada pessoa vê dependem das permissões): usuários e permissões (aviso do SINC), clientes (sistemas e contratos, estabelecimentos e setores), aprovadores, temas, participantes, gestão de visitas e relatórios.
 - **App do Técnico** (celular ou computador): check-in com GPS e foto (escolhendo o cliente e o sistema), temas do sistema, fotos extras, lista de presença (com assinatura quando o contrato exige), check-out e histórico.
 - **Aprovação** (cliente, sem login): página aberta pelo link do e-mail para aprovar o relatório ou pedir ajuste.
 
@@ -54,9 +54,13 @@ GEOCODING_USER_AGENT=SIDIM-Visitas/1.0 (contato@sidimsistemas.com.br)
 ```
 
 - `LOCALIZACAO_POR_CEP`: converte a coordenada do check-in/check-out em **CEP + endereço** e mostra o CEP
-  no lugar da latitude/longitude em todas as telas (técnico, gestor e aprovador). A coordenada continua gravada.
+  no lugar da latitude/longitude em todas as telas (técnico, administração e aprovador). A coordenada continua gravada.
 - `CARIMBO_FOTO`: escreve data/hora e CEP no rodapé da foto do ambiente (nunca coordenadas).
 - `GEOCODING_USER_AGENT`: nome do sistema e um e-mail de contato, exigidos pelo Nominatim.
+
+Opcional — **endereço do SINC** (onde ficam os usuários e as permissões), mostrado no aviso da tela "Usuários e permissões":
+
+- `SINC_URL` (padrão `https://sinc.sidim.com.br`).
 
 Opcional — **envio real de e-mail** (desligado por padrão; com ele desligado, os e-mails só aparecem na Caixa de saída,
 como antes). O caminho da SIDIM é o **servidor SMTP da própria empresa** (Oracle Cloud Email Delivery), o mesmo que os outros
@@ -99,7 +103,7 @@ GEOCODING_USER_AGENT=SIDIM-Visitas/1.0 (contato@sidimsistemas.com.br)
 
 - `BUSCA_COORDENADAS`: mostra o botão **"Buscar coordenadas pelo endereço"** em Clientes → estabelecimento → Editar. Ele preenche
   latitude e longitude pelo [Nominatim](https://operations.osmfoundation.org/policies/nominatim/); os campos continuam editáveis.
-  A busca acerta a rua, não a porta, então o gestor confere (há um link "Ver no mapa"). Inclua cidade e UF no endereço.
+  A busca acerta a rua, não a porta, então a administração confere (há um link "Ver no mapa"). Inclua cidade e UF no endereço.
 - Usa o mesmo `GEOCODING_USER_AGENT` e a mesma fila de 1 consulta por segundo da localização por CEP
   (`src/lib/geocodificar.ts`). Roteiro de teste em `docs/teste-busca-coordenadas.md`.
 
@@ -123,15 +127,19 @@ Abra http://localhost:3000.
 
 Senha de todos os usuários de teste: **`sidim123`** (definida em `src/lib/repo/usuarios.ts`; só para desenvolvimento).
 
-| Perfil | E-mail | Observação |
+Não existe perfil "gestor": cada pessoa tem **papéis**, e os papéis somam **permissões** (`src/lib/permissoes.ts`). Quem tem as duas áreas (Administração e App do Técnico) escolhe uma depois do login e troca por "Trocar de área". Os usuários e os papéis dos testes são dados de exemplo (`src/lib/repo/usuarios.ts` e `permissoes.ts`); na plataforma eles são gerenciados no Admin do SINC.
+
+| Papel | E-mail | O que acontece |
 |---|---|---|
-| Gestor | `gestor@sidim.com.br` | Administração e Relatórios |
-| Técnico | `ana@sidim.com.br` | começa com uma visita aberta |
-| Técnico | `carlos@sidim.com.br` | começa com uma visita aberta |
+| Coordenação ReportS (todas as permissões) | `gestor@sidim.com.br` | vê o seletor de área; Administração completa e App do Técnico |
+| Técnico de campo | `ana@sidim.com.br` | começa com uma visita aberta; só o App do Técnico |
+| Técnico de campo | `carlos@sidim.com.br` | começa com uma visita aberta; só o App do Técnico |
+| Faturamento (só `reports.relatorios.gerenciar`) | `faturamento@sidim.com.br` | Administração só com Relatórios e Caixa de saída |
+| Sem nenhum papel | `semacesso@sidim.com.br` | o login avisa que não há acesso ao ReportS |
 | Técnico inativo | `paulo@sidim.com.br` | o login é recusado (teste de bloqueio) |
 
 **Aprovador (cliente) não tem login.** Ele entra pelo link pessoal enviado no e-mail do relatório. Para testar:
-entre como gestor → **Relatórios → Novo relatório** (cliente, **sistema** e período) → emita → **Caixa de saída (teste)** → **"Ver relatório"**.
+entre como `gestor@sidim.com.br` → **Administração → Relatórios → Novo relatório** (cliente, **sistema** e período) → emita → **Caixa de saída (teste)** → **"Ver relatório"**.
 
 Cada cliente tem um contrato por sistema, e cada contrato tem a sua comprovação e os seus aprovadores (a mesma pessoa pode aprovar para vários contratos). Dados de exemplo:
 
@@ -145,7 +153,7 @@ Cada cliente tem um contrato por sistema, e cada contrato tem a sua comprovaçã
 Cliente com dois sistemas tem **dois relatórios por período**, um por contrato. Os aprovadores ficam em **Administração → Aprovadores**.
 
 Para ver o check-in do técnico, ele não pode ter visita aberta: faça o check-out da visita de exemplo
-(ou, como gestor, cancele-a em **Visitas → Em andamento**).
+(ou, na Administração, cancele-a em **Visitas → Em andamento**).
 
 ## Testar no celular
 
@@ -155,12 +163,12 @@ nesse endereço — use um treinamento online para testar sem GPS.
 
 ## Estrutura
 
-- `src/proxy.ts` — redireciona por perfil (checagem rápida do cookie de sessão)
-- `src/lib/session.ts`, `src/lib/dal.ts` — sessão (JWT em cookie httpOnly) e verificação de acesso
+- `src/proxy.ts` — só confere se há sessão; a área certa (Administração ou App do Técnico) é decidida pelas permissões, na página `/inicio`
+- `src/lib/session.ts`, `src/lib/dal.ts`, `src/lib/permissoes.ts` — sessão (JWT em cookie httpOnly com só o id do usuário), verificação de permissão (uma para páginas, outra para ações; lida a cada requisição, sem cache) e catálogo de permissões
 - `src/lib/repo/*` — **camada de dados (mock em memória)**: usuários, clientes, temas, participantes, CBO, visitas, relatórios, arquivos
 - `src/lib/emissao.tsx`, `src/lib/pdf/` — geração do PDF e envio (simulado) dos e-mails do relatório
 - `src/lib/email.ts` — envio de e-mail (simulado; trocar pelo provedor real)
-- `src/app/admin/*` — Administração (gestor)
+- `src/app/admin/*` — Administração (cada tela exige a sua permissão)
 - `src/app/tecnico/*` — App do Técnico
 - `src/app/aprovacao/[token]/*` — página do aprovador (sem login)
 - `src/components/*` — componentes de tela (formulários, visita, relatório, shell)
@@ -174,11 +182,11 @@ Decisão de 29/10/2026: o ReportS e o SINC passam a ser dois serviços de um mes
 - O ReportS adapta o protótipo **em memória** enquanto o SINC faz as Fases 0 a 3, e só passa a usar banco na Fase 4.
 - **Biblioteca de banco: Prisma 7.x**, como o plano sugere: um schema do Prisma por banco, `reports` com migrações próprias e `plataforma` só por introspecção (o ReportS nunca altera a estrutura dela). Detalhes no `MELHORIAS.md`.
 
-Andamento do ReportS (detalhes no `MELHORIAS.md`): **Fase 0** com a documentação e a biblioteca de banco decididas; **Fase 1** feita (sistemas como cadastro só de leitura; temas escolhem o sistema numa lista); **Fase 2** feita em grande parte (cliente, sistemas do cliente, contrato por sistema, aprovador próprio, check-in e relatório por contrato; falta o filtro dos chamados por sistema). Próxima: Fase 3 (permissões no lugar do perfil).
+Andamento do ReportS (detalhes no `MELHORIAS.md`): **Fase 0** com a documentação e a biblioteca de banco decididas; **Fase 1** feita (sistemas como cadastro só de leitura; temas escolhem o sistema numa lista); **Fase 2** feita em grande parte (cliente, sistemas do cliente, contrato por sistema, aprovador próprio, check-in e relatório por contrato; falta o filtro dos chamados por sistema); **Fase 3** no ReportS feita em grande parte (perfil "gestor" substituído por permissões, telas de usuários trocadas pelo aviso do SINC; faltam o "esqueci minha senha" e o limite de tentativas do login).
 
 ## Próximos passos
 
-1. Fase 3 do plano, em memória (permissões no lugar do perfil) e o que falta da Fase 2 (chamados filtrados pelo sistema).
+1. O que falta das Fases 2 e 3, em memória: chamados filtrados pelo sistema; "esqueci minha senha" apontando para o SINC e limite de tentativas no login.
 2. Fase 4, depois que o SINC concluir as Fases 1 a 3: banco `reports` e leitura da plataforma (Prisma 7).
 3. Arquivos (fotos, assinaturas e PDFs) no disco do servidor.
 4. Envio real de e-mail pelo SMTP da SIDIM: implementado e testado com o serviço real; falta o domínio público (`APP_URL`) e o SPF/DKIM do remetente.

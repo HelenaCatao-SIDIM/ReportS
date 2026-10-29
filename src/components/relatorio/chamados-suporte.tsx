@@ -39,7 +39,7 @@ function Tabela({ titulo, itens }: { titulo: string; itens: ContagemSuporte[] })
  * `publico="aprovador"`: só totais e tabelas (sem a lista de chamados e sem nome de agente);
  * cliente sem vínculo com o SINC não mostra nada para o aprovador.
  */
-export function ChamadosSuporte({ resumo: r, publico }: { resumo: ResumoSuporte; publico: "gestor" | "aprovador" }) {
+export function ChamadosSuporte({ resumo: r, publico }: { resumo: ResumoSuporte; publico: "administracao" | "aprovador" }) {
   if (publico === "aprovador" && r.situacao === "sem_vinculo") return null;
 
   let corpo: React.ReactNode;
@@ -69,7 +69,7 @@ export function ChamadosSuporte({ resumo: r, publico }: { resumo: ResumoSuporte;
           <Tabela titulo="Por assunto" itens={topComOutros(r.porTopico)} />
           <Tabela titulo="Por motivo de encerramento" itens={topComOutros(r.porMotivoEncerramento)} />
         </div>
-        {publico === "gestor" && r.chamados.length > 0 && (
+        {publico === "administracao" && r.chamados.length > 0 && (
           <details className="group rounded-lg border">
             <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-medium">
               <ChevronDown className="size-4 text-muted-foreground transition-transform group-not-open:-rotate-90" />

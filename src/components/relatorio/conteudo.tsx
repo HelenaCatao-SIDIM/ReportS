@@ -79,7 +79,7 @@ export function ConteudoRelatorio({ c, tituloVisitas, linkVisitas }: { c: DadosC
         </Card>
       </div>
 
-      {c.suporte && <ChamadosSuporte resumo={c.suporte} publico="gestor" />}
+      {c.suporte && <ChamadosSuporte resumo={c.suporte} publico="administracao" />}
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">{tituloVisitas}</h2>

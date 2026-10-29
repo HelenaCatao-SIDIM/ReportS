@@ -61,3 +61,6 @@ export const emailRedirecionarPara = () => process.env.EMAIL_REDIRECIONAR_PARA?.
 
 /** Identificação exigida pela política de uso do Nominatim (sistema + contato). */
 export const geocodingUserAgent = () => process.env.GEOCODING_USER_AGENT || "SIDIM-Visitas/0.1 (configure GEOCODING_USER_AGENT)";
+
+/** Endereço do SINC, onde os usuários, os papéis e as permissões são gerenciados (Admin do SINC). */
+export const sincUrl = () => process.env.SINC_URL?.trim() || "https://sinc.sidim.com.br";

@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { exigirAdministracao } from "@/lib/dal";
+import { PERMISSOES } from "@/lib/permissoes";
 import { buscarCliente, buscarSistemaDoCliente } from "@/lib/repo/clientes";
 import { buscarContratoDoSistemaDoCliente } from "@/lib/repo/contratos";
 import { listarAprovadores } from "@/lib/repo/aprovadores";
@@ -20,7 +22,7 @@ export default function ContratoPage({ params }: PageProps<"/admin/clientes/[id]
 }
 
 async function Conteudo({ params }: Pick<PageProps<"/admin/clientes/[id]/contratos/[sistemaId]">, "params">) {
-  const { id, sistemaId } = await params;
+  const [{ id, sistemaId }] = await Promise.all([params, exigirAdministracao(PERMISSOES.contratosGerenciar)]);
   const [cliente, sdc, contrato] = await Promise.all([buscarCliente(id), buscarSistemaDoCliente(sistemaId), buscarContratoDoSistemaDoCliente(sistemaId)]);
   if (!cliente || !sdc || sdc.clienteId !== id) notFound();
 

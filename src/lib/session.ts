@@ -1,11 +1,10 @@
 import "server-only";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
-import type { Perfil } from "@/lib/types";
 
+/** A sessão guarda só o id do usuário (RN-PL-71): as permissões são lidas a cada requisição, no cadastro. */
 export interface SessionPayload {
   userId: string;
-  perfil: Perfil;
   [key: string]: unknown;
 }
 
@@ -31,9 +30,9 @@ export async function decrypt(token: string | undefined): Promise<SessionPayload
   }
 }
 
-export async function createSession(userId: string, perfil: Perfil) {
+export async function createSession(userId: string) {
   const expires = new Date(Date.now() + DURACAO_MS);
-  const token = await encrypt({ userId, perfil });
+  const token = await encrypt({ userId });
   (await cookies()).set(COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

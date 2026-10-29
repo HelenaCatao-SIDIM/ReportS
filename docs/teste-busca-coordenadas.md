@@ -12,7 +12,7 @@ Reinicie o `npm run dev` depois de mudar o `.env.local`.
    - **Ver no mapa** abre o ponto; confira se cai no lugar certo.
 5. Ajuste a latitude à mão e clique em **Salvar**. Reabra o estabelecimento: os valores salvos aparecem.
 6. Digite um endereço que não existe: aparece "Endereço não encontrado" e os campos não mudam.
-7. Faça um check-in presencial nesse estabelecimento: o detalhe da visita (gestor) mostra a distância e "Dentro do raio" ou "Fora do raio".
+7. Faça um check-in presencial nesse estabelecimento: o detalhe da visita (Administração) mostra a distância e "Dentro do raio" ou "Fora do raio".
 
-Limites: a busca acerta a rua, não a porta (a distância tem essa folga); no máximo 10 buscas por minuto por gestor e
+Limites: a busca acerta a rua, não a porta (a distância tem essa folga); no máximo 10 buscas por minuto por usuário e
 1 consulta por segundo ao Nominatim; repetir o mesmo endereço usa o resultado guardado.

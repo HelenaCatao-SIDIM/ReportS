@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { exigirGestorAcao } from "@/lib/dal";
+import { exigirPermissaoAcao } from "@/lib/dal";
+import { PERMISSOES } from "@/lib/permissoes";
 import { emailValido } from "@/lib/format";
 import { atualizarAprovador, buscarAprovadorPorEmail, criarAprovador, definirAprovadorAtivo } from "@/lib/repo/aprovadores";
 
@@ -13,7 +14,7 @@ export interface AprovadorFormState {
 
 /** Cria (aprovadorId null) ou edita um aprovador. O e-mail é único no cadastro. */
 export async function salvarAprovador(aprovadorId: string | null, _: AprovadorFormState, fd: FormData): Promise<AprovadorFormState> {
-  await exigirGestorAcao();
+  await exigirPermissaoAcao(PERMISSOES.contratosGerenciar);
   const d = {
     nome: String(fd.get("nome") ?? "").trim(),
     cargo: String(fd.get("cargo") ?? "").trim(),
@@ -37,7 +38,7 @@ export async function salvarAprovador(aprovadorId: string | null, _: AprovadorFo
 }
 
 export async function alternarAprovador(id: string, ativo: boolean) {
-  await exigirGestorAcao();
+  await exigirPermissaoAcao(PERMISSOES.contratosGerenciar);
   await definirAprovadorAtivo(id, ativo);
   revalidatePath("/admin/aprovadores");
   revalidatePath("/admin/clientes", "layout");

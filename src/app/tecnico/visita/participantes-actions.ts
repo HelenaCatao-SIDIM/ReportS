@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { exigirTecnicoAcao } from "@/lib/dal";
+import { exigirPermissaoAcao } from "@/lib/dal";
+import { PERMISSOES } from "@/lib/permissoes";
 import { cpfValido, mascararCpf, normalizar, soDigitos } from "@/lib/format";
 import { ehPresencial } from "@/lib/visitas";
 import { buscarCliente } from "@/lib/repo/clientes";
@@ -13,7 +14,7 @@ import { adicionarPresenca, buscarVisita, removerPresenca } from "@/lib/repo/vis
 import type { Cbo } from "@/lib/types";
 
 async function contexto(visitaId: string) {
-  const tecnico = await exigirTecnicoAcao();
+  const tecnico = await exigirPermissaoAcao(PERMISSOES.tecnico);
   const v = await buscarVisita(visitaId);
   if (!v || v.tecnicoId !== tecnico.id) throw new Error("Visita não encontrada");
   const cliente = await buscarCliente(v.clienteId);

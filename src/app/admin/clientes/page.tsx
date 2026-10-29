@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Plus, Search } from "lucide-react";
 import { listarClientes } from "@/lib/repo/clientes";
 import { listarContratos } from "@/lib/repo/contratos";
+import { getUsuarioAtual } from "@/lib/dal";
+import { PERMISSOES } from "@/lib/permissoes";
 import { formatarCnpj } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/shell/placeholder";
@@ -17,15 +19,26 @@ export default function ClientesPage({ searchParams }: PageProps<"/admin/cliente
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <PageHeader titulo="Clientes" descricao="Clientes atendidos, os sistemas que usam e os contratos, os estabelecimentos e os aprovadores de cada um." />
-        <Button nativeButton={false} render={<Link href="/admin/clientes/novo" />} className="h-9">
-          <Plus />
-          Novo cliente
-        </Button>
+        <Suspense fallback={null}>
+          <BotaoNovoCliente />
+        </Suspense>
       </div>
       <Suspense fallback={<div className="h-64 animate-pulse rounded-xl bg-muted" />}>
         <ListaClientes searchParams={searchParams} />
       </Suspense>
     </>
+  );
+}
+
+/** Só quem tem a permissão de cadastrar clientes vê o botão. */
+async function BotaoNovoCliente() {
+  const usuario = await getUsuarioAtual();
+  if (!usuario?.permissoes.includes(PERMISSOES.clientesCadastrar)) return null;
+  return (
+    <Button nativeButton={false} render={<Link href="/admin/clientes/novo" />} className="h-9">
+      <Plus />
+      Novo cliente
+    </Button>
   );
 }
 

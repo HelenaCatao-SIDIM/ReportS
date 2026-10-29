@@ -3,7 +3,8 @@ import Link from "next/link";
 import { AlertTriangle, MapPinCheck, MapPinOff } from "lucide-react";
 import { listarEmAndamento, listarEncerradas, type VisitaDetalhada } from "@/lib/repo/visitas";
 import { listarClientes } from "@/lib/repo/clientes";
-import { listarUsuarios } from "@/lib/repo/usuarios";
+import { listarComPermissao } from "@/lib/repo/usuarios";
+import { PERMISSOES } from "@/lib/permissoes";
 import { fimDoDia, formatarData, formatarDataHora, formatarDuracao, formatarHora, inicioDoDia } from "@/lib/datas";
 import { horaDoServidor } from "@/lib/agora";
 import { dentroDoRaio, foraDoRaio, formatarDistancia } from "@/lib/distancia";
@@ -150,7 +151,7 @@ async function Encerradas({ sp }: { sp: Record<string, string | string[] | undef
       incluirCanceladas: f.canceladas,
     }),
     listarClientes(),
-    listarUsuarios({ perfil: "tecnico" }),
+    listarComPermissao(PERMISSOES.tecnico),
   ]);
 
   return (
