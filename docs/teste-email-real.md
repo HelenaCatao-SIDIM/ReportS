@@ -47,7 +47,8 @@ Com `EMAIL_REDIRECIONAR_PARA` definida, **nada** vai para os aprovadores de verd
 | "Não foi possível falar com o servidor SMTP: tempo esgotado…" (ETIMEDOUT) | A rede, o firewall ou o antivírus está bloqueando a porta 587. Teste no PowerShell: `Test-NetConnection smtp.email.sa-saopaulo-1.oci.oraclecloud.com -Port 587` (precisa mostrar `TcpTestSucceeded : True`). Se der `False`, tente outra rede (ex.: o celular como roteador) ou peça à TI para liberar a saída na porta 587 |
 | "…conexão recusada" (ECONNREFUSED) | Servidor ou porta errados |
 | "…o endereço do servidor não foi encontrado" (ENOTFOUND) | `SMTP_HOST` errado ou sem internet/DNS |
-| "…falha na conexão segura (TLS)" | Antivírus ou proxy interceptando a conexão, ou data/hora do computador errada |
+| "…falha na conexão segura (TLS): certificado… `self-signed certificate in certificate chain`" | A conexão chegou ao servidor, mas algo no caminho (antivírus com verificação de conexões criptografadas, ou o firewall/proxy da empresa) troca o certificado por um próprio, que o Node não reconhece. O Windows confia nele; o Node não. Nenhuma senha foi enviada. Solução: `$env:NODE_OPTIONS="--use-system-ca"` antes de `npm run dev` (Node 22.15 ou mais novo), ou `$env:NODE_EXTRA_CA_CERTS="C:\caminho\certificado-da-empresa.pem"` com o certificado raiz que a TI fornecer. **Nunca** use `NODE_TLS_REJECT_UNAUTHORIZED=0`: isso desliga a verificação e expõe a senha |
+| "…falha na conexão segura (TLS)" (outros) | Data/hora do computador errada, ou protocolo/certificado não aceitos |
 | "O servidor SMTP recusou a mensagem (5xx …)" | Remetente não aprovado no OCI, destinatário inexistente ou política do servidor |
 | "O servidor SMTP respondeu 4xx" | Limite de envios ou problema temporário; o sistema já tenta uma segunda vez |
 | Página: "O envio falhou para N aprovador(es)" | O relatório está emitido e os links existem; corrija a causa e emita uma nova versão |
