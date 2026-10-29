@@ -178,7 +178,7 @@ Não sabemos se já existem; precisam ser confirmados antes de cada item começa
 
 - [ ] **Alta** — Banco de dados real (Prisma + PostgreSQL/Supabase). A troca fica concentrada em `src/lib/repo/*`; as telas não mudam.
 - [ ] **Alta** — Armazenamento de fotos, assinaturas e PDFs (Supabase Storage). Hoje ficam em memória.
-- [ ] **Média** — Envio real de e-mail. **Resend (plano gratuito) escolhido em 28/10/2026**, com SMTP como alternativa (`EMAIL_PROVEDOR=smtp`). **Implementado, falta o teste real** (`EMAIL_REAL`, `RESEND_API_KEY`, trava `EMAIL_REDIRECIONAR_PARA`; roteiro em `docs/teste-email-real.md`). Falta verificar o domínio da SIDIM no Resend (acesso ao DNS) para enviar aos aprovadores de verdade e conferir o limite do plano gratuito. Sem as variáveis, segue simulado na Caixa de saída (`src/lib/email.ts`).
+- [ ] **Média** — Envio real de e-mail. **Resend (plano gratuito) escolhido em 28/10/2026**, com SMTP como alternativa (`EMAIL_PROVEDOR=smtp`). **Testado com o Resend real em 29/10/2026**: o e-mail chegou com o PDF e o botão, e a aprovação pelo link pessoal funcionou (com a trava `EMAIL_REDIRECIONAR_PARA`; roteiro em `docs/teste-email-real.md`). **Falta** verificar o domínio da SIDIM no Resend (acesso ao DNS) para enviar aos aprovadores de verdade, e conferir o limite do plano gratuito. Sem as variáveis, segue simulado na Caixa de saída (`src/lib/email.ts`).
 - [ ] **Média** — Importar a tabela CBO oficial do Ministério do Trabalho. Hoje é uma amostra de 25 ocupações, com códigos não conferidos. Ganha peso com a definição 2, em que o CBO passa a ser o único campo de ocupação.
 - [ ] **Média** — Publicar (Vercel) e testar no celular com https. O GPS do check-in presencial só funciona em https ou em `localhost`.
 
@@ -214,3 +214,4 @@ Não sabemos se já existem; precisam ser confirmados antes de cada item começa
 - [x] Selo "Dentro do raio" para o gestor, ao lado do "Fora do raio" — `f9581d2` (28/10/2026).
 - [x] Ponto 5: botão "Buscar coordenadas pelo endereço" no cadastro do estabelecimento, testado com o serviço real — `8cc34fd` (28/10/2026).
 - [x] Termo **"unidade" passa a ser "estabelecimento"** em telas, mensagens, PDF e documentação, por decisão com a Helena (28/10/2026). Os nomes internos do código (`unidadeId`, `Unidade`, `listarUnidades`) foram mantidos de propósito, para não arriscar uma refatoração grande sem ganho para o usuário.
+- [x] Envio real de e-mail pelo Resend, testado de ponta a ponta (emissão → e-mail com PDF → aprovação pelo link) — 29/10/2026. Aprovadores reais dependem de verificar o domínio da SIDIM.
