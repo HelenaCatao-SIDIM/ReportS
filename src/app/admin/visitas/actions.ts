@@ -6,6 +6,7 @@ import { exigirGestorAcao } from "@/lib/dal";
 import { deInputLocal } from "@/lib/datas";
 import { TIPOS_VISITA } from "@/lib/visitas";
 import { buscarSetor, buscarUnidade } from "@/lib/repo/clientes";
+import { listarTemas } from "@/lib/repo/temas";
 import { buscarVisita, cancelarPeloGestor, corrigirPeloGestor, encerrarPeloGestor } from "@/lib/repo/visitas";
 import type { TipoVisita } from "@/lib/types";
 
@@ -91,6 +92,9 @@ export async function corrigirVisita(id: string, _: CorrecaoState, fd: FormData)
   if (motivo.length < 5) erros.motivo = "Informe o motivo da correção (fica no histórico).";
   if (Object.keys(erros).length) return { erros };
 
+  // Só temas do sistema do contrato da visita (os que já estavam marcados continuam aceitos).
+  const permitidos = new Set((await listarTemas()).filter((t) => t.sistema === v.sistema && (t.ativo || v.temaIds.includes(t.id))).map((t) => t.id));
+
   const mudancas = await corrigirPeloGestor(
     id,
     {
@@ -100,7 +104,7 @@ export async function corrigirVisita(id: string, _: CorrecaoState, fd: FormData)
       unidadeId,
       setorId,
       setorOutro: setorId ? null : setorOutro,
-      temaIds: fd.getAll("temaIds").map(String),
+      temaIds: fd.getAll("temaIds").map(String).filter((id) => permitidos.has(id)),
       temaAdicional: String(fd.get("temaAdicional") ?? "").trim(),
       observacoes: String(fd.get("observacoes") ?? "").trim(),
       pendencias: String(fd.get("pendencias") ?? "").trim(),

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { Search } from "lucide-react";
 import { listarClientes, listarUnidades } from "@/lib/repo/clientes";
+import { clienteExigeCpf } from "@/lib/repo/contratos";
 import { listarParticipantes } from "@/lib/repo/participantes";
 import { formatarCbo, formatarCpf } from "@/lib/format";
 import { PageHeader } from "@/components/shell/placeholder";
@@ -44,15 +45,15 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/participantes">
     );
   }
 
-  const [participantes, unidades] = await Promise.all([listarParticipantes(cliente.id, q), listarUnidades(cliente.id)]);
+  const [participantes, unidades, exigeCpf] = await Promise.all([listarParticipantes(cliente.id, q), listarUnidades(cliente.id), clienteExigeCpf(cliente.id)]);
   const setores = [...new Set(unidades.flatMap((u) => u.setores.map((s) => s.nome)))].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  const colunas = cliente.exigeCpf ? 6 : 5;
+  const colunas = exigeCpf ? 6 : 5;
 
   return (
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <PageHeader titulo={TITULO} descricao={DESCRICAO} />
-        <ParticipanteDialogo clienteId={cliente.id} exigeCpf={cliente.exigeCpf} setores={setores} />
+        <ParticipanteDialogo clienteId={cliente.id} exigeCpf={exigeCpf} setores={setores} />
       </div>
 
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -63,7 +64,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/participantes">
           <Input name="q" defaultValue={q} placeholder="Buscar nome, ocupação ou setor" className="h-9 bg-background pl-8" />
         </form>
         <span className="text-xs text-muted-foreground sm:ml-auto">
-          {cliente.exigeCpf ? "Este cliente exige CPF." : "Este cliente não exige CPF."}
+          {exigeCpf ? "Algum contrato deste cliente exige CPF." : "Nenhum contrato deste cliente exige CPF."}
         </span>
       </div>
 
@@ -75,7 +76,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/participantes">
                 <TableHead className="pl-4">Nome</TableHead>
                 <TableHead>CBO</TableHead>
                 <TableHead>Setor</TableHead>
-                {cliente.exigeCpf && <TableHead>CPF</TableHead>}
+                {exigeCpf && <TableHead>CPF</TableHead>}
                 <TableHead>Origem</TableHead>
                 <TableHead className="pr-4 text-right">Ações</TableHead>
               </TableRow>
@@ -96,12 +97,12 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/participantes">
                     <span className="block truncate text-xs">{p.cbo.titulo}</span>
                   </TableCell>
                   <TableCell>{p.setor || "—"}</TableCell>
-                  {cliente.exigeCpf && <TableCell className="font-mono text-xs">{p.cpf ? formatarCpf(p.cpf) : "—"}</TableCell>}
+                  {exigeCpf && <TableCell className="font-mono text-xs">{p.cpf ? formatarCpf(p.cpf) : "—"}</TableCell>}
                   <TableCell>
                     {p.criadoEmCampo ? <Badge variant="secondary">Em campo</Badge> : <span className="text-xs text-muted-foreground">Cadastro</span>}
                   </TableCell>
                   <TableCell className="pr-4 text-right">
-                    <ParticipanteDialogo clienteId={cliente.id} exigeCpf={cliente.exigeCpf} setores={setores} participante={p} />
+                    <ParticipanteDialogo clienteId={cliente.id} exigeCpf={exigeCpf} setores={setores} participante={p} />
                   </TableCell>
                 </TableRow>
               ))}

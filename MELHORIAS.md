@@ -159,10 +159,20 @@ O ReportS adapta o protótipo **em memória** enquanto o SINC faz as Fases 0 a 3
 |---|---|---|
 | 0 | README e MELHORIAS atualizados; biblioteca de banco; inventário do que depende de perfil, cliente e participante | Docs e biblioteca de banco **decididos** em 29/10/2026 (ver abaixo); inventário pendente |
 | 1 | Cadastro de sistemas (SERP, SCA, SE, Saúde) só de leitura; tema escolhe o sistema numa lista; dados de exemplo sem sistemas fictícios | **Feito** em 29/10/2026 (`src/lib/repo/sistemas.ts`) |
-| 2 | Cliente em três (cliente, sistemas do cliente, contrato por sistema); aprovador próprio; check-in cliente → sistema → estabelecimento → setor; relatório por contrato; chamados por sistema | Pendente |
+| 2 | Cliente em três (cliente, sistemas do cliente, contrato por sistema); aprovador próprio; check-in cliente → sistema → estabelecimento → setor; relatório por contrato; chamados por sistema | **Feito em 29/10/2026**, menos os chamados por sistema (depende do parâmetro de sistema no fluxo do n8n e dos valores que o Fortics grava) |
 | 3 | Perfil gestor/técnico sai; permissões; sessão só com o id; telas de usuários saem | Pendente |
 | 4 | Banco `reports`, leitura/escrita na plataforma, arquivos em disco, SMTP, deploy | Depende das Fases 1 a 3 do SINC em produção e da decisão de LGPD sobre guardar CPF |
 | 5 | Junção de participantes | Depende da Fase 4 |
+
+#### Fase 2 no ReportS: como ficou (29/10/2026)
+
+- **Cliente** (nome, CNPJ, "Nome no SINC", ativo, origem), **sistemas do cliente** (sistema, tenant, estado "em implantação" ou "vinculado") e **contrato** por sistema do cliente (texto da capa, comprovação, CPF, ativo, aprovadores). O CNPJ é obrigatório ao criar à mão e pode ficar pendente só em cliente que veio do SINC; relatório não é emitido com CNPJ pendente (RN-PL-11).
+- Cliente novo escolhe os sistemas (todos entram "em implantação"); o contrato de cada um é cadastrado na tela do cliente. O ReportS não liga o sistema ao tenant: isso é do SINC. Sistema sem contrato não aparece no check-in.
+- **Aprovadores** têm cadastro próprio (Administração → Aprovadores): e-mail único, um cargo só, ativo/inativo; a mesma pessoa pode estar em vários contratos. Aprovador inativo deixa de receber os próximos relatórios; contrato sem aprovador ativo não emite.
+- **Check-in**: cliente → sistema → estabelecimento → setor (sistema único já vem escolhido; o rascunho do aparelho guarda o contrato). A visita guarda o contrato; comprovação, assinatura e CPF seguem o contrato da visita. Os **temas** da visita (técnico e correção do gestor) são só do sistema do contrato.
+- **Relatório por contrato e período**: visitas elegíveis, sobreposição de períodos, capa, PDF, e-mail e página do aprovador mostram o sistema; só os aprovadores do contrato recebem. Cliente com dois sistemas tem dois relatórios por período.
+- Contrato inativo some do check-in, mas continua podendo gerar relatório das visitas antigas.
+- **Ficou fora** (não pedido nesta etapa): filtro dos chamados de suporte por sistema (parâmetro novo no fluxo do n8n); remover um sistema de um cliente; participantes por sistema do cliente (continuam por cliente; o CPF fora de uma visita segue "algum contrato ativo exige"); o inventário da Fase 0.
 
 Pontos para alinhar com a Helena que afetam o ReportS: o campo hoje chamado "Nome no SINC" (nomes do cliente nos chamados) é "Nomes no Fortics" no plano, e o plano também prevê "nome no Fortics" por sistema; um cliente pode ter dois tenants do mesmo sistema?; cargo do aprovador (um só, mesmo aprovando para vários clientes).
 

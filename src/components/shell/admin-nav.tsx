@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useState } from "react";
 import {
+  BadgeCheck,
   BookOpen,
   Building2,
   ClipboardCheck,
@@ -33,6 +34,7 @@ const GRUPOS: { titulo?: string; itens: NavItem[] }[] = [
     itens: [
       { href: "/admin/usuarios", label: "Usuários", icon: UserCog },
       { href: "/admin/clientes", label: "Clientes", icon: Building2 },
+      { href: "/admin/aprovadores", label: "Aprovadores", icon: BadgeCheck },
       { href: "/admin/temas", label: "Temas", icon: BookOpen },
       { href: "/admin/participantes", label: "Participantes", icon: Users },
     ],

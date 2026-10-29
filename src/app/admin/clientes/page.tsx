@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { Plus, Search } from "lucide-react";
 import { listarClientes } from "@/lib/repo/clientes";
+import { listarContratos } from "@/lib/repo/contratos";
 import { formatarCnpj } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/shell/placeholder";
@@ -15,7 +16,7 @@ export default function ClientesPage({ searchParams }: PageProps<"/admin/cliente
   return (
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <PageHeader titulo="Clientes" descricao="Clientes atendidos, forma de comprovação, aprovadores e estabelecimentos." />
+        <PageHeader titulo="Clientes" descricao="Clientes atendidos, os sistemas que usam e os contratos, os estabelecimentos e os aprovadores de cada um." />
         <Button nativeButton={false} render={<Link href="/admin/clientes/novo" />} className="h-9">
           <Plus />
           Novo cliente
@@ -31,7 +32,7 @@ export default function ClientesPage({ searchParams }: PageProps<"/admin/cliente
 async function ListaClientes({ searchParams }: Pick<PageProps<"/admin/clientes">, "searchParams">) {
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q : "";
-  const clientes = await listarClientes(q);
+  const [clientes, contratos] = await Promise.all([listarClientes(q), listarContratos()]);
 
   return (
     <>
@@ -46,9 +47,8 @@ async function ListaClientes({ searchParams }: Pick<PageProps<"/admin/clientes">
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-4">Cliente</TableHead>
-                <TableHead>Comprovação</TableHead>
+                <TableHead>Sistemas</TableHead>
                 <TableHead className="text-center">Estabelecimentos</TableHead>
-                <TableHead className="text-center">Aprovadores</TableHead>
                 <TableHead>Situação</TableHead>
                 <TableHead className="pr-4 text-right">Ações</TableHead>
               </TableRow>
@@ -56,7 +56,7 @@ async function ListaClientes({ searchParams }: Pick<PageProps<"/admin/clientes">
             <TableBody>
               {clientes.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
                     Nenhum cliente encontrado.
                   </TableCell>
                 </TableRow>
@@ -67,18 +67,24 @@ async function ListaClientes({ searchParams }: Pick<PageProps<"/admin/clientes">
                     <Link href={`/admin/clientes/${c.id}`} className="font-medium hover:underline">
                       {c.nome}
                     </Link>
-                    <div className="text-xs text-muted-foreground">{formatarCnpj(c.cnpj)}</div>
+                    <div className="text-xs text-muted-foreground">{c.cnpj ? formatarCnpj(c.cnpj) : "CNPJ pendente"}</div>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      <Badge variant={c.nivel === "assinado" ? "default" : "secondary"}>
-                        {c.nivel === "assinado" ? "Assinado" : "Nominal"}
-                      </Badge>
-                      {c.exigeCpf && <Badge variant="outline">Exige CPF</Badge>}
+                      {c.sistemas.length === 0 && <span className="text-xs text-muted-foreground">Nenhum</span>}
+                      {c.sistemas.map((x) => {
+                        const contrato = contratos.find((k) => k.sistemaDoClienteId === x.id);
+                        return (
+                          <Badge key={x.id} variant={contrato?.ativo ? "secondary" : "outline"} title={contrato ? (contrato.ativo ? "Contrato ativo" : "Contrato inativo") : "Contrato pendente"}>
+                            {x.sistemaNome}
+                            {!contrato && " · sem contrato"}
+                            {contrato && !contrato.ativo && " · inativo"}
+                          </Badge>
+                        );
+                      })}
                     </div>
                   </TableCell>
                   <TableCell className="text-center">{c.totalUnidades}</TableCell>
-                  <TableCell className="text-center">{c.aprovadores.length}</TableCell>
                   <TableCell>
                     <Badge variant={c.ativo ? "outline" : "destructive"}>{c.ativo ? "Ativo" : "Inativo"}</Badge>
                   </TableCell>

@@ -41,13 +41,14 @@ async function carregarImagens(c: ConteudoCongelado): Promise<ImagensPdf> {
   return mapa;
 }
 
-/** Gera o PDF da versão, registra a emissão e envia o e-mail a todos os aprovadores do cliente. */
+/** Gera o PDF da versão, registra a emissão e envia o e-mail a todos os aprovadores ativos do contrato. */
 export async function emitirRelatorio(id: string) {
   let c = await montarConteudo(id);
   if (!c) throw new Error("Relatório não encontrado");
   if (c.relatorio.status !== "rascunho" && c.relatorio.status !== "ajuste_solicitado") throw new Error("Este relatório não pode ser emitido agora");
   if (!c.visitas.length) return { erro: "O relatório não tem visitas." };
-  if (!c.cliente.aprovadores.length) return { erro: "O cliente não tem aprovadores cadastrados." };
+  if (!c.cliente.cnpj) return { erro: "O cliente está com o CNPJ pendente. Informe o CNPJ no cadastro do cliente antes de emitir." };
+  if (!c.contrato.aprovadores.some((a) => a.ativo)) return { erro: `O contrato de ${c.contrato.sistemaNome} não tem aprovadores ativos.` };
 
   // A versão congelada é o que o cliente vê: converte antes os locais que ainda estão sem CEP.
   if ((await preencherCepsPendentes(c.visitas)) > 0) {
@@ -73,10 +74,10 @@ export async function emitirRelatorio(id: string) {
   for (const l of links) {
     const enviado = await enviarEmail({
       para: { nome: l.aprovadorNome, email: l.aprovadorEmail },
-      assunto: `Relatório de atendimento SIDIM — ${conteudo.cliente.nome} — ${periodo}${versao.numero > 1 ? ` (v${versao.numero})` : ""}`,
+      assunto: `Relatório de atendimento SIDIM — ${conteudo.cliente.nome} (${conteudo.sistema.nome}) — ${periodo}${versao.numero > 1 ? ` (v${versao.numero})` : ""}`,
       html: [
         `<p>Olá, ${esc(l.aprovadorNome)}.</p>`,
-        `<p>Segue o relatório de atendimento da SIDIM referente ao período de <b>${periodo}</b>${versao.numero > 1 ? `, versão <b>v${versao.numero}</b> (com os ajustes solicitados)` : ""}.</p>`,
+        `<p>Segue o relatório de atendimento da SIDIM referente ao sistema <b>${esc(conteudo.sistema.nome)}</b>, período de <b>${periodo}</b>${versao.numero > 1 ? `, versão <b>v${versao.numero}</b> (com os ajustes solicitados)` : ""}.</p>`,
         `<p>${conteudo.visitas.length === 1 ? "1 visita registrada" : `${conteudo.visitas.length} visitas registradas`}. ${anexa ? "O PDF segue em anexo." : "O PDF ficou grande para anexar; baixe-o pela página do relatório."}</p>`,
         `<p>Use o botão abaixo para ver o relatório completo e <b>aprovar</b> ou <b>pedir ajuste</b>. Basta a decisão de um dos aprovadores.</p>`,
       ].join(""),

@@ -7,6 +7,7 @@ import { distanciaMetros } from "@/lib/distancia";
 import { ehMeio } from "@/lib/meio";
 import { ehPresencial, TIPOS_VISITA } from "@/lib/visitas";
 import { buscarCliente, buscarSetor, buscarUnidade } from "@/lib/repo/clientes";
+import { buscarContrato } from "@/lib/repo/contratos";
 import { salvarImagem } from "@/lib/repo/arquivos";
 import { abrirVisita, visitaAbertaDoTecnico } from "@/lib/repo/visitas";
 import type { MeioRegistro, TipoVisita } from "@/lib/types";
@@ -14,7 +15,7 @@ import { lerLocal } from "@/lib/ler-local";
 import { converterDepois } from "@/lib/cep-visitas";
 
 export interface CheckinState {
-  erros?: Partial<Record<"cliente" | "unidade" | "setor" | "tipo" | "gps" | "foto" | "print" | "link" | "geral", string>>;
+  erros?: Partial<Record<"cliente" | "contrato" | "unidade" | "setor" | "tipo" | "gps" | "foto" | "print" | "link" | "geral", string>>;
 }
 
 const arquivo = (fd: FormData, nome: string) => {
@@ -29,6 +30,7 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
   if (aberta) return { erros: { geral: "Você já tem uma visita em andamento. Encerre-a antes de abrir outra." } };
 
   const clienteId = String(fd.get("clienteId") ?? "");
+  const contratoId = String(fd.get("contratoId") ?? "");
   const unidadeId = String(fd.get("unidadeId") ?? "");
   const setorValor = String(fd.get("setorId") ?? "");
   const setorOutro = String(fd.get("setorOutro") ?? "").trim();
@@ -38,6 +40,9 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
   const erros: NonNullable<CheckinState["erros"]> = {};
   const cliente = await buscarCliente(clienteId);
   if (!cliente?.ativo) erros.cliente = "Escolha o cliente.";
+  // O contrato define o sistema da visita: precisa ser deste cliente e estar ativo.
+  const contrato = await buscarContrato(contratoId);
+  if (!contrato?.ativo || contrato.clienteId !== clienteId) erros.contrato = "Escolha o sistema.";
   const unidade = await buscarUnidade(unidadeId);
   if (!unidade || unidade.clienteId !== clienteId) erros.unidade = "Escolha o estabelecimento.";
 
@@ -78,6 +83,7 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
   const v = await abrirVisita({
     tecnicoId: tecnico.id,
     clienteId,
+    contratoId,
     unidadeId,
     setorId,
     setorOutro: setorId ? null : setorOutro,

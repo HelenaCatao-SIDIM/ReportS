@@ -11,6 +11,7 @@ function seed(): Relatorio[] {
     {
       id: "r-2026-09-c1",
       clienteId: "c1",
+      contratoId: "ct1",
       de: "2026-09-01",
       ate: "2026-09-30",
       status: "aprovado",
@@ -39,8 +40,8 @@ function seed(): Relatorio[] {
   ];
 }
 
-const g = globalThis as unknown as { __relatorios?: Relatorio[] };
-export const relatorios = (g.__relatorios ??= seed());
+const g = globalThis as unknown as { __relatoriosV2?: Relatorio[] };
+export const relatorios = (g.__relatoriosV2 ??= seed());
 
 /** Visitas de relatório aprovado ficam travadas. */
 export const relatorioAprovado = (id: string | null) => !!id && relatorios.some((r) => r.id === id && r.status === "aprovado");

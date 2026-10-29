@@ -25,8 +25,10 @@ const atualizar = (id: string) => {
 export async function salvarTemas(visitaId: string, temaIds: string[]): Promise<Resultado> {
   const { tecnico, v, erro } = await visitaAberta(visitaId);
   if (erro) return erro;
-  // Aceita temas ativos ou que já estavam marcados (caso tenham sido inativados durante a visita).
-  const validos = new Set((await listarTemas()).filter((t) => t.ativo || v.temaIds.includes(t.id)).map((t) => t.id));
+  // Aceita só temas do sistema do contrato da visita, ativos ou que já estavam marcados (caso tenham sido inativados durante a visita).
+  const validos = new Set(
+    (await listarTemas()).filter((t) => t.sistema === v.sistema && (t.ativo || v.temaIds.includes(t.id))).map((t) => t.id),
+  );
   await definirTemas(visitaId, tecnico.id, temaIds.filter((id) => validos.has(id)));
   atualizar(visitaId);
   return null;

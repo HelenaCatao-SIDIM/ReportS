@@ -4,47 +4,26 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { exigirGestorAcao } from "@/lib/dal";
 import { RAIO_PADRAO_METROS } from "@/lib/distancia";
-import { cnpjValido, emailValido, normalizar, soDigitos } from "@/lib/format";
+import { cnpjValido, normalizar, soDigitos } from "@/lib/format";
 import * as repo from "@/lib/repo/clientes";
-import type { NivelComprovacao } from "@/lib/types";
+import { listarSistemas } from "@/lib/repo/sistemas";
 
 // ---------- Cliente ----------
 
 /** Limite de nomes do cliente no SINC (o fluxo do n8n aceita até 10). */
 const MAX_NOMES_FORTICS = 10;
 
-export interface AprovadorForm {
-  nome: string;
-  cargo: string;
-  email: string;
-}
-
 export interface ClienteFormState {
-  erros?: Partial<Record<"nome" | "cnpj" | "contrato" | "aprovadores" | "nomesFortics", string>>;
-  /** Erro por linha de aprovador (índice → mensagem). */
-  errosAprovadores?: Record<number, string>;
-  valores?: { nome: string; cnpj: string; contrato: string; nivel: NivelComprovacao; exigeCpf: boolean; ativo: boolean; aprovadores: AprovadorForm[]; nomesFortics: string[] };
+  erros?: Partial<Record<"nome" | "cnpj" | "sistemas" | "nomesFortics", string>>;
+  valores?: { nome: string; cnpj: string; ativo: boolean; nomesFortics: string[]; sistemas: string[] };
 }
 
 /** `nomesPadrao`: valor usado quando o campo não vem no formulário (ele só aparece com os chamados de suporte ligados). */
 function lerCliente(fd: FormData, nomesPadrao: string[] = []) {
-  let aprovadores: AprovadorForm[] = [];
-  try {
-    aprovadores = (JSON.parse(String(fd.get("aprovadores") ?? "[]")) as AprovadorForm[]).map((a) => ({
-      nome: String(a.nome ?? "").trim(),
-      cargo: String(a.cargo ?? "").trim(),
-      email: String(a.email ?? "").trim().toLowerCase(),
-    }));
-  } catch {}
   return {
     nome: String(fd.get("nome") ?? "").trim(),
     cnpj: soDigitos(String(fd.get("cnpj") ?? "")),
-    contrato: String(fd.get("contrato") ?? "").trim(),
-    nivel: (fd.get("nivel") === "assinado" ? "assinado" : "nominal") as NivelComprovacao,
-    exigeCpf: fd.get("exigeCpf") !== null,
     ativo: fd.get("ativo") !== null,
-    // Linhas totalmente vazias são ignoradas.
-    aprovadores: aprovadores.filter((a) => a.nome || a.cargo || a.email),
     // Um nome por linha, sem repetidos (comparação sem acento e sem caixa).
     nomesFortics: fd.has("nomesFortics")
       ? String(fd.get("nomesFortics") ?? "")
@@ -52,54 +31,53 @@ function lerCliente(fd: FormData, nomesPadrao: string[] = []) {
           .map((n) => n.replace(/\s+/g, " ").trim())
           .filter((n, i, todos) => n && todos.findIndex((x) => normalizar(x) === normalizar(n)) === i)
       : nomesPadrao,
+    sistemas: [...new Set(fd.getAll("sistemas").map(String))],
   };
 }
 
-async function validarCliente(d: ReturnType<typeof lerCliente>, id?: string) {
+/** `cnpjPendente`: cliente que veio do SINC sem CNPJ pode continuar sem (RN-PL-11); o cliente criado à mão sempre informa. */
+async function validarCliente(d: ReturnType<typeof lerCliente>, opcoes: { id?: string; exigirSistema: boolean; cnpjPendente?: boolean }) {
   const erros: NonNullable<ClienteFormState["erros"]> = {};
-  const errosAprovadores: Record<number, string> = {};
 
   if (d.nome.length < 2) erros.nome = "Informe o nome do cliente.";
-  if (!cnpjValido(d.cnpj)) erros.cnpj = "CNPJ inválido.";
-  else if (await repo.cnpjEmUso(d.cnpj, id)) erros.cnpj = "Já existe um cliente com este CNPJ.";
-  if (!d.contrato) erros.contrato = "Informe o contrato (aparece na capa do relatório).";
+  if (!d.cnpj && opcoes.cnpjPendente) {
+    // permanece "CNPJ pendente"
+  } else if (!cnpjValido(d.cnpj)) erros.cnpj = "CNPJ inválido.";
+  else if (await repo.cnpjEmUso(d.cnpj, opcoes.id)) erros.cnpj = "Já existe um cliente com este CNPJ.";
   if (d.nomesFortics.length > MAX_NOMES_FORTICS) erros.nomesFortics = `Informe no máximo ${MAX_NOMES_FORTICS} nomes.`;
   else if (d.nomesFortics.some((n) => n.length > 120)) erros.nomesFortics = "Cada nome pode ter até 120 caracteres.";
 
-  if (d.aprovadores.length === 0) erros.aprovadores = "Cadastre pelo menos um aprovador.";
-  const vistos = new Set<string>();
-  d.aprovadores.forEach((a, i) => {
-    if (!a.nome) errosAprovadores[i] = "Informe o nome.";
-    else if (!emailValido(a.email)) errosAprovadores[i] = "E-mail inválido.";
-    else if (vistos.has(a.email)) errosAprovadores[i] = "E-mail repetido.";
-    vistos.add(a.email);
-  });
-  return { erros, errosAprovadores };
+  if (opcoes.exigirSistema && d.sistemas.length === 0) erros.sistemas = "Escolha pelo menos um sistema do cliente.";
+  const ativos = new Set((await listarSistemas()).map((s) => s.codigo));
+  if (d.sistemas.some((codigo) => !ativos.has(codigo))) erros.sistemas = "Escolha apenas sistemas da lista.";
+  return erros;
 }
-
-const temErros = (r: { erros: object; errosAprovadores: object }) =>
-  Object.keys(r.erros).length > 0 || Object.keys(r.errosAprovadores).length > 0;
 
 export async function criarCliente(_: ClienteFormState, fd: FormData): Promise<ClienteFormState> {
   await exigirGestorAcao();
   const d = lerCliente(fd);
-  const r = await validarCliente(d);
-  if (temErros(r)) return { ...r, valores: d };
+  const erros = await validarCliente(d, { exigirSistema: true });
+  if (Object.keys(erros).length) return { erros, valores: d };
 
-  const c = await repo.criarCliente({ ...d, ativo: true });
+  const c = await repo.criarCliente({ nome: d.nome, cnpj: d.cnpj, ativo: true, nomesFortics: d.nomesFortics }, d.sistemas);
   revalidatePath("/admin/clientes");
-  // Segue para a tela do cliente, onde os estabelecimentos são cadastrados.
+  // Segue para a tela do cliente, onde ficam os contratos e os estabelecimentos.
   redirect(`/admin/clientes/${c.id}?ok=criado`);
 }
 
 export async function editarCliente(id: string, _: ClienteFormState, fd: FormData): Promise<ClienteFormState> {
   await exigirGestorAcao();
+  const atual = await repo.buscarCliente(id);
+  if (!atual) return { erros: { nome: "Cliente não encontrado." } };
   // Com os chamados de suporte desligados o campo não aparece no formulário; os nomes já cadastrados ficam como estão.
-  const d = lerCliente(fd, (await repo.buscarCliente(id))?.nomesFortics ?? []);
-  const r = await validarCliente(d, id);
-  if (temErros(r)) return { ...r, valores: d };
+  const d = lerCliente(fd, atual.nomesFortics);
+  const erros = await validarCliente(d, { id, exigirSistema: false, cnpjPendente: atual.origem === "sinc" });
+  const jaTem = new Set((await repo.listarSistemasDoCliente(id)).map((x) => x.sistema));
+  if (d.sistemas.some((codigo) => jaTem.has(codigo))) erros.sistemas = "O cliente já tem um destes sistemas.";
+  if (Object.keys(erros).length) return { erros, valores: d };
 
-  await repo.atualizarCliente(id, d);
+  await repo.atualizarCliente(id, { nome: d.nome, cnpj: d.cnpj, ativo: d.ativo, nomesFortics: d.nomesFortics });
+  for (const codigo of d.sistemas) await repo.adicionarSistemaAoCliente(id, codigo);
   revalidatePath("/admin/clientes");
   redirect(`/admin/clientes/${id}?ok=salvo`);
 }

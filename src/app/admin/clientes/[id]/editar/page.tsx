@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { buscarCliente } from "@/lib/repo/clientes";
+import { buscarCliente, listarSistemasDoCliente } from "@/lib/repo/clientes";
+import { listarSistemas } from "@/lib/repo/sistemas";
 import { PageHeader } from "@/components/shell/placeholder";
 import { ClienteForm } from "../../cliente-form";
 import { editarCliente } from "../../actions";
@@ -19,7 +20,16 @@ export default function EditarClientePage({ params }: PageProps<"/admin/clientes
 
 async function Formulario({ params }: Pick<PageProps<"/admin/clientes/[id]/editar">, "params">) {
   const { id } = await params;
-  const cliente = await buscarCliente(id);
+  const [cliente, atuais, ativos] = await Promise.all([buscarCliente(id), listarSistemasDoCliente(id), listarSistemas()]);
   if (!cliente) notFound();
-  return <ClienteForm acao={editarCliente.bind(null, id)} cliente={cliente} chamadosAtivos={chamadosSuporte()} />;
+  const jaTem = new Set(atuais.map((x) => x.sistema));
+  return (
+    <ClienteForm
+      acao={editarCliente.bind(null, id)}
+      cliente={cliente}
+      chamadosAtivos={chamadosSuporte()}
+      sistemasAtuais={atuais}
+      sistemasDisponiveis={ativos.filter((s) => !jaTem.has(s.codigo))}
+    />
+  );
 }

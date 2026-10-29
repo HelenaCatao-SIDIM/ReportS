@@ -16,26 +16,60 @@ export type UsuarioPublico = Omit<Usuario, "senhaHash">;
 
 export type NivelComprovacao = "nominal" | "assinado";
 
+/**
+ * Pessoa que aprova relatórios, em cadastro próprio (independente dos participantes).
+ * Pode aprovar para mais de um contrato, até de clientes diferentes; não tem login.
+ */
 export interface Aprovador {
   id: string;
   nome: string;
   cargo: string;
+  /** Único no cadastro (minúsculas). */
   email: string;
+  ativo: boolean;
 }
 
+/** Um cadastro por cliente, identificado pelo CNPJ. Os sistemas que ele usa ficam em `SistemaDoCliente`. */
 export interface Cliente {
   id: string;
   nome: string;
-  /** Somente dígitos (14). */
+  /** Somente dígitos (14). Vazio = "CNPJ pendente" (cliente que veio do SINC); só é exigido ao emitir relatório. */
   cnpj: string;
-  /** Texto usado na capa do relatório. */
-  contrato: string;
-  nivel: NivelComprovacao;
-  exigeCpf: boolean;
   ativo: boolean;
-  aprovadores: Aprovador[];
+  /** De onde o cliente veio: criado à mão no ReportS (implantação) ou pelo SINC. */
+  origem: "manual" | "sinc";
   /** Nome do cliente no SINC (o mesmo do campo "Cliente / Município" dos atendimentos), para cruzar os chamados de suporte. O identificador interno continua `nomesFortics`. */
   nomesFortics: string[];
+}
+
+/**
+ * Situação de cada sistema de um cliente: em implantação (criado à mão, ainda sem tenant), sem cliente
+ * (o tenant apareceu no SINC e ainda não foi ligado; o ReportS não enxerga estes) ou vinculado.
+ */
+export type EstadoSistemaCliente = "em_implantacao" | "sem_cliente" | "vinculado";
+
+/** Cada sistema que um cliente usa. Um cliente tem no máximo um registro por sistema. */
+export interface SistemaDoCliente {
+  id: string;
+  clienteId: string;
+  /** Código do sistema (ver `Sistema`). */
+  sistema: string;
+  /** Vazio enquanto em implantação. A ligação com o tenant é feita no SINC. */
+  tenantId: string | null;
+  estado: EstadoSistemaCliente;
+}
+
+/** Contrato de um sistema do cliente: o que sai na capa do relatório, como comprovar a presença e quem aprova. */
+export interface Contrato {
+  id: string;
+  sistemaDoClienteId: string;
+  /** Texto usado na capa do relatório. */
+  texto: string;
+  nivel: NivelComprovacao;
+  exigeCpf: boolean;
+  /** Contrato inativo não aparece para o técnico no check-in. */
+  ativo: boolean;
+  aprovadorIds: string[];
 }
 
 export interface Unidade {
@@ -186,6 +220,8 @@ export interface Visita {
   id: string;
   tecnicoId: string;
   clienteId: string;
+  /** Contrato escolhido no check-in: dele saem o sistema, a forma de comprovação, o CPF e os aprovadores. */
+  contratoId: string;
   unidadeId: string;
   /** Setor da lista do estabelecimento, ou null quando o técnico escolheu "outro". */
   setorId: string | null;
@@ -248,6 +284,9 @@ export interface VersaoRelatorio {
 export interface VisitaDetalhada extends Visita {
   tecnicoNome: string;
   clienteNome: string;
+  /** Código e nome do sistema do contrato da visita. */
+  sistema: string;
+  sistemaNome: string;
   unidadeNome: string;
   setorNome: string;
   temas: Tema[];
@@ -286,6 +325,7 @@ export interface ResumoSuporte {
 
 export interface ConteudoCongelado {
   cliente: { nome: string; cnpj: string; contrato: string };
+  sistema: { codigo: string; nome: string };
   de: string;
   ate: string;
   visitas: VisitaDetalhada[];
@@ -312,6 +352,8 @@ export interface TokenAprovacao {
 export interface Relatorio {
   id: string;
   clienteId: string;
+  /** Um relatório é de um contrato (cliente + sistema); cliente com dois sistemas tem dois relatórios por período. */
+  contratoId: string;
   /** Período (AAAA-MM-DD, horário de Brasília), inclusive. */
   de: string;
   ate: string;

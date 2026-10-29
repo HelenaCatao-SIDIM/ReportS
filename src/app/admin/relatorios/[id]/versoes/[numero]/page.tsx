@@ -35,7 +35,7 @@ async function Conteudo({ params }: Pick<PageProps<"/admin/relatorios/[id]/verso
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            {cliente?.nome} · versão v{v.numero}
+            {cliente?.nome} · {v.conteudo.sistema?.nome} · versão v{v.numero}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {formatarDataCurta(r.de)} a {formatarDataCurta(r.ate)} · emitida em {formatarDataHora(v.emitidoEm)} · conteúdo congelado como foi enviado

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { exigirGestorAcao } from "@/lib/dal";
 import { cpfValido, normalizar, soDigitos } from "@/lib/format";
 import { buscarCliente } from "@/lib/repo/clientes";
+import { clienteExigeCpf } from "@/lib/repo/contratos";
 import { buscarCbo } from "@/lib/repo/cbo";
 import { atualizarParticipante, buscarParticipante, cpfEmUso, criarParticipante, homonimo } from "@/lib/repo/participantes";
 import type { Cbo } from "@/lib/types";
@@ -27,6 +28,9 @@ export async function salvarParticipante(
   const cliente = await buscarCliente(clienteId);
   if (!cliente) throw new Error("Cliente não encontrado");
 
+  // Fora de uma visita não há contrato definido: vale a exigência dos contratos ativos do cliente.
+  const exigeCpf = await clienteExigeCpf(clienteId);
+
   const nome = String(fd.get("nome") ?? "").trim();
   const setor = String(fd.get("setor") ?? "").trim();
   const cpf = soDigitos(String(fd.get("cpf") ?? ""));
@@ -46,13 +50,13 @@ export async function salvarParticipante(
     pedirHomonimo = true;
   }
   if (!cbo) erros.cbo = "Escolha a ocupação (CBO) na lista.";
-  if (cliente.exigeCpf) {
+  if (exigeCpf) {
     if (!cpfValido(cpf)) erros.cpf = "CPF inválido.";
     else if (await cpfEmUso(clienteId, cpf, excetoId)) erros.cpf = "Já existe um participante com este CPF neste cliente.";
   }
   if (Object.keys(erros).length) return { erros, pedirHomonimo, valores: { nome, cbo, setor, cpf } };
 
-  const dados = { nome, cbo: cbo!, setor, cpf: cliente.exigeCpf ? cpf : null };
+  const dados = { nome, cbo: cbo!, setor, cpf: exigeCpf ? cpf : null };
   if (participanteId) await atualizarParticipante(participanteId, dados);
   else await criarParticipante(clienteId, dados);
   revalidatePath("/admin/participantes");

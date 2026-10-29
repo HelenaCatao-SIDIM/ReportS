@@ -26,8 +26,8 @@ export function CorrecaoForm({ visita: v, unidades, temas }: { visita: VisitaDet
   const [setor, setSetor] = useState(v.setorId ?? "outro");
   const setores = unidades.find((u) => u.id === unidadeId)?.setores ?? [];
 
-  // Temas agrupados por sistema; inativos só aparecem se já estavam marcados.
-  const visiveis = temas.filter((t) => t.ativo || v.temaIds.includes(t.id));
+  // Só temas do sistema do contrato da visita, agrupados; inativos só aparecem se já estavam marcados.
+  const visiveis = temas.filter((t) => t.sistema === v.sistema && (t.ativo || v.temaIds.includes(t.id)));
   const sistemas = [...new Map(visiveis.map((t) => [t.sistema, t.sistemaNome])).entries()];
 
   return (

@@ -92,7 +92,10 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/aprovacao/[to
 
       <div>
         <p className="text-sm text-muted-foreground">Olá, {link.aprovadorNome}</p>
-        <h1 className="text-2xl font-semibold tracking-tight">{c.cliente.nome}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {c.cliente.nome}
+          <span className="font-normal text-muted-foreground"> · {c.sistema.nome}</span>
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Período de {formatarDataCurta(c.de)} a {formatarDataCurta(c.ate)} · versão v{versao.numero} · enviada em {formatarDataHora(versao.emitidoEm)}
         </p>

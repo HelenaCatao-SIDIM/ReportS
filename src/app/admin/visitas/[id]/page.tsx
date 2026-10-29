@@ -42,7 +42,10 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/visitas
       <AtualizarEnquantoPendente pendente={cepEmAndamento(v)} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{v.clienteNome}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {v.clienteNome}
+            <span className="font-normal text-muted-foreground"> · {v.sistemaNome}</span>
+          </h1>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             {formatarData(v.entrada)} · {v.tecnicoNome}
             <SelosVisita visita={v} alertaRaio />

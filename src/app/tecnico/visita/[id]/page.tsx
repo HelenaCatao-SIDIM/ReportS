@@ -6,7 +6,8 @@ import { ArrowLeft, CheckCircle2, LogOut, MapPin, Timer } from "lucide-react";
 import { getUsuarioAtual } from "@/lib/dal";
 import { buscarVisita, type VisitaDetalhada } from "@/lib/repo/visitas";
 import { listarTemas } from "@/lib/repo/temas";
-import { buscarCliente, listarUnidades } from "@/lib/repo/clientes";
+import { listarUnidades } from "@/lib/repo/clientes";
+import { buscarContrato } from "@/lib/repo/contratos";
 import { formatarData, formatarDataHora, formatarHora } from "@/lib/datas";
 import { ehPresencial, rotuloTipo } from "@/lib/visitas";
 import { chaveRascunho, chaveRascunhoCheckin, chaveRascunhoParticipante, chaveRascunhoTema, exigeParticipantes } from "@/lib/regras-visita";
@@ -58,7 +59,10 @@ function Cabecalho({ v }: { v: VisitaDetalhada }) {
             <Timer className="size-3.5" />
             Em andamento desde {formatarHora(v.entrada)}
           </div>
-          <div className="truncate text-base font-semibold">{v.clienteNome}</div>
+          <div className="truncate text-base font-semibold">
+            {v.clienteNome}
+            <span className="font-normal text-muted-foreground"> · {v.sistemaNome}</span>
+          </div>
           <div className="truncate text-sm text-muted-foreground">
             {v.unidadeNome} · {v.setorNome}
           </div>
@@ -81,8 +85,9 @@ function Cabecalho({ v }: { v: VisitaDetalhada }) {
 }
 
 async function EmAndamento({ v }: { v: VisitaDetalhada }) {
-  const [todosTemas, cliente, unidades] = await Promise.all([listarTemas(), buscarCliente(v.clienteId), listarUnidades(v.clienteId)]);
-  const temas = todosTemas.filter((t) => t.ativo || v.temaIds.includes(t.id));
+  const [todosTemas, contrato, unidades] = await Promise.all([listarTemas(), buscarContrato(v.contratoId), listarUnidades(v.clienteId)]);
+  // Só os temas do sistema do contrato da visita.
+  const temas = todosTemas.filter((t) => t.sistema === v.sistema && (t.ativo || v.temaIds.includes(t.id)));
   const setores = [...new Set(unidades.flatMap((u) => u.setores.map((s) => s.nome)))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   return (
     <div className="space-y-4">
@@ -99,8 +104,8 @@ async function EmAndamento({ v }: { v: VisitaDetalhada }) {
         visitaId={v.id}
         presencas={v.presencas}
         clienteNome={v.clienteNome}
-        exigeAssinatura={cliente?.nivel === "assinado" && ehPresencial(v.tipo)}
-        exigeCpf={!!cliente?.exigeCpf}
+        exigeAssinatura={contrato?.nivel === "assinado" && ehPresencial(v.tipo)}
+        exigeCpf={!!contrato?.exigeCpf}
         setores={setores}
         setorVisita={v.setorNome === "—" ? "" : v.setorNome}
         ehTreinamento={v.tipo === "treinamento" || v.tipo === "treinamento_online"}
@@ -138,7 +143,10 @@ function Leitura({ v, acabouDeEncerrar }: { v: VisitaDetalhada; acabouDeEncerrar
         Minhas visitas
       </Link>
       <div>
-        <h1 className="text-xl font-semibold">{v.clienteNome}</h1>
+        <h1 className="text-xl font-semibold">
+          {v.clienteNome}
+          <span className="font-normal text-muted-foreground"> · {v.sistemaNome}</span>
+        </h1>
         <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           {formatarData(v.entrada)}
           <SelosVisita visita={v} />

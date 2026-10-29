@@ -5,8 +5,8 @@ do check-in em campo até o relatório periódico aprovado pelo cliente (que lib
 
 Três interfaces:
 
-- **Administração** (gestor, computador): usuários, clientes (aprovadores, estabelecimentos e setores), temas, participantes, gestão de visitas e relatórios.
-- **App do Técnico** (celular ou computador): check-in com GPS e foto, temas, fotos extras, lista de presença (com assinatura quando o cliente exige), check-out e histórico.
+- **Administração** (gestor, computador): usuários, clientes (sistemas e contratos, estabelecimentos e setores), aprovadores, temas, participantes, gestão de visitas e relatórios.
+- **App do Técnico** (celular ou computador): check-in com GPS e foto (escolhendo o cliente e o sistema), temas do sistema, fotos extras, lista de presença (com assinatura quando o contrato exige), check-out e histórico.
 - **Aprovação** (cliente, sem login): página aberta pelo link do e-mail para aprovar o relatório ou pedir ajuste.
 
 Tecnologia: Next.js 16 (App Router) + TypeScript + Tailwind CSS 4 + shadcn/ui (Base UI). PDF com `@react-pdf/renderer`.
@@ -131,12 +131,18 @@ Senha de todos os usuários de teste: **`sidim123`** (definida em `src/lib/repo/
 | Técnico inativo | `paulo@sidim.com.br` | o login é recusado (teste de bloqueio) |
 
 **Aprovador (cliente) não tem login.** Ele entra pelo link pessoal enviado no e-mail do relatório. Para testar:
-entre como gestor → **Relatórios → Novo relatório** → emita → **Caixa de saída (teste)** → **"Ver relatório"**.
+entre como gestor → **Relatórios → Novo relatório** (cliente, **sistema** e período) → emita → **Caixa de saída (teste)** → **"Ver relatório"**.
 
-| Aprovador | Cliente |
-|---|---|
-| Marta Ribeiro, José Antunes | Prefeitura de Vale Verde (comprovação **Assinada**, exige CPF) |
-| Renata Lopes | Clínica Bem Viver (comprovação **Nominal**) |
+Cada cliente tem um contrato por sistema, e cada contrato tem a sua comprovação e os seus aprovadores (a mesma pessoa pode aprovar para vários contratos). Dados de exemplo:
+
+| Cliente | Sistema | Comprovação | Aprovadores |
+|---|---|---|---|
+| Prefeitura de Vale Verde | SERP | **Assinada**, exige CPF | Marta Ribeiro, José Antunes |
+| Prefeitura de Vale Verde | SCA | **Assinada**, exige CPF | Marta Ribeiro |
+| Prefeitura de Vale Verde | Saúde (em implantação) | **Nominal**, exige CPF | Marta Ribeiro, Paulo Mendes |
+| Clínica Bem Viver | Saúde | **Nominal** | Renata Lopes |
+
+Cliente com dois sistemas tem **dois relatórios por período**, um por contrato. Os aprovadores ficam em **Administração → Aprovadores**.
 
 Para ver o check-in do técnico, ele não pode ter visita aberta: faça o check-out da visita de exemplo
 (ou, como gestor, cancele-a em **Visitas → Em andamento**).
@@ -168,11 +174,11 @@ Decisão de 29/10/2026: o ReportS e o SINC passam a ser dois serviços de um mes
 - O ReportS adapta o protótipo **em memória** enquanto o SINC faz as Fases 0 a 3, e só passa a usar banco na Fase 4.
 - **Biblioteca de banco: Prisma 7.x**, como o plano sugere: um schema do Prisma por banco, `reports` com migrações próprias e `plataforma` só por introspecção (o ReportS nunca altera a estrutura dela). Detalhes no `MELHORIAS.md`.
 
-Andamento do ReportS (detalhes no `MELHORIAS.md`): **Fase 0** com a documentação e a biblioteca de banco decididas; **Fase 1** feita (sistemas como cadastro só de leitura; temas escolhem o sistema numa lista). Próximas: Fase 2 (cliente, sistemas do cliente, contrato por sistema e aprovador próprio) e Fase 3 (permissões no lugar do perfil).
+Andamento do ReportS (detalhes no `MELHORIAS.md`): **Fase 0** com a documentação e a biblioteca de banco decididas; **Fase 1** feita (sistemas como cadastro só de leitura; temas escolhem o sistema numa lista); **Fase 2** feita em grande parte (cliente, sistemas do cliente, contrato por sistema, aprovador próprio, check-in e relatório por contrato; falta o filtro dos chamados por sistema). Próxima: Fase 3 (permissões no lugar do perfil).
 
 ## Próximos passos
 
-1. Fases 2 e 3 do plano, em memória (contrato por sistema, aprovador próprio, permissões no lugar do perfil).
+1. Fase 3 do plano, em memória (permissões no lugar do perfil) e o que falta da Fase 2 (chamados filtrados pelo sistema).
 2. Fase 4, depois que o SINC concluir as Fases 1 a 3: banco `reports` e leitura da plataforma (Prisma 7).
 3. Arquivos (fotos, assinaturas e PDFs) no disco do servidor.
 4. Envio real de e-mail pelo SMTP da SIDIM: implementado e testado com o serviço real; falta o domínio público (`APP_URL`) e o SPF/DKIM do remetente.
