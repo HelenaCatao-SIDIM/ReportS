@@ -157,14 +157,35 @@ O ReportS adapta o protótipo **em memória** enquanto o SINC faz as Fases 0 a 3
 
 | Fase | No ReportS | Situação |
 |---|---|---|
-| 0 | README e MELHORIAS atualizados; biblioteca de banco (sugestão: Prisma, um schema por banco); inventário do que depende de perfil, cliente e participante | Docs atualizados em 29/10/2026; biblioteca e inventário pendentes |
+| 0 | README e MELHORIAS atualizados; biblioteca de banco; inventário do que depende de perfil, cliente e participante | Docs e biblioteca de banco **decididos** em 29/10/2026 (ver abaixo); inventário pendente |
 | 1 | Cadastro de sistemas (SERP, SCA, SE, Saúde) só de leitura; tema escolhe o sistema numa lista; dados de exemplo sem sistemas fictícios | **Feito** em 29/10/2026 (`src/lib/repo/sistemas.ts`) |
 | 2 | Cliente em três (cliente, sistemas do cliente, contrato por sistema); aprovador próprio; check-in cliente → sistema → estabelecimento → setor; relatório por contrato; chamados por sistema | Pendente |
 | 3 | Perfil gestor/técnico sai; permissões; sessão só com o id; telas de usuários saem | Pendente |
 | 4 | Banco `reports`, leitura/escrita na plataforma, arquivos em disco, SMTP, deploy | Depende das Fases 1 a 3 do SINC em produção e da decisão de LGPD sobre guardar CPF |
 | 5 | Junção de participantes | Depende da Fase 4 |
 
-Pontos para alinhar com a Helena que afetam o ReportS: o campo hoje chamado "Nome no SINC" (nomes do cliente nos chamados) é "Nomes no Fortics" no plano, e o plano também prevê "nome no Fortics" por sistema; um cliente pode ter dois tenants do mesmo sistema?; cargo do aprovador (um só, mesmo aprovando para vários clientes); como o Prisma lida com dois bancos separados (um schema e um client por banco).
+Pontos para alinhar com a Helena que afetam o ReportS: o campo hoje chamado "Nome no SINC" (nomes do cliente nos chamados) é "Nomes no Fortics" no plano, e o plano também prevê "nome no Fortics" por sistema; um cliente pode ter dois tenants do mesmo sistema?; cargo do aprovador (um só, mesmo aprovando para vários clientes).
+
+#### Decisão técnica: biblioteca de banco — Prisma 7 (29/10/2026)
+
+O plano deixava a escolha para o desenvolvimento (sugestão: Prisma, com a plataforma só por introspecção). **Escolhido: Prisma 7.x** (`prisma` e `@prisma/client`, com `@prisma/adapter-pg`). Foi feito um teste prático em PostgreSQL 16 com tabelas no estilo do Rails (ids `bigint`, índices únicos parciais, `check`, `now()` como padrão), comparando com o Drizzle. O que o teste mostrou:
+
+- **Dois bancos = dois schemas Prisma.** Cada banco tem o seu `schema.prisma`, o seu arquivo de configuração e o seu client gerado, e os dois clients funcionam juntos no mesmo processo. O "dois esquemas" do plano deve ser lido assim: um schema do Prisma por banco (`reports` e `plataforma`), não dois schemas dentro de um banco.
+- **`reports`**: schema com migrações do Prisma (`migrate dev` e `migrate deploy`).
+- **`plataforma`**: schema só por introspecção (`prisma db pull`), **sem pasta de migrações e sem `migrate`**. A proteção de verdade é o usuário de banco do ReportS, sem permissão de alterar estrutura (D-03).
+- **Conferência de atualização**: `prisma db pull --print` e comparar com o `schema.prisma` versionado; qualquer coluna nova ou removida na plataforma aparece na diferença. Vai virar um teste que falha se a leitura estiver desatualizada (Fase 4).
+- **Padrão `now()` em `created_at`/`updated_at`** (regra da plataforma): o insert do ReportS funciona sem informar as datas.
+- **Restrições do banco são respeitadas**: o índice único parcial do CNPJ devolve o erro `P2002`; o `check` "cliente ou tenant" devolve `P2039`/`23514`. O Prisma não entende `check` (só avisa na introspecção), então a restrição fica só no banco e o código do ReportS precisa tratar o erro.
+- **Ids `bigint` voltam como `BigInt` do JavaScript**, que não vai para JSON nem para componentes de cliente. Regra: os repositórios (`src/lib/repo/*`) convertem os ids da plataforma para texto na fronteira, como já fazem com os ids do protótipo. As tabelas do `reports` guardam o id da plataforma como `BigInt` simples, sem chave estrangeira.
+
+Cuidados que valem para a Fase 4:
+
+- Fixar a versão 7.x. Já existe a 8.0 em candidata a lançamento (RC); não usar até ser estável.
+- O Prisma 7 exige Node `^20.19`, `^22.12` ou `24+` no servidor; o plano dizia "Node 20 ou mais novo", então vale conferir o mínimo 20.19.
+- O client é gerado (`prisma generate`) e fica fora do Git; o script de publicação e o build precisam gerar os dois clients.
+- Nomes: as tabelas do Rails vêm em inglês e snake_case (`users`, `email_address`, `active`). O mapeamento para os nomes do ReportS (`Usuario`, `ativo`) é feito nos repositórios, não nas telas.
+- Em desenvolvimento, `migrate dev` precisa de permissão para criar o banco sombra; em produção só `migrate deploy`.
+- **Plano B: Drizzle.** Também leu as mesmas tabelas (inclusive as de índice parcial e `check`) e não tem etapa de geração nem exigência de versão do Node. Foi descartado porque o `drizzle-kit pull` grava arquivos de migração a cada leitura, o que aumenta o risco de alguém migrar a plataforma por engano, e porque o Prisma traz o fluxo de migrações do `reports` pronto e é o que o plano já indicava. Se o Prisma 7 der problema no servidor, a troca fica restrita a `src/lib/repo/*`.
 
 ### Pré-requisitos externos dos itens de infraestrutura (não verificados)
 

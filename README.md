@@ -166,13 +166,14 @@ Decisão de 29/10/2026: o ReportS e o SINC passam a ser dois serviços de um mes
 - **Sai** o plano anterior (Supabase, Vercel, Resend). **Entram** o servidor do SINC (https em `reports.sidim.com.br`), o banco `reports`, a base `plataforma` (só o SINC cria e altera tabelas lá), o disco do servidor para fotos, assinaturas e PDFs, e o SMTP da SIDIM para e-mails.
 - Sistemas (SERP, SCA, SE, Saúde), clientes, participantes e usuários da SIDIM passam a ter **uma fonte só**, na plataforma. O ReportS deixa de ter cadastro próprio de usuários e de clientes; o perfil "gestor" vira permissões.
 - O ReportS adapta o protótipo **em memória** enquanto o SINC faz as Fases 0 a 3, e só passa a usar banco na Fase 4.
+- **Biblioteca de banco: Prisma 7.x**, com um schema por banco: `reports` com migrações próprias e `plataforma` só por introspecção (o ReportS nunca altera a estrutura dela). Detalhes e cuidados no `MELHORIAS.md`.
 
-Andamento do ReportS (detalhes no `MELHORIAS.md`): **Fase 1** feita (sistemas como cadastro só de leitura; temas escolhem o sistema numa lista). Próximas: Fase 2 (cliente, sistemas do cliente, contrato por sistema e aprovador próprio) e Fase 3 (permissões no lugar do perfil).
+Andamento do ReportS (detalhes no `MELHORIAS.md`): **Fase 0** com a documentação e a biblioteca de banco decididas; **Fase 1** feita (sistemas como cadastro só de leitura; temas escolhem o sistema numa lista). Próximas: Fase 2 (cliente, sistemas do cliente, contrato por sistema e aprovador próprio) e Fase 3 (permissões no lugar do perfil).
 
 ## Próximos passos
 
 1. Fases 2 e 3 do plano, em memória (contrato por sistema, aprovador próprio, permissões no lugar do perfil).
-2. Fase 4, depois que o SINC concluir as Fases 1 a 3: banco `reports` e leitura da plataforma (Prisma).
+2. Fase 4, depois que o SINC concluir as Fases 1 a 3: banco `reports` e leitura da plataforma (Prisma 7).
 3. Arquivos (fotos, assinaturas e PDFs) no disco do servidor.
 4. Envio real de e-mail pelo SMTP da SIDIM: implementado e testado com o serviço real; falta o domínio público (`APP_URL`) e o SPF/DKIM do remetente.
 5. Importar a tabela CBO oficial do Ministério do Trabalho.
