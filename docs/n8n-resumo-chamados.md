@@ -28,7 +28,7 @@ Pedido:
 { "clientes": ["Prefeitura de Vale Verde / Vale Verde"], "inicio": "2026-10-01", "fim": "2026-10-31", "incluirLista": true }
 ```
 
-- `clientes`: 1 a 10 nomes, exatamente como no campo Cliente / Município do Fortics. A comparação ignora acentos, maiúsculas e espaços extras.
+- `clientes`: 1 a 10 nomes, exatamente como no campo Cliente / Município dos atendimentos (o mesmo nome do cliente no SINC). A comparação ignora acentos, maiúsculas e espaços extras.
 - `inicio`/`fim`: datas AAAA-MM-DD (horário de Brasília), inclusive, no máximo 12 meses.
 - Conta o chamado quando a `data_abertura` está no período. Toda linha da tabela já é um chamado encerrado.
 
@@ -43,7 +43,7 @@ mas os horários vão das 07h às 17h e o último chamado bate com o horário de
 Troque para `'utc'` só se o capturador passar a gravar o horário UTC real.
 
 Os nomes no campo Cliente / Município são texto livre e variam (ex.: `Mariana` e `mariana`; acentos e maiúsculas
-já são ignorados). Quando o mesmo cliente aparece de formas diferentes, cadastre cada forma em "Nome no Fortics".
+já são ignorados). Quando o mesmo cliente aparece de formas diferentes, cadastre cada forma em "Nome no SINC".
 
 ## Testar antes de ligar no Reports
 
@@ -52,7 +52,7 @@ Com o fluxo aberto, clique em **Test workflow** e chame a URL de teste:
 ```bash
 curl -s -X POST "https://<seu-n8n>/webhook-test/resumo-chamados-cliente" \
   -H "Content-Type: application/json" -H "x-api-key: <chave>" \
-  -d '{"clientes":["<nome de um cliente no Fortics>"],"inicio":"2026-10-01","fim":"2026-10-31"}'
+  -d '{"clientes":["<nome de um cliente no SINC>"],"inicio":"2026-10-01","fim":"2026-10-31"}'
 ```
 
 | Caso | Esperado |

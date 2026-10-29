@@ -32,11 +32,15 @@ cd ReportS
 npm install
 ```
 
-Crie o arquivo `.env.local` na raiz do projeto (ele não vai para o Git porque guarda uma chave secreta):
+Crie o arquivo `.env.local` na raiz do projeto (ele não vai para o Git porque guarda uma chave secreta). Este comando funciona em
+qualquer terminal, inclusive no PowerShell do Windows:
 
 ```bash
-node -e "console.log('SESSION_SECRET=' + require('crypto').randomBytes(32).toString('base64')); console.log('APP_URL=http://localhost:3000')" > .env.local
+node -e "require('fs').writeFileSync('.env.local', 'SESSION_SECRET=' + require('crypto').randomBytes(32).toString('base64') + '\nAPP_URL=http://localhost:3000\n')"
 ```
+
+Não use `> .env.local` no PowerShell: ele grava o arquivo em UTF-16, o Next.js não o lê, a chave de sessão fica vazia e o login
+quebra com "Zero-length key". Ao acrescentar variáveis depois, cada uma fica em uma linha própria (confira se duas não ficaram grudadas).
 
 - `SESSION_SECRET`: chave usada para assinar a sessão de login (qualquer texto aleatório longo).
 - `APP_URL`: endereço usado nos links dos e-mails de aprovação.
@@ -170,7 +174,7 @@ N8N_RESUMO_CHAMADOS_CHAVE=<a mesma chave da credencial "Chave Reports Sidim" no 
 ```
 
 - O fluxo do n8n está em `docs/n8n-resumo-chamados.json` (importar no n8n) e o passo a passo em `docs/n8n-resumo-chamados.md`.
-- Em cada cliente, preencha **"Nome no Fortics"** (como ele aparece no campo Cliente / Município do Fortics).
+- Em cada cliente, preencha **"Nome no SINC"** (o nome do cliente no SINC, o mesmo do campo Cliente / Município dos atendimentos). O campo só aparece com `CHAMADOS_SUPORTE=true`.
 - Os números são buscados na emissão e **congelados na versão**: PDF, página do aprovador e versões antigas mostram sempre o mesmo número.
 - Só o servidor chama o n8n, com a chave. Se o n8n falhar, o relatório é emitido com "Dados de suporte indisponíveis".
 - O aprovador vê só os totais e as contagens (sem a lista de chamados e sem nomes de atendentes).

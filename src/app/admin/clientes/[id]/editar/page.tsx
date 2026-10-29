@@ -4,6 +4,7 @@ import { buscarCliente } from "@/lib/repo/clientes";
 import { PageHeader } from "@/components/shell/placeholder";
 import { ClienteForm } from "../../cliente-form";
 import { editarCliente } from "../../actions";
+import { chamadosSuporte } from "@/lib/config-suporte";
 
 export default function EditarClientePage({ params }: PageProps<"/admin/clientes/[id]/editar">) {
   return (
@@ -20,5 +21,5 @@ async function Formulario({ params }: Pick<PageProps<"/admin/clientes/[id]/edita
   const { id } = await params;
   const cliente = await buscarCliente(id);
   if (!cliente) notFound();
-  return <ClienteForm acao={editarCliente.bind(null, id)} cliente={cliente} />;
+  return <ClienteForm acao={editarCliente.bind(null, id)} cliente={cliente} chamadosAtivos={chamadosSuporte()} />;
 }

@@ -37,14 +37,14 @@ function Tabela({ titulo, itens }: { titulo: string; itens: ContagemSuporte[] })
 /**
  * Bloco "Chamados de suporte" do relatório.
  * `publico="aprovador"`: só totais e tabelas (sem a lista de chamados e sem nome de agente);
- * cliente sem vínculo com o Fortics não mostra nada para o aprovador.
+ * cliente sem vínculo com o SINC não mostra nada para o aprovador.
  */
 export function ChamadosSuporte({ resumo: r, publico }: { resumo: ResumoSuporte; publico: "gestor" | "aprovador" }) {
   if (publico === "aprovador" && r.situacao === "sem_vinculo") return null;
 
   let corpo: React.ReactNode;
   if (r.situacao === "sem_vinculo") {
-    corpo = <p className="text-sm text-muted-foreground">Cliente sem vínculo com o Fortics. Informe o “Nome no Fortics” no cadastro do cliente.</p>;
+    corpo = <p className="text-sm text-muted-foreground">Cliente sem vínculo com o SINC. Informe o “Nome no SINC” no cadastro do cliente.</p>;
   } else if (r.situacao === "indisponivel") {
     corpo = <p className="text-sm text-muted-foreground">Dados de suporte indisponíveis no momento.</p>;
   } else if (r.totalAbertosEFechados === 0) {

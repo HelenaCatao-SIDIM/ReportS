@@ -10,7 +10,7 @@ import type { NivelComprovacao } from "@/lib/types";
 
 // ---------- Cliente ----------
 
-/** Limite de nomes do cliente no Fortics (o fluxo do n8n aceita até 10). */
+/** Limite de nomes do cliente no SINC (o fluxo do n8n aceita até 10). */
 const MAX_NOMES_FORTICS = 10;
 
 export interface AprovadorForm {
@@ -26,7 +26,8 @@ export interface ClienteFormState {
   valores?: { nome: string; cnpj: string; contrato: string; nivel: NivelComprovacao; exigeCpf: boolean; ativo: boolean; aprovadores: AprovadorForm[]; nomesFortics: string[] };
 }
 
-function lerCliente(fd: FormData) {
+/** `nomesPadrao`: valor usado quando o campo não vem no formulário (ele só aparece com os chamados de suporte ligados). */
+function lerCliente(fd: FormData, nomesPadrao: string[] = []) {
   let aprovadores: AprovadorForm[] = [];
   try {
     aprovadores = (JSON.parse(String(fd.get("aprovadores") ?? "[]")) as AprovadorForm[]).map((a) => ({
@@ -45,10 +46,12 @@ function lerCliente(fd: FormData) {
     // Linhas totalmente vazias são ignoradas.
     aprovadores: aprovadores.filter((a) => a.nome || a.cargo || a.email),
     // Um nome por linha, sem repetidos (comparação sem acento e sem caixa).
-    nomesFortics: String(fd.get("nomesFortics") ?? "")
-      .split(/\r?\n/)
-      .map((n) => n.replace(/\s+/g, " ").trim())
-      .filter((n, i, todos) => n && todos.findIndex((x) => normalizar(x) === normalizar(n)) === i),
+    nomesFortics: fd.has("nomesFortics")
+      ? String(fd.get("nomesFortics") ?? "")
+          .split(/\r?\n/)
+          .map((n) => n.replace(/\s+/g, " ").trim())
+          .filter((n, i, todos) => n && todos.findIndex((x) => normalizar(x) === normalizar(n)) === i)
+      : nomesPadrao,
   };
 }
 
@@ -91,7 +94,8 @@ export async function criarCliente(_: ClienteFormState, fd: FormData): Promise<C
 
 export async function editarCliente(id: string, _: ClienteFormState, fd: FormData): Promise<ClienteFormState> {
   await exigirGestorAcao();
-  const d = lerCliente(fd);
+  // Com os chamados de suporte desligados o campo não aparece no formulário; os nomes já cadastrados ficam como estão.
+  const d = lerCliente(fd, (await repo.buscarCliente(id))?.nomesFortics ?? []);
   const r = await validarCliente(d, id);
   if (temErros(r)) return { ...r, valores: d };
 

@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Unidades } from "./unidades";
 import { buscaCoordenadas } from "@/lib/config";
+import { chamadosSuporte } from "@/lib/config-suporte";
 
 const MENSAGENS: Record<string, string> = {
   criado: "Cliente criado. Agora cadastre os estabelecimentos e os setores.",
@@ -87,11 +88,13 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/cliente
                 </span>
               </Item>
               <Item rotulo="CPF dos participantes">{cliente.exigeCpf ? "Exigido" : "Não exigido"}</Item>
-              <div className="sm:col-span-2">
-                <Item rotulo="Nome no Fortics (chamados de suporte)">
-                  {cliente.nomesFortics.length ? cliente.nomesFortics.join(" · ") : <span className="text-muted-foreground">Não informado</span>}
-                </Item>
-              </div>
+              {chamadosSuporte() && (
+                <div className="sm:col-span-2">
+                  <Item rotulo="Nome no SINC (chamados de suporte)">
+                    {cliente.nomesFortics.length ? cliente.nomesFortics.join(" · ") : <span className="text-muted-foreground">Não informado</span>}
+                  </Item>
+                </div>
+              )}
             </dl>
           </CardContent>
         </Card>

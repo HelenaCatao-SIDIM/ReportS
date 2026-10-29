@@ -5,12 +5,12 @@ Pré-requisitos: fluxo do n8n importado e ativo (`docs/n8n-resumo-chamados.md`) 
 
 1. `npm run lint` e `npm run build` sem erros.
 2. Com `CHAMADOS_SUPORTE=false`: o relatório fica exatamente como antes.
-3. Gestor → **Clientes** → editar um cliente → preencha **Nome no Fortics** com o nome de um cliente real do Fortics → salvar.
+3. Gestor → **Clientes** → editar um cliente → preencha **Nome no SINC** com o nome de um cliente real (o mesmo do campo Cliente / Município dos atendimentos) → salvar. O campo só aparece com `CHAMADOS_SUPORTE=true`.
    O nome aparece no detalhe do cliente.
 4. **Relatórios → Novo relatório** desse cliente, num período com chamados conhecidos:
    o bloco **Chamados de suporte** aparece no rascunho, com o total, as três tabelas e "Ver os N chamados".
    Confira o total com a tabela `atendimentos` no n8n, no mesmo período.
-5. Cliente **sem** Nome no Fortics: o gestor vê "Cliente sem vínculo com o Fortics".
+5. Cliente **sem** Nome no SINC: o gestor vê "Cliente sem vínculo com o SINC".
 6. Emita o relatório → **Caixa de saída** → **Ver relatório** (página do aprovador):
    aparecem os totais e as tabelas, **sem** a lista de chamados e **sem** nomes de atendentes.
 7. Emita de novo (ou abra a versão v1 depois de mudar dados no n8n): os números da v1 não mudam (congelados).

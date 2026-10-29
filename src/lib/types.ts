@@ -34,7 +34,7 @@ export interface Cliente {
   exigeCpf: boolean;
   ativo: boolean;
   aprovadores: Aprovador[];
-  /** Como o cliente aparece no Fortics (campo "Cliente / Município"), para cruzar os chamados de suporte. */
+  /** Nome do cliente no SINC (o mesmo do campo "Cliente / Município" dos atendimentos), para cruzar os chamados de suporte. O identificador interno continua `nomesFortics`. */
   nomesFortics: string[];
 }
 

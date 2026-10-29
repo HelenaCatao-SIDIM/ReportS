@@ -140,7 +140,7 @@ Duas entregas vieram do time e entraram na `main` por PR, **desligadas por padr�
 - O gestor vê a lista de chamados com o atendente; o aprovador vê só totais e contagens. O PDF só traz o resumo se `CHAMADOS_SUPORTE_PDF=true`.
 - Os dados vêm de um fluxo do n8n da SIDIM, que lê a tabela `atendimentos` (alimentada por outro fluxo que já existia). O servidor do ReportS é o único a chamar o n8n, com a chave no cabeçalho. Se o n8n falhar, o relatório sai com "Dados de suporte indisponíveis".
 - **Testado em 28/10/2026** com o n8n real: o bloco trouxe o total, as três contagens e a lista, e a falha de configuração mostrou "indisponíveis" sem impedir o relatório. Os números ainda precisam ser **conferidos com a tabela `atendimentos`** pelo time que mantém o fluxo.
-- Em aberto: quem preenche o "Nome no Fortics" dos clientes que já existem; esconder esse campo quando o recurso está desligado (hoje ele aparece); trocar a chave do n8n usada nos testes locais.
+- **Feito em 29/10/2026:** o campo agora se chama **"Nome no SINC"** (o identificador interno continua `nomesFortics`) e só aparece com os chamados ligados; salvar o cliente com o recurso desligado não apaga os nomes já cadastrados. Em aberto: quem preenche esse nome dos clientes que já existem; trocar a chave do n8n usada nos testes locais (feito pela equipe do n8n).
 
 **Localização por CEP no check-in e no check-out** (mesclado na `main` em `974d774`)
 - Troca a coordenada pelo CEP e pelo endereço em todas as telas (técnico, gestor, aprovador e PDF). A coordenada continua gravada por baixo. Carimbo opcional na foto do ambiente (data, hora e CEP).
@@ -184,11 +184,7 @@ Não sabemos se já existem; precisam ser confirmados antes de cada item começa
 
 ### Documentação
 
-- [ ] **Média** — Corrigir o comando do `.env.local` no README. O comando atual usa `>`, que no PowerShell do Windows grava o arquivo em UTF-16; o Next.js não lê, a chave de sessão fica vazia e o login quebra. Comando que funciona em qualquer terminal:
-
-  ```bash
-  node -e "require('fs').writeFileSync('.env.local', 'SESSION_SECRET=' + require('crypto').randomBytes(32).toString('base64') + '\nAPP_URL=http://localhost:3000\n')"
-  ```
+- [x] **Média** — Comando do `.env.local` no README corrigido para funcionar no PowerShell (o `>` gravava UTF-16 e quebrava o login) — 29/10/2026.
 
 - [ ] **Média** — Trazer para o repositório o "guia" de regras de negócio que o README cita. Ele não está no repositório hoje.
 
