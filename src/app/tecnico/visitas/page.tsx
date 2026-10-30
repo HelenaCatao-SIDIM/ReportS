@@ -111,7 +111,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/tecnico/visitas">, "s
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{v.clienteNome}</div>
                       <div className="truncate text-xs text-muted-foreground">
-                        {v.unidadeNome} · {rotuloTipo(v.tipo)}
+                        {v.sistemaNome} · {v.unidadeNome} · {rotuloTipo(v.tipo)}
                       </div>
                       <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                         {v.status === "em_andamento" ? (

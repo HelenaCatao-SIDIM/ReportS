@@ -54,7 +54,7 @@ function Rodape({ conteudo, versao }: { conteudo: ConteudoCongelado; versao: num
   return (
     <View style={s.rodape} fixed>
       <Text>
-        {conteudo.cliente.nome} · {formatarDataCurta(conteudo.de)} a {formatarDataCurta(conteudo.ate)} · v{versao}
+        {conteudo.cliente.nome} · {conteudo.sistema.nome} · {formatarDataCurta(conteudo.de)} a {formatarDataCurta(conteudo.ate)} · v{versao}
       </Text>
       <Text render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`} />
     </View>
@@ -72,7 +72,7 @@ function Texto({ rotulo, valor }: { rotulo: string; valor: string }) {
 
 function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao }: { v: VisitaDetalhada; outroPeriodo: boolean; imagens: ImagensPdf; conteudo: ConteudoCongelado; versao: number }) {
   const fotos = [v.fotoAmbiente, v.printTela, ...v.fotosExtras].filter((f): f is NonNullable<typeof f> => !!f && imagens.has(f.url));
-  const temas = [...v.temas.map((t) => `${t.nome} (${t.sistema} / ${t.modulo})`), ...(v.temaAdicional ? [`${v.temaAdicional} (adicional)`] : [])];
+  const temas = [...v.temas.map((t) => `${t.nome} (${t.sistemaNome} / ${t.modulo})`), ...(v.temaAdicional ? [`${v.temaAdicional} (adicional)`] : [])];
 
   return (
     <Page size="A4" style={s.pagina}>
@@ -231,7 +231,7 @@ export function RelatorioPdf({
 }) {
   const c = conteudo;
   return (
-    <Document title={`Relatório ${c.cliente.nome} ${formatarDataCurta(c.de)} a ${formatarDataCurta(c.ate)} v${versao}`} author="SIDIM" language="pt-BR">
+    <Document title={`Relatório ${c.cliente.nome} ${c.sistema.nome} ${formatarDataCurta(c.de)} a ${formatarDataCurta(c.ate)} v${versao}`} author="SIDIM" language="pt-BR">
       <Page size="A4" style={s.pagina}>
         <Text style={s.marca}>SIDIM · Registro de visitas e treinamentos</Text>
         <Text style={s.titulo}>Relatório de atendimento</Text>
@@ -243,7 +243,8 @@ export function RelatorioPdf({
           <View style={s.grade}>
             <Campo rotulo="Cliente" valor={c.cliente.nome} largura="66.66%" />
             <Campo rotulo="CNPJ" valor={formatarCnpj(c.cliente.cnpj)} />
-            <Campo rotulo="Contrato" valor={c.cliente.contrato} largura="100%" />
+            <Campo rotulo="Sistema" valor={c.sistema.nome} />
+            <Campo rotulo="Contrato" valor={c.cliente.contrato} largura="66.66%" />
             <Campo rotulo="Período" valor={`${formatarDataCurta(c.de)} a ${formatarDataCurta(c.ate)}`} />
             <Campo rotulo="Emitido em" valor={formatarDataHora(emitidoEm)} />
             <Campo rotulo="Visitas" valor={String(c.visitas.length)} />

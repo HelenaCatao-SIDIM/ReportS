@@ -2,7 +2,8 @@ import "server-only";
 import { fimDoDia, inicioDoDia } from "@/lib/datas";
 import { ehPresencial } from "@/lib/visitas";
 import type { Cliente, ConteudoCongelado, Relatorio, TokenAprovacao, VersaoRelatorio } from "@/lib/types";
-import { buscarCliente, listarClientes } from "./clientes";
+import { buscarCliente } from "./clientes";
+import { aprovadoresAtivosDoContrato, buscarContrato, listarContratos, type ContratoDetalhado } from "./contratos";
 import { buscarVisitasDetalhadas, elegiveisParaRelatorio, vincularAoRelatorio, type VisitaDetalhada } from "./visitas";
 import { relatorios, tokens } from "./relatorios-dados";
 
@@ -13,11 +14,13 @@ import { relatorios, tokens } from "./relatorios-dados";
 
 export interface RelatorioResumo extends Relatorio {
   clienteNome: string;
+  sistemaNome: string;
   versaoAtual: number;
 }
 
 export interface FiltroRelatorios {
   clienteId?: string;
+  contratoId?: string;
   /** AAAA-MM-DD: relatórios cujo período cruza o intervalo. */
   de?: string;
   ate?: string;
@@ -25,38 +28,44 @@ export interface FiltroRelatorios {
 
 /** Painel: mais recentes (última movimentação) primeiro. */
 export async function listarRelatorios(f: FiltroRelatorios = {}): Promise<RelatorioResumo[]> {
-  const clientes = await listarClientes();
+  const contratos = await listarContratos();
   return relatorios
     .filter((r) => !f.clienteId || r.clienteId === f.clienteId)
+    .filter((r) => !f.contratoId || r.contratoId === f.contratoId)
     .filter((r) => !f.de || r.ate >= f.de)
     .filter((r) => !f.ate || r.de <= f.ate)
     .sort((a, b) => b.atualizadoEm.localeCompare(a.atualizadoEm))
-    .map((r) => ({ ...r, clienteNome: clientes.find((c) => c.id === r.clienteId)?.nome ?? "—", versaoAtual: r.versoes.length }));
+    .map((r) => {
+      const contrato = contratos.find((c) => c.id === r.contratoId);
+      return { ...r, clienteNome: contrato?.clienteNome ?? "—", sistemaNome: contrato?.sistemaNome ?? "—", versaoAtual: r.versoes.length };
+    });
 }
 
 export async function buscarRelatorio(id: string): Promise<Relatorio | null> {
   return relatorios.find((r) => r.id === id) ?? null;
 }
 
-/** Outro relatório do mesmo cliente cujo período cruza [de, ate]. */
-export async function periodoSobreposto(clienteId: string, de: string, ate: string, excetoId?: string): Promise<Relatorio | null> {
-  return relatorios.find((r) => r.clienteId === clienteId && r.id !== excetoId && r.de <= ate && r.ate >= de) ?? null;
+/** Outro relatório do mesmo contrato cujo período cruza [de, ate]. */
+export async function periodoSobreposto(contratoId: string, de: string, ate: string, excetoId?: string): Promise<Relatorio | null> {
+  return relatorios.find((r) => r.contratoId === contratoId && r.id !== excetoId && r.de <= ate && r.ate >= de) ?? null;
 }
 
-const idsElegiveis = async (r: Pick<Relatorio, "clienteId" | "ate" | "id">) =>
-  (await elegiveisParaRelatorio(r.clienteId, fimDoDia(r.ate), r.id)).map((v) => v.id);
+const idsElegiveis = async (r: Pick<Relatorio, "contratoId" | "ate" | "id">) =>
+  (await elegiveisParaRelatorio(r.contratoId, fimDoDia(r.ate), r.id)).map((v) => v.id);
 
 /** Cria o rascunho e reserva as visitas. Recusa sobreposição e período sem visitas. */
-export async function criarRascunho(clienteId: string, de: string, ate: string): Promise<{ relatorio: Relatorio } | { erro: string }> {
-  const conflito = await periodoSobreposto(clienteId, de, ate);
-  if (conflito) return { erro: `Já existe um relatório deste cliente de ${conflito.de.split("-").reverse().join("/")} a ${conflito.ate.split("-").reverse().join("/")}, que cruza este período.` };
+export async function criarRascunho(contratoId: string, de: string, ate: string): Promise<{ relatorio: Relatorio } | { erro: string }> {
+  const contrato = await buscarContrato(contratoId);
+  if (!contrato) return { erro: "Contrato não encontrado." };
+  const conflito = await periodoSobreposto(contratoId, de, ate);
+  if (conflito) return { erro: `Já existe um relatório deste contrato (${contrato.sistemaNome}) de ${conflito.de.split("-").reverse().join("/")} a ${conflito.ate.split("-").reverse().join("/")}, que cruza este período.` };
 
   const id = crypto.randomUUID();
-  const ids = await idsElegiveis({ clienteId, ate, id });
-  if (!ids.length) return { erro: "Nenhuma visita encerrada deste cliente até o fim do período (fora de outros relatórios)." };
+  const ids = await idsElegiveis({ contratoId, ate, id });
+  if (!ids.length) return { erro: `Nenhuma visita encerrada deste contrato (${contrato.sistemaNome}) até o fim do período (fora de outros relatórios).` };
 
   const agora = new Date().toISOString();
-  const r: Relatorio = { id, clienteId, de, ate, status: "rascunho", visitaIds: ids, versoes: [], criadoEm: agora, atualizadoEm: agora };
+  const r: Relatorio = { id, clienteId: contrato.clienteId, contratoId, de, ate, status: "rascunho", visitaIds: ids, versoes: [], criadoEm: agora, atualizadoEm: agora };
   relatorios.push(r);
   await vincularAoRelatorio(id, ids);
   return { relatorio: r };
@@ -86,6 +95,7 @@ export async function excluirRascunho(id: string) {
 export interface ConteudoRelatorio {
   relatorio: Relatorio;
   cliente: Cliente;
+  contrato: ContratoDetalhado;
   visitas: VisitaDetalhada[];
   /** Visitas com data anterior ao início do período (ficaram de fora do relatório anterior). */
   deOutroPeriodo: Set<string>;
@@ -98,13 +108,14 @@ const minutos = (v: VisitaDetalhada) => (v.saida ? Math.round((new Date(v.saida)
 export async function montarConteudo(id: string): Promise<ConteudoRelatorio | null> {
   const relatorio = await buscarRelatorio(id);
   if (!relatorio) return null;
-  const cliente = await buscarCliente(relatorio.clienteId);
-  if (!cliente) return null;
+  const [cliente, contrato] = await Promise.all([buscarCliente(relatorio.clienteId), buscarContrato(relatorio.contratoId)]);
+  if (!cliente || !contrato) return null;
   const visitas = await buscarVisitasDetalhadas(relatorio.visitaIds);
   const inicio = inicioDoDia(relatorio.de);
   return {
     relatorio,
     cliente,
+    contrato,
     visitas,
     deOutroPeriodo: new Set(visitas.filter((v) => v.entrada < inicio).map((v) => v.id)),
     minutosPresenciais: visitas.filter((v) => ehPresencial(v.tipo)).reduce((s, v) => s + minutos(v), 0),
@@ -117,7 +128,8 @@ export async function montarConteudo(id: string): Promise<ConteudoRelatorio | nu
 /** Congela o conteúdo atual (cópia serializável) para a versão que será emitida. */
 export function congelar(c: ConteudoRelatorio): ConteudoCongelado {
   return structuredClone({
-    cliente: { nome: c.cliente.nome, cnpj: c.cliente.cnpj, contrato: c.cliente.contrato },
+    cliente: { nome: c.cliente.nome, cnpj: c.cliente.cnpj, contrato: c.contrato.texto },
+    sistema: { codigo: c.contrato.sistema, nome: c.contrato.sistemaNome },
     de: c.relatorio.de,
     ate: c.relatorio.ate,
     visitas: c.visitas,
@@ -137,8 +149,8 @@ export async function registrarEmissao(
 ): Promise<{ versao: VersaoRelatorio; links: TokenAprovacao[] }> {
   const r = relatorios.find((x) => x.id === id);
   if (!r || (r.status !== "rascunho" && r.status !== "ajuste_solicitado")) throw new Error("Este relatório não pode ser emitido agora");
-  const cliente = await buscarCliente(r.clienteId);
-  if (!cliente) throw new Error("Cliente não encontrado");
+  const aprovadores = await aprovadoresAtivosDoContrato(r.contratoId);
+  if (!aprovadores.length) throw new Error("O contrato não tem aprovadores ativos");
 
   const numero = r.versoes.length + 1;
   const versao: VersaoRelatorio = {
@@ -147,7 +159,7 @@ export async function registrarEmissao(
     visitaIds: [...r.visitaIds],
     pdfUrl: dados.pdfUrl,
     pdfTamanho: dados.pdfTamanho,
-    enviadoPara: cliente.aprovadores.map((a) => ({ nome: a.nome, email: a.email })),
+    enviadoPara: aprovadores.map((a) => ({ nome: a.nome, email: a.email })),
     conteudo: dados.conteudo,
     decisao: null,
   };
@@ -156,7 +168,7 @@ export async function registrarEmissao(
   r.atualizadoEm = dados.emitidoEm;
 
   for (const t of tokens) if (t.relatorioId === id && !t.invalidadoEm) t.invalidadoEm = dados.emitidoEm;
-  const links = cliente.aprovadores.map<TokenAprovacao>((a) => ({
+  const links = aprovadores.map<TokenAprovacao>((a) => ({
     token: crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, ""),
     relatorioId: id,
     versao: numero,

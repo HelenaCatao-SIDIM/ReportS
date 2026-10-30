@@ -88,13 +88,46 @@ class ErroDefinitivo extends Error {}
 /** Mensagem curta e sem dados sensíveis (nunca inclui usuário nem senha). */
 function motivo(erro: unknown): { texto: string; definitivo: boolean } {
   if (erro instanceof ErroDefinitivo) return { texto: erro.message, definitivo: true };
-  const e = erro as { code?: string; responseCode?: number; response?: string; message?: string };
+  const e = erro as { code?: string; command?: string; responseCode?: number; response?: string; message?: string };
+  if (e.command === "STARTTLS" || e.code === "ETLS")
+    return { texto: "O servidor SMTP não oferece conexão criptografada (STARTTLS). Por segurança, o usuário e a senha não foram enviados. Confira o servidor e a porta (587 ou 465).", definitivo: true };
   if (e.code === "EAUTH") return { texto: "O servidor SMTP recusou o usuário ou a senha. No Gmail, use uma senha de app.", definitivo: true };
   // Resposta do servidor: 5xx é definitiva (endereço recusado, política); 4xx é temporária e vale uma nova tentativa.
   if (e.responseCode && e.responseCode >= 500) return { texto: `O servidor SMTP recusou a mensagem (${e.responseCode}): ${(e.response ?? "").slice(0, 160)}`, definitivo: true };
   if (e.responseCode) return { texto: `O servidor SMTP respondeu ${e.responseCode}: ${(e.response ?? "").slice(0, 160)}`, definitivo: false };
   if (e.code === "EENVELOPE" || e.code === "EMESSAGE") return { texto: "O servidor SMTP recusou a mensagem.", definitivo: true };
-  return { texto: `Não foi possível falar com o ${provedorEmail() === "smtp" ? "servidor SMTP" : "Resend"} (conexão, porta ou tempo esgotado).`, definitivo: false };
+  const destino = provedorEmail() === "smtp" ? "servidor SMTP" : "Resend";
+  return { texto: `Não foi possível falar com o ${destino}: ${explicarConexao(erro)}`, definitivo: false };
+}
+
+const EXPLICACAO_CONEXAO: Record<string, string> = {
+  ETIMEDOUT: "tempo esgotado; a rede, o firewall ou o antivírus pode estar bloqueando a porta de envio",
+  ECONNREFUSED: "conexão recusada; confira o servidor e a porta",
+  ENOTFOUND: "o endereço do servidor não foi encontrado; confira o servidor configurado e a internet",
+  EAI_AGAIN: "o endereço do servidor não foi encontrado; confira o servidor configurado e a internet",
+  EDNS: "o endereço do servidor não foi encontrado; confira o servidor configurado e a internet",
+  ECONNRESET: "a conexão foi derrubada pelo servidor ou por um firewall",
+  EHOSTUNREACH: "sem rota até o servidor; confira a rede",
+  ENETUNREACH: "sem rota até o servidor; confira a rede",
+  ESOCKET: "falha na conexão segura (TLS) ou queda da conexão",
+  ECONNECTION: "não foi possível conectar",
+};
+
+/** Causa técnica da falha de conexão, sem nunca incluir usuário ou senha. */
+function explicarConexao(erro: unknown): string {
+  const e = erro as { code?: string; message?: string; name?: string; cause?: { code?: string } };
+  const codigo = e?.code ?? e?.cause?.code ?? e?.name ?? "";
+  let detalhe = String(e?.message ?? "");
+  for (const segredo of [process.env.SMTP_SENHA, process.env.SMTP_USUARIO, process.env.RESEND_API_KEY]) {
+    if (segredo && segredo.length >= 4) detalhe = detalhe.split(segredo).join("***");
+  }
+  // O nodemailer devolve ESOCKET/ECONNECTION e deixa o código de rede (ECONNREFUSED, ETIMEDOUT...) dentro da mensagem.
+  const interno = detalhe.match(/\b(ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ECONNRESET|EHOSTUNREACH|ENETUNREACH)\b/)?.[1];
+  const tls = !interno && /certificate|self[- ]signed|wrong version|ssl|tls/i.test(detalhe);
+  const explicacao = tls
+    ? "falha na conexão segura (TLS): certificado ou versão do protocolo não aceitos"
+    : (EXPLICACAO_CONEXAO[interno ?? codigo] ?? "conexão, porta ou tempo esgotado");
+  return `${explicacao}. Detalhe técnico: ${[interno ?? codigo, detalhe.slice(0, 160)].filter(Boolean).join(": ")}`;
 }
 
 /** Envia pelo Resend. Tenta uma segunda vez em erro de rede, limite (429) ou erro do servidor (5xx). Devolve o id do e-mail no Resend. */

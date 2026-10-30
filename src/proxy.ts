@@ -1,26 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { decrypt, SESSION_COOKIE } from "@/lib/session";
 
-// Verificação otimista (só o cookie). A checagem completa fica no DAL (lib/dal.ts).
-const AREAS = { "/admin": "gestor", "/tecnico": "tecnico" } as const;
-const HOME = { gestor: "/admin", tecnico: "/tecnico" } as const;
+// Verificação otimista: só confere se há sessão (o cookie guarda apenas o id do usuário). Quem decide a área e o que a
+// pessoa pode fazer são as permissões, lidas no DAL (lib/dal.ts) a cada requisição; a página /inicio escolhe a área.
+const AREAS = ["/admin", "/tecnico", "/inicio"];
 
 export default async function proxy(req: NextRequest) {
   const path = req.nextUrl.pathname;
   const sessao = await decrypt(req.cookies.get(SESSION_COOKIE)?.value);
 
-  const area = (Object.keys(AREAS) as (keyof typeof AREAS)[]).find(
-    (a) => path === a || path.startsWith(a + "/"),
-  );
-
-  if (area && !sessao) {
+  const protegida = AREAS.some((a) => path === a || path.startsWith(a + "/"));
+  if (protegida && !sessao) {
     return NextResponse.redirect(new URL("/login", req.nextUrl));
   }
-  if (area && sessao && AREAS[area] !== sessao.perfil) {
-    return NextResponse.redirect(new URL(HOME[sessao.perfil], req.nextUrl));
-  }
   if ((path === "/login" || path === "/") && sessao) {
-    return NextResponse.redirect(new URL(HOME[sessao.perfil], req.nextUrl));
+    return NextResponse.redirect(new URL("/inicio", req.nextUrl));
   }
   return NextResponse.next();
 }

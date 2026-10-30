@@ -50,8 +50,8 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/temas">, "searc
         <select name="sistema" defaultValue={sistema} aria-label="Filtrar por sistema" className={cn(selectClass, "bg-background sm:w-56")}>
           <option value="">Todos os sistemas</option>
           {sugestoes.sistemas.map((s) => (
-            <option key={s} value={s}>
-              {s}
+            <option key={s.codigo} value={s.codigo}>
+              {s.nome}
             </option>
           ))}
         </select>
@@ -83,7 +83,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/temas">, "searc
               {temas.map((t) => (
                 <TableRow key={t.id} className={cn(!t.ativo && "text-muted-foreground")}>
                   <TableCell className="pl-4 font-medium">{t.nome}</TableCell>
-                  <TableCell>{t.sistema}</TableCell>
+                  <TableCell>{t.sistemaNome}</TableCell>
                   <TableCell>{t.modulo}</TableCell>
                   <TableCell>
                     <Badge variant={t.ativo ? "outline" : "destructive"}>{t.ativo ? "Ativo" : "Inativo"}</Badge>

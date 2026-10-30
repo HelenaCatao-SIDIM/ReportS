@@ -1,41 +1,90 @@
-export type Perfil = "gestor" | "tecnico";
-
+/** Pessoa da SIDIM (cadastro único da plataforma). O que ela pode fazer vem dos papéis e permissões. */
 export interface Usuario {
   id: string;
   nome: string;
   email: string;
   senhaHash: string;
-  perfil: Perfil;
   ativo: boolean;
   /** Só dígitos, com DDD (10 ou 11). Opcional; será o destino do aviso de visita aberta por WhatsApp. */
   telefone: string | null;
+  /** Papéis atribuídos (ligação usuário-papel). */
+  papelIds: string[];
 }
 
 /** Dados do usuário que podem ir para a tela (sem o hash da senha). */
 export type UsuarioPublico = Omit<Usuario, "senhaHash">;
 
+/** Usuário da sessão com o que ele pode fazer, lido a cada requisição. */
+export interface UsuarioLogado extends UsuarioPublico {
+  /** Códigos das permissões somadas dos papéis. */
+  permissoes: string[];
+  papeis: string[];
+}
+
+/** Papel: agrupa permissões. Na plataforma é gerido no Admin do SINC; aqui é um exemplo em memória. */
+export interface Papel {
+  id: string;
+  nome: string;
+  descricao: string;
+  permissoes: string[];
+}
+
 export type NivelComprovacao = "nominal" | "assinado";
 
+/**
+ * Pessoa que aprova relatórios, em cadastro próprio (independente dos participantes).
+ * Pode aprovar para mais de um contrato, até de clientes diferentes; não tem login.
+ */
 export interface Aprovador {
   id: string;
   nome: string;
   cargo: string;
+  /** Único no cadastro (minúsculas). */
   email: string;
+  ativo: boolean;
 }
 
+/** Um cadastro por cliente, identificado pelo CNPJ. Os sistemas que ele usa ficam em `SistemaDoCliente`. */
 export interface Cliente {
   id: string;
   nome: string;
-  /** Somente dígitos (14). */
+  /** Somente dígitos (14). Vazio = "CNPJ pendente" (cliente que veio do SINC); só é exigido ao emitir relatório. */
   cnpj: string;
-  /** Texto usado na capa do relatório. */
-  contrato: string;
-  nivel: NivelComprovacao;
-  exigeCpf: boolean;
   ativo: boolean;
-  aprovadores: Aprovador[];
+  /** De onde o cliente veio: criado à mão no ReportS (implantação) ou pelo SINC. */
+  origem: "manual" | "sinc";
   /** Nome do cliente no SINC (o mesmo do campo "Cliente / Município" dos atendimentos), para cruzar os chamados de suporte. O identificador interno continua `nomesFortics`. */
   nomesFortics: string[];
+}
+
+/**
+ * Situação de cada sistema de um cliente: em implantação (criado à mão, ainda sem tenant), sem cliente
+ * (o tenant apareceu no SINC e ainda não foi ligado; o ReportS não enxerga estes) ou vinculado.
+ */
+export type EstadoSistemaCliente = "em_implantacao" | "sem_cliente" | "vinculado";
+
+/** Cada sistema que um cliente usa. Um cliente tem no máximo um registro por sistema. */
+export interface SistemaDoCliente {
+  id: string;
+  clienteId: string;
+  /** Código do sistema (ver `Sistema`). */
+  sistema: string;
+  /** Vazio enquanto em implantação. A ligação com o tenant é feita no SINC. */
+  tenantId: string | null;
+  estado: EstadoSistemaCliente;
+}
+
+/** Contrato de um sistema do cliente: o que sai na capa do relatório, como comprovar a presença e quem aprova. */
+export interface Contrato {
+  id: string;
+  sistemaDoClienteId: string;
+  /** Texto usado na capa do relatório. */
+  texto: string;
+  nivel: NivelComprovacao;
+  exigeCpf: boolean;
+  /** Contrato inativo não aparece para o técnico no check-in. */
+  ativo: boolean;
+  aprovadorIds: string[];
 }
 
 export interface Unidade {
@@ -46,7 +95,7 @@ export interface Unidade {
   /** Digitadas à mão; com elas, o check-in presencial grava a distância até o estabelecimento. */
   latitude: number | null;
   longitude: number | null;
-  /** Raio de verificação do check-in, em metros. Fora dele gera alerta ao gestor; nunca bloqueia o técnico. */
+  /** Raio de verificação do check-in, em metros. Fora dele gera alerta para a administração; nunca bloqueia o técnico. */
   raioMetros: number;
 }
 
@@ -56,11 +105,29 @@ export interface Setor {
   nome: string;
 }
 
+/**
+ * Sistema (ERP) da SIDIM. O cadastro é do SINC; o ReportS só lê.
+ * O código é a chave gravada em todos os registros e nunca muda.
+ */
+export interface Sistema {
+  codigo: string;
+  nome: string;
+  /** Nome da opção no campo "Sistemas" do ClickUp; vazio = o próprio código. */
+  nomeClickUp: string | null;
+  /** Como o sistema aparece no Fortics, para filtrar os chamados de suporte. */
+  nomeFortics: string | null;
+  ativo: boolean;
+  ordem: number;
+}
+
 /** Tema trabalhado na visita. Nome, sistema e módulo pertencem ao mesmo registro (sem hierarquia). */
 export interface Tema {
   id: string;
   nome: string;
+  /** Código do sistema (ver `Sistema`). */
   sistema: string;
+  /** Nome do sistema para mostrar; preenchido na leitura. */
+  sistemaNome: string;
   modulo: string;
   ativo: boolean;
 }
@@ -72,16 +139,28 @@ export interface Cbo {
   titulo: string;
 }
 
+/**
+ * Confirmado: veio do ERP (tem o id do usuário no ERP); o nome é do ERP e não se edita no ReportS.
+ * Provisório: criado no ReportS, sem o id do ERP. (A junção de provisório com confirmado é uma fase futura.)
+ */
+export type EstadoParticipante = "confirmado" | "provisorio";
+
+/** De onde veio o registro: captura do painel do SINC, técnico em campo ou cadastro na Administração do ReportS. */
+export type OrigemParticipante = "painel_sinc" | "campo_reports" | "cadastro_reports";
+
+/** Pessoa que participa dos treinamentos, identificada dentro de um sistema do cliente (o mesmo cliente tem listas diferentes por sistema). */
 export interface Participante {
   id: string;
-  clienteId: string;
+  sistemaDoClienteId: string;
+  /** Id do usuário no ERP (o userId que o ERP manda ao SINC). Obrigatório no confirmado; vazio no provisório. */
+  idErp: string | null;
+  estado: EstadoParticipante;
+  origem: OrigemParticipante;
   nome: string;
   cbo: Cbo;
   setor: string;
-  /** Somente dígitos; preenchido só quando o cliente exige CPF. */
+  /** Somente dígitos; preenchido só quando o contrato exige CPF. */
   cpf: string | null;
-  /** Cadastrado pelo técnico durante uma visita. */
-  criadoEmCampo: boolean;
 }
 
 export type TipoVisita = "treinamento" | "implantacao" | "suporte_presencial" | "reuniao" | "visita_tecnica" | "treinamento_online";
@@ -137,6 +216,8 @@ export interface Foto {
 /** Participante registrado na visita (cópia dos dados no momento da presença). */
 export interface PresencaVisita {
   participanteId: string;
+  /** Situação do participante no dia da presença (selo "Confirmado" ou "Provisório"; o aprovador e o PDF só mostram o nome). */
+  estado: EstadoParticipante;
   nome: string;
   cbo: Cbo;
   setor: string;
@@ -168,6 +249,8 @@ export interface Visita {
   id: string;
   tecnicoId: string;
   clienteId: string;
+  /** Contrato escolhido no check-in: dele saem o sistema, a forma de comprovação, o CPF e os aprovadores. */
+  contratoId: string;
   unidadeId: string;
   /** Setor da lista do estabelecimento, ou null quando o técnico escolheu "outro". */
   setorId: string | null;
@@ -196,7 +279,7 @@ export interface Visita {
   observacoes: string;
   pendencias: string;
   proximosPassos: string;
-  encerradaPorGestor: boolean;
+  encerradaPelaAdministracao: boolean;
   /** Relatório em que a visita foi incluída. */
   relatorioId: string | null;
   historico: AlteracaoVisita[];
@@ -230,6 +313,9 @@ export interface VersaoRelatorio {
 export interface VisitaDetalhada extends Visita {
   tecnicoNome: string;
   clienteNome: string;
+  /** Código e nome do sistema do contrato da visita. */
+  sistema: string;
+  sistemaNome: string;
   unidadeNome: string;
   setorNome: string;
   temas: Tema[];
@@ -268,6 +354,7 @@ export interface ResumoSuporte {
 
 export interface ConteudoCongelado {
   cliente: { nome: string; cnpj: string; contrato: string };
+  sistema: { codigo: string; nome: string };
   de: string;
   ate: string;
   visitas: VisitaDetalhada[];
@@ -294,6 +381,8 @@ export interface TokenAprovacao {
 export interface Relatorio {
   id: string;
   clienteId: string;
+  /** Um relatório é de um contrato (cliente + sistema); cliente com dois sistemas tem dois relatórios por período. */
+  contratoId: string;
   /** Período (AAAA-MM-DD, horário de Brasília), inclusive. */
   de: string;
   ate: string;

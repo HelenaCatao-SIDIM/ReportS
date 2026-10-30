@@ -8,6 +8,7 @@ import { formatarCbo, formatarCpf, mascararCpf } from "@/lib/format";
 import { chaveRascunhoParticipante } from "@/lib/regras-visita";
 import { registrarPresenca, retirarPresenca, sugerirParticipantes, type PresencaState, type SugestaoParticipante } from "../participantes-actions";
 import { useAcao } from "@/components/form/use-acao";
+import { SeloParticipante } from "@/components/participante/selo-participante";
 import { CboCampo } from "@/components/form/cbo-campo";
 import { AssinaturaCampo } from "@/components/tecnico/assinatura-campo";
 import { apagarRascunho, guardarRascunho, lerRascunho } from "@/components/tecnico/rascunho";
@@ -145,7 +146,10 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
                     }}
                     className="w-full px-3 py-2.5 text-left"
                   >
-                    <span className="block text-sm font-medium">{s.nome}</span>
+                    <span className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
+                      {s.nome}
+                      <SeloParticipante estado={s.estado} />
+                    </span>
                     <span className="block text-xs text-muted-foreground">
                       {juntar(s.cbo.titulo, s.setor)}
                     </span>
@@ -178,7 +182,10 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
           <input type="hidden" name="participanteId" value={escolhido.id} />
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 text-sm">
-              <div className="font-medium">{escolhido.nome}</div>
+              <div className="flex flex-wrap items-center gap-1.5 font-medium">
+                {escolhido.nome}
+                <SeloParticipante estado={escolhido.estado} />
+              </div>
               {(escolhido.setor || setorVisita) && (
                 <div className="text-muted-foreground">
                   {escolhido.setor || setorVisita}
@@ -235,12 +242,41 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
             </Label>
             <Input id="n-nome" name="nome" value={nome} onChange={(ev) => setNome(ev.target.value)} className="h-11 text-base" aria-invalid={!!e.nome} />
             <Erro msg={e.nome} />
-            {state.pedirHomonimo && (
-              <label className="mt-2 flex items-center gap-2 text-sm">
-                <input type="checkbox" name="homonimo" className="size-4 accent-primary" />É outra pessoa com o mesmo nome
-              </label>
-            )}
           </div>
+          {state.semelhantes && state.semelhantes.length > 0 && (
+            <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+              <p className="text-sm font-medium text-amber-900">É esta pessoa?</p>
+              <ul className="divide-y divide-amber-200">
+                {state.semelhantes.map((s) => (
+                  <li key={s.id} className="flex items-center justify-between gap-2 py-2">
+                    <div className="min-w-0 text-sm">
+                      <div className="flex flex-wrap items-center gap-1.5 font-medium">
+                        {s.nome}
+                        <SeloParticipante estado={s.estado} />
+                      </div>
+                      <div className="truncate text-xs text-muted-foreground">{juntar(s.cbo.titulo, s.setor)}</div>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        apagarRascunho(chaveRascunho);
+                        setEscolhido(s);
+                        setModo("existente");
+                      }}
+                    >
+                      Usar esta pessoa
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+              <label className="flex items-center gap-2 text-sm text-amber-900">
+                <input type="checkbox" name="homonimo" className="size-4 accent-primary" />
+                Não é nenhuma destas pessoas — cadastrar como nova
+              </label>
+            </div>
+          )}
           <div>
             <Label htmlFor="n-cbo" className="mb-1.5">
               Ocupação (CBO)
@@ -275,6 +311,29 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
                 aria-invalid={!!e.cpf}
               />
               <Erro msg={e.cpf} />
+              {state.existente && (
+                <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                  <div className="min-w-0 text-sm">
+                    <div className="flex flex-wrap items-center gap-1.5 font-medium">
+                      {state.existente.nome}
+                      <SeloParticipante estado={state.existente.estado} />
+                    </div>
+                    <div className="truncate text-xs text-muted-foreground">{juntar(state.existente.cbo.titulo, state.existente.setor)}</div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      if (!state.existente) return;
+                      apagarRascunho(chaveRascunho);
+                      setEscolhido(state.existente);
+                      setModo("existente");
+                    }}
+                  >
+                    Usar esta pessoa
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -303,7 +362,10 @@ function LinhaPresenca({ visitaId, p }: { visitaId: string; p: PresencaVisita })
   return (
     <li className="flex items-center gap-3 py-2.5">
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">{p.nome}</div>
+        <div className="flex items-center gap-1.5 text-sm font-medium">
+          <span className="truncate">{p.nome}</span>
+          <SeloParticipante estado={p.estado} className="shrink-0" />
+        </div>
         <div className="truncate text-xs text-muted-foreground">
           {juntar(p.cbo.titulo, p.setor)}
           {p.cpf && ` · ${mascararCpf(p.cpf)}`}

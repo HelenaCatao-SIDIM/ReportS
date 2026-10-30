@@ -13,11 +13,11 @@ export default function TecnicoLayout({ children }: LayoutProps<"/tecnico">) {
             </div>
             <span className="text-sm font-semibold">SIDIM Visitas</span>
           </div>
-          <UsuarioHeader perfil="tecnico" />
+          <UsuarioHeader area="tecnico" />
         </div>
       </header>
       <main className="mx-auto max-w-lg px-4 py-5">
-        <AreaProtegida perfil="tecnico">{children}</AreaProtegida>
+        <AreaProtegida area="tecnico">{children}</AreaProtegida>
       </main>
       <TecnicoBottomNav />
     </div>

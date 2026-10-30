@@ -3,7 +3,8 @@ import Link from "next/link";
 import { AlertTriangle, MapPinCheck, MapPinOff } from "lucide-react";
 import { listarEmAndamento, listarEncerradas, type VisitaDetalhada } from "@/lib/repo/visitas";
 import { listarClientes } from "@/lib/repo/clientes";
-import { listarUsuarios } from "@/lib/repo/usuarios";
+import { listarComPermissao } from "@/lib/repo/usuarios";
+import { PERMISSOES } from "@/lib/permissoes";
 import { fimDoDia, formatarData, formatarDataHora, formatarDuracao, formatarHora, inicioDoDia } from "@/lib/datas";
 import { horaDoServidor } from "@/lib/agora";
 import { dentroDoRaio, foraDoRaio, formatarDistancia } from "@/lib/distancia";
@@ -98,7 +99,7 @@ function EmAndamento({ visitas, agora }: { visitas: VisitaDetalhada[]; agora: nu
                   <TableCell className="pl-4 font-medium">{v.tecnicoNome}</TableCell>
                   <TableCell>
                     {v.clienteNome}
-                    <span className="block text-xs text-muted-foreground">{v.unidadeNome}</span>
+                    <span className="block text-xs text-muted-foreground">{v.sistemaNome} · {v.unidadeNome}</span>
                     {dentroDoRaio(v) && (
                       <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-emerald-700">
                         <MapPinCheck className="size-3" />
@@ -150,7 +151,7 @@ async function Encerradas({ sp }: { sp: Record<string, string | string[] | undef
       incluirCanceladas: f.canceladas,
     }),
     listarClientes(),
-    listarUsuarios({ perfil: "tecnico" }),
+    listarComPermissao(PERMISSOES.tecnico),
   ]);
 
   return (
@@ -217,7 +218,7 @@ async function Encerradas({ sp }: { sp: Record<string, string | string[] | undef
                   <TableCell className="pl-4 whitespace-nowrap">{formatarData(v.entrada)}</TableCell>
                   <TableCell>
                     {v.clienteNome}
-                    <span className="block text-xs text-muted-foreground">{v.unidadeNome}</span>
+                    <span className="block text-xs text-muted-foreground">{v.sistemaNome} · {v.unidadeNome}</span>
                   </TableCell>
                   <TableCell>{v.tecnicoNome}</TableCell>
                   <TableCell>{rotuloTipo(v.tipo)}</TableCell>

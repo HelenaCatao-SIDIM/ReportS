@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AcoesAndamento } from "../acoes-andamento";
 
-const ACAO = { encerramento: "Encerrada pelo gestor", cancelamento: "Check-in cancelado", correcao: "Correção" } as const;
+const ACAO = { encerramento: "Encerrada pela administração", cancelamento: "Check-in cancelado", correcao: "Correção" } as const;
 
 export default function VisitaPage({ params, searchParams }: PageProps<"/admin/visitas/[id]">) {
   return (
@@ -42,7 +42,10 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/visitas
       <AtualizarEnquantoPendente pendente={cepEmAndamento(v)} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{v.clienteNome}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {v.clienteNome}
+            <span className="font-normal text-muted-foreground"> · {v.sistemaNome}</span>
+          </h1>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             {formatarData(v.entrada)} · {v.tecnicoNome}
             <SelosVisita visita={v} alertaRaio />
@@ -76,7 +79,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/visitas
         </Alert>
       )}
 
-      <DetalheVisita visita={v} cpf="completo" controle />
+      <DetalheVisita visita={v} cpf="completo" controle selos />
 
       <Card>
         <CardHeader>

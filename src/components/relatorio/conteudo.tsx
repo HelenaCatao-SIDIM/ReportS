@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export interface DadosConteudo {
   cliente: { nome: string; cnpj: string; contrato: string };
+  sistema: { codigo: string; nome: string };
   de: string;
   ate: string;
   visitas: VisitaDetalhada[];
@@ -38,6 +39,10 @@ export function ConteudoRelatorio({ c, tituloVisitas, linkVisitas }: { c: DadosC
               <div>
                 <dt className="text-xs text-muted-foreground">CNPJ</dt>
                 <dd className="text-sm">{formatarCnpj(c.cliente.cnpj)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Sistema</dt>
+                <dd className="text-sm">{c.sistema.nome}</dd>
               </div>
               <div className="sm:col-span-2">
                 <dt className="text-xs text-muted-foreground">Contrato</dt>
@@ -74,7 +79,7 @@ export function ConteudoRelatorio({ c, tituloVisitas, linkVisitas }: { c: DadosC
         </Card>
       </div>
 
-      {c.suporte && <ChamadosSuporte resumo={c.suporte} publico="gestor" />}
+      {c.suporte && <ChamadosSuporte resumo={c.suporte} publico="administracao" />}
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">{tituloVisitas}</h2>
@@ -108,7 +113,7 @@ export function ConteudoRelatorio({ c, tituloVisitas, linkVisitas }: { c: DadosC
               )}
             </summary>
             <div className="border-t p-4">
-              <DetalheVisita visita={v} cpf="mascarado" />
+              <DetalheVisita visita={v} cpf="mascarado" selos />
             </div>
           </details>
         ))}

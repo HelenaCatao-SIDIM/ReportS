@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowRight, Timer } from "lucide-react";
 import { getUsuarioAtual } from "@/lib/dal";
-import { listarParaCheckin } from "@/lib/repo/clientes";
+import { listarParaCheckin } from "@/lib/repo/contratos";
 import { visitaAbertaDoTecnico } from "@/lib/repo/visitas";
 import { formatarDataHora } from "@/lib/datas";
 import { rotuloTipo } from "@/lib/visitas";
@@ -35,7 +35,10 @@ async function Conteudo() {
               Visita em andamento
             </div>
             <div>
-              <div className="text-lg font-semibold">{aberta.clienteNome}</div>
+              <div className="text-lg font-semibold">
+                {aberta.clienteNome}
+                <span className="font-normal text-muted-foreground"> · {aberta.sistemaNome}</span>
+              </div>
               <div className="text-sm text-muted-foreground">
                 {aberta.unidadeNome} · {aberta.setorNome}
               </div>

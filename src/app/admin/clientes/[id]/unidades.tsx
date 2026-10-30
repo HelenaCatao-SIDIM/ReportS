@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 // ---------- Diálogo de estabelecimento (criar / editar) ----------
 
-/** Resultado da busca de coordenadas, com o endereço que o mapa achou para o gestor conferir. */
+/** Resultado da busca de coordenadas, com o endereço que o mapa achou para a administração conferir. */
 function MensagemBusca({ r, latitude, longitude }: { r: RespostaBusca; latitude: string; longitude: string }) {
   if (r.status === "ok") {
     return (
@@ -126,7 +126,7 @@ function UnidadeForm({
         id="u-raio"
         label="Raio de verificação (metros)"
         erro={e.raio}
-        dica="Check-in fora do raio gera um alerta para o gestor; nunca bloqueia o técnico. Comece em 50 m e ajuste pela distância real medida nas visitas."
+        dica="Check-in fora do raio gera um alerta para a administração; nunca bloqueia o técnico. Comece em 50 m e ajuste pela distância real medida nas visitas."
       >
         <Input id="u-raio" name="raio" inputMode="numeric" defaultValue={v.raio} className="h-9" aria-invalid={!!e.raio} />
       </Campo>
@@ -169,7 +169,7 @@ function UnidadeDialog({
 
 // ---------- Setores ----------
 
-function LinhaSetor({ setor }: { setor: Setor }) {
+function LinhaSetor({ setor, podeEditar }: { setor: Setor; podeEditar: boolean }) {
   const [editando, setEditando] = useState(false);
   const [nome, setNome] = useState(setor.nome);
   const [erro, setErro] = useState<string | null>(null);
@@ -225,7 +225,7 @@ function LinhaSetor({ setor }: { setor: Setor }) {
   return (
     <li className="group flex items-center justify-between gap-2 py-1.5 text-sm">
       <span>{setor.nome}</span>
-      <span className="flex gap-1 opacity-60 group-hover:opacity-100">
+      <span className={cn("flex gap-1 opacity-60 group-hover:opacity-100", !podeEditar && "hidden")}>
         <Button size="icon-sm" variant="ghost" aria-label={`Renomear ${setor.nome}`} onClick={() => setEditando(true)}>
           <Pencil />
         </Button>
@@ -278,7 +278,7 @@ function NovoSetor({ unidadeId }: { unidadeId: string }) {
 
 // ---------- Cartão do estabelecimento ----------
 
-function CartaoUnidade({ unidade, inicialAberta, onEditar }: { unidade: UnidadeComSetores; inicialAberta: boolean; onEditar: () => void }) {
+function CartaoUnidade({ unidade, inicialAberta, onEditar, podeEditar }: { unidade: UnidadeComSetores; inicialAberta: boolean; onEditar: () => void; podeEditar: boolean }) {
   const [aberta, setAberta] = useState(inicialAberta);
   const [pending, start] = useTransition();
   const n = unidade.setores.length;
@@ -309,20 +309,24 @@ function CartaoUnidade({ unidade, inicialAberta, onEditar }: { unidade: UnidadeC
             </span>
           </span>
         </button>
-        <Button size="icon-sm" variant="ghost" aria-label={`Editar ${unidade.nome}`} onClick={onEditar}>
-          <Pencil />
-        </Button>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          aria-label={`Remover ${unidade.nome}`}
-          disabled={pending}
-          onClick={() =>
-            confirm(`Remover o estabelecimento "${unidade.nome}" e os seus ${n} setores?`) && start(() => removerUnidade(unidade.id))
-          }
-        >
-          {pending ? <Loader2 className="animate-spin" /> : <Trash2 />}
-        </Button>
+        {podeEditar && (
+          <>
+            <Button size="icon-sm" variant="ghost" aria-label={`Editar ${unidade.nome}`} onClick={onEditar}>
+              <Pencil />
+            </Button>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label={`Remover ${unidade.nome}`}
+              disabled={pending}
+              onClick={() =>
+                confirm(`Remover o estabelecimento "${unidade.nome}" e os seus ${n} setores?`) && start(() => removerUnidade(unidade.id))
+              }
+            >
+              {pending ? <Loader2 className="animate-spin" /> : <Trash2 />}
+            </Button>
+          </>
+        )}
       </div>
       {aberta && (
         <div className="border-t px-4 pt-2 pb-3 sm:pl-10">
@@ -331,11 +335,11 @@ function CartaoUnidade({ unidade, inicialAberta, onEditar }: { unidade: UnidadeC
           ) : (
             <ul className="divide-y">
               {unidade.setores.map((s) => (
-                <LinhaSetor key={s.id} setor={s} />
+                <LinhaSetor key={s.id} setor={s} podeEditar={podeEditar} />
               ))}
             </ul>
           )}
-          <NovoSetor unidadeId={unidade.id} />
+          {podeEditar && <NovoSetor unidadeId={unidade.id} />}
         </div>
       )}
     </Card>
@@ -344,7 +348,8 @@ function CartaoUnidade({ unidade, inicialAberta, onEditar }: { unidade: UnidadeC
 
 // ---------- Seção ----------
 
-export function Unidades({ clienteId, unidades, buscaAtiva = false }: { clienteId: string; unidades: UnidadeComSetores[]; buscaAtiva?: boolean }) {
+/** `podeEditar`: com a permissão de cadastrar clientes; sem ela a lista é só de consulta. */
+export function Unidades({ clienteId, unidades, buscaAtiva = false, podeEditar = true }: { clienteId: string; unidades: UnidadeComSetores[]; buscaAtiva?: boolean; podeEditar?: boolean }) {
   // null = fechado; "nova" = criando; id = editando
   const [dialogo, setDialogo] = useState<string | null>(null);
   const editando = unidades.find((u) => u.id === dialogo);
@@ -355,22 +360,24 @@ export function Unidades({ clienteId, unidades, buscaAtiva = false }: { clienteI
         <div>
           <h2 className="text-lg font-semibold">Estabelecimentos e setores</h2>
           <p className="text-sm text-muted-foreground">
-            O técnico escolhe o estabelecimento e o setor no check-in. Alterações aqui são salvas na hora.
+            O técnico escolhe o estabelecimento e o setor no check-in.{podeEditar && " Alterações aqui são salvas na hora."}
           </p>
         </div>
-        <Button variant="outline" onClick={() => setDialogo("nova")}>
-          <Plus />
-          Novo estabelecimento
-        </Button>
+        {podeEditar && (
+          <Button variant="outline" onClick={() => setDialogo("nova")}>
+            <Plus />
+            Novo estabelecimento
+          </Button>
+        )}
       </div>
 
       {unidades.length === 0 ? (
         <Card className="items-center py-10 text-center text-sm text-muted-foreground">
-          Nenhum estabelecimento cadastrado. Cadastre ao menos um para o cliente aparecer no check-in.
+          Nenhum estabelecimento cadastrado. É preciso ao menos um para o cliente aparecer no check-in.
         </Card>
       ) : (
         unidades.map((u, i) => (
-          <CartaoUnidade key={u.id} unidade={u} inicialAberta={i === 0} onEditar={() => setDialogo(u.id)} />
+          <CartaoUnidade key={u.id} unidade={u} inicialAberta={i === 0} onEditar={() => setDialogo(u.id)} podeEditar={podeEditar} />
         ))
       )}
 

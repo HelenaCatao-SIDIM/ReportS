@@ -70,7 +70,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const c = await montarConteudo(id);
   if (!c) notFound();
-  const { relatorio: r, cliente } = c;
+  const { relatorio: r, cliente, contrato } = c;
   const editavel = r.status === "rascunho" || r.status === "ajuste_solicitado";
   const ultima = r.versoes.at(-1);
 
@@ -87,7 +87,8 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
     congelado && ultima?.conteudo
       ? ultima.conteudo
       : {
-          cliente: { nome: cliente.nome, cnpj: cliente.cnpj, contrato: cliente.contrato },
+          cliente: { nome: cliente.nome, cnpj: cliente.cnpj, contrato: contrato.texto },
+          sistema: { codigo: contrato.sistema, nome: contrato.sistemaNome },
           de: r.de,
           ate: r.ate,
           visitas: c.visitas,
@@ -105,6 +106,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
         <div>
           <h1 className="flex flex-wrap items-center gap-2 text-2xl font-semibold tracking-tight">
             {cliente.nome}
+            <span className="font-normal text-muted-foreground">· {contrato.sistemaNome}</span>
             <StatusRelatorioBadge status={r.status} />
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -117,7 +119,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
             id={r.id}
             podeExcluir={r.status === "rascunho" && r.versoes.length === 0}
             proximaVersao={r.versoes.length + 1}
-            aprovadores={cliente.aprovadores.map((a) => ({ nome: a.nome, email: a.email }))}
+            aprovadores={contrato.aprovadores.filter((a) => a.ativo).map((a) => ({ nome: a.nome, email: a.email }))}
             visitas={c.visitas.length}
             horas={formatarMinutos(c.minutosPresenciais)}
           />

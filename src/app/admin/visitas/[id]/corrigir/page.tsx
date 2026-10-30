@@ -25,7 +25,7 @@ async function Conteudo({ params }: Pick<PageProps<"/admin/visitas/[id]/corrigir
 
   return (
     <div className="max-w-5xl">
-      <PageHeader titulo="Corrigir visita" descricao={`${v.clienteNome} · ${formatarData(v.entrada)} · ${v.tecnicoNome}`} />
+      <PageHeader titulo="Corrigir visita" descricao={`${v.clienteNome} (${v.sistemaNome}) · ${formatarData(v.entrada)} · ${v.tecnicoNome}`} />
       <CorrecaoForm visita={v} unidades={unidades} temas={temas} />
     </div>
   );

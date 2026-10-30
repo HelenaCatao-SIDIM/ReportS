@@ -1,6 +1,7 @@
 "use server";
 
-import { exigirTecnicoAcao } from "@/lib/dal";
+import { exigirPermissaoAcao } from "@/lib/dal";
+import { PERMISSOES } from "@/lib/permissoes";
 import { localizacaoPorCep } from "@/lib/config";
 import { resolverCep } from "@/lib/cep";
 import type { StatusEndereco } from "@/lib/types";
@@ -22,7 +23,7 @@ const chamadas = (g.__previaCep ??= new Map<string, number[]>());
 
 /** Prévia do CEP para o técnico ver antes de confirmar o check-in/check-out. */
 export async function previaCep(latitude: number, longitude: number): Promise<PreviaCep | null> {
-  const tecnico = await exigirTecnicoAcao();
+  const tecnico = await exigirPermissaoAcao(PERMISSOES.tecnico);
   if (!localizacaoPorCep()) return null;
 
   const agora = Date.now();

@@ -31,11 +31,11 @@ de contato. Pare e rode `npm run dev` de novo depois de mudar o `.env.local`.
 | Localização negada | Mesma mensagem de sempre, com "Tentar de novo"; check-in bloqueado |
 | GPS fraco (dentro de prédio) | Precisão baixa (ex.: aprox. 80 m), CEP pode sair aproximado |
 | Servidor sem internet / APIs fora do ar | Check-in funciona; aparece "Endereço indisponível no momento"; ao abrir a visita mais tarde, o CEP é buscado de novo |
-| Correção pelo gestor | O local (CEP, precisão) não muda |
+| Correção pela administração | O local (CEP, precisão) não muda |
 | Treinamento online | Nada de GPS nem CEP |
 
 ## 3. O que conferir em todas as telas
 
 Com `LOCALIZACAO_POR_CEP=true`, **nenhuma** destas telas mostra latitude/longitude:
-check-in, check-out, cabeçalho da visita em andamento, detalhe da visita (técnico e gestor), página do relatório,
+check-in, check-out, cabeçalho da visita em andamento, detalhe da visita (técnico e administração), página do relatório,
 versões e página do aprovador. O PDF não mostra local (como antes).

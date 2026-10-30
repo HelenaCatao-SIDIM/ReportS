@@ -85,7 +85,7 @@ export function TemasVisita({
   }
 
   const b = normalizar(busca);
-  const filtrados = temas.filter((t) => !b || [t.nome, t.sistema, t.modulo].some((c) => normalizar(c).includes(b)));
+  const filtrados = temas.filter((t) => !b || [t.nome, t.sistemaNome, t.modulo].some((c) => normalizar(c).includes(b)));
   const marcados = temas.filter((t) => selecionados.includes(t.id));
 
   return (
@@ -149,7 +149,7 @@ export function TemasVisita({
                   <span className="min-w-0">
                     <span className="block text-sm">{t.nome}</span>
                     <span className="block text-xs text-muted-foreground">
-                      {t.sistema} · {t.modulo}
+                      {t.sistemaNome} · {t.modulo}
                     </span>
                   </span>
                 </button>

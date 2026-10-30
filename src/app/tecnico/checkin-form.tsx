@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AlertCircle, Check, Clock, Loader2, LocateFixed, MapPin, Monitor } from "lucide-react";
-import type { ClienteCheckin } from "@/lib/repo/clientes";
+import type { ClienteCheckin } from "@/lib/repo/contratos";
 import type { MeioRegistro, TipoVisita } from "@/lib/types";
 import { detectarMeio } from "@/lib/meio";
 import { chaveRascunhoCheckin } from "@/lib/regras-visita";
@@ -33,6 +33,8 @@ const meioNoServidor = (): MeioRegistro | null => null;
 /** O que o técnico já tinha escolhido no check-in. A foto e a localização não são guardadas: são pedidas de novo. */
 interface RascunhoCheckin {
   clienteId: string;
+  /** Contrato (sistema). Rascunhos antigos não têm. */
+  contratoId?: string;
   unidadeId: string;
   setor: string;
   setorOutro: string;
@@ -70,6 +72,7 @@ export function CheckinForm({ clientes, porCep = false, carimbo = false }: { cli
   const e = state.erros ?? {};
 
   const [clienteId, setClienteId] = useState("");
+  const [contratoId, setContratoId] = useState("");
   const [unidadeId, setUnidadeId] = useState("");
   const [setor, setSetor] = useState("");
   const [setorOutro, setSetorOutro] = useState("");
@@ -88,9 +91,12 @@ export function CheckinForm({ clientes, porCep = false, carimbo = false }: { cli
       const c = clientes.find((x) => x.id === r?.clienteId);
       if (r && c) {
         const u = c.unidades.find((x) => x.id === r.unidadeId);
+        // Sistema com um só contrato já vem escolhido.
+        const ct = c.contratos.find((x) => x.id === r.contratoId) ?? (c.contratos.length === 1 ? c.contratos[0] : undefined);
         const s = u && (r.setor === "outro" || u.setores.some((x) => x.id === r.setor)) ? r.setor : "";
         const tipoValido = TIPOS_VISITA.find((x) => x.valor === r.tipo);
         setClienteId(c.id);
+        setContratoId(ct?.id ?? "");
         setUnidadeId(u?.id ?? "");
         setSetor(s);
         setSetorOutro(s === "outro" ? r.setorOutro : "");
@@ -108,8 +114,8 @@ export function CheckinForm({ clientes, porCep = false, carimbo = false }: { cli
   // Guarda as escolhas a cada mudança, só depois da recuperação (senão apagaria o rascunho ao abrir).
   useEffect(() => {
     if (!restaurado.current) return;
-    guardarRascunho(chaveRascunhoCheckin, { clienteId, unidadeId, setor, setorOutro, tipo, link } satisfies RascunhoCheckin);
-  }, [clienteId, unidadeId, setor, setorOutro, tipo, link]);
+    guardarRascunho(chaveRascunhoCheckin, { clienteId, contratoId, unidadeId, setor, setorOutro, tipo, link } satisfies RascunhoCheckin);
+  }, [clienteId, contratoId, unidadeId, setor, setorOutro, tipo, link]);
   const previa = usePreviaCep(gps, porCep);
   const p = previa.fase === "pronto" ? previa.previa : null;
 
@@ -117,7 +123,7 @@ export function CheckinForm({ clientes, porCep = false, carimbo = false }: { cli
   const unidade = cliente?.unidades.find((u) => u.id === unidadeId);
   const presencial = tipo ? ehPresencial(tipo) : null;
 
-  const localOk = !!clienteId && !!unidadeId && (setor === "outro" ? !!setorOutro.trim() : !!setor);
+  const localOk = !!clienteId && !!contratoId && !!unidadeId && (setor === "outro" ? !!setorOutro.trim() : !!setor);
   const comprovacaoOk = presencial === null ? false : presencial ? gps.fase === "ok" && temFoto : temFoto && !!link.trim();
   const pronto = localOk && comprovacaoOk;
 
@@ -159,7 +165,8 @@ export function CheckinForm({ clientes, porCep = false, carimbo = false }: { cli
             onChange={(ev) => {
               setClienteId(ev.target.value);
               const c = clientes.find((x) => x.id === ev.target.value);
-              // Estabelecimento único já vem escolhido.
+              // Sistema e estabelecimento únicos já vêm escolhidos.
+              setContratoId(c?.contratos.length === 1 ? c.contratos[0].id : "");
               setUnidadeId(c?.unidades.length === 1 ? c.unidades[0].id : "");
               setSetor("");
             }}
@@ -173,6 +180,20 @@ export function CheckinForm({ clientes, porCep = false, carimbo = false }: { cli
             ))}
           </select>
           <Erro msg={e.cliente} />
+        </div>
+        <div>
+          <Label htmlFor="contratoId" className="mb-1.5">
+            Sistema
+          </Label>
+          <select id="contratoId" name="contratoId" value={contratoId} disabled={!cliente} onChange={(ev) => setContratoId(ev.target.value)} className={select}>
+            <option value="">{cliente ? "Escolha o sistema" : "Escolha o cliente primeiro"}</option>
+            {cliente?.contratos.map((k) => (
+              <option key={k.id} value={k.id}>
+                {k.sistemaNome}
+              </option>
+            ))}
+          </select>
+          <Erro msg={e.contrato} />
         </div>
         <div>
           <Label htmlFor="unidadeId" className="mb-1.5">

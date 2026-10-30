@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { exigirTecnicoAcao } from "@/lib/dal";
+import { exigirPermissaoAcao } from "@/lib/dal";
+import { PERMISSOES } from "@/lib/permissoes";
 import { listarTemas } from "@/lib/repo/temas";
 import { salvarImagem } from "@/lib/repo/arquivos";
 import { adicionarFotoExtra, buscarVisita, definirTemaAdicional, definirTemas, removerFotoExtra } from "@/lib/repo/visitas";
@@ -10,7 +11,7 @@ import { adicionarFotoExtra, buscarVisita, definirTemaAdicional, definirTemas, r
 type Resultado = string | null;
 
 async function visitaAberta(visitaId: string) {
-  const tecnico = await exigirTecnicoAcao();
+  const tecnico = await exigirPermissaoAcao(PERMISSOES.tecnico);
   const v = await buscarVisita(visitaId);
   if (!v || v.tecnicoId !== tecnico.id) throw new Error("Visita não encontrada");
   if (v.status !== "em_andamento") return { tecnico, v, erro: "Esta visita já foi encerrada." };
@@ -25,8 +26,10 @@ const atualizar = (id: string) => {
 export async function salvarTemas(visitaId: string, temaIds: string[]): Promise<Resultado> {
   const { tecnico, v, erro } = await visitaAberta(visitaId);
   if (erro) return erro;
-  // Aceita temas ativos ou que já estavam marcados (caso tenham sido inativados durante a visita).
-  const validos = new Set((await listarTemas()).filter((t) => t.ativo || v.temaIds.includes(t.id)).map((t) => t.id));
+  // Aceita só temas do sistema do contrato da visita, ativos ou que já estavam marcados (caso tenham sido inativados durante a visita).
+  const validos = new Set(
+    (await listarTemas()).filter((t) => t.sistema === v.sistema && (t.ativo || v.temaIds.includes(t.id))).map((t) => t.id),
+  );
   await definirTemas(visitaId, tecnico.id, temaIds.filter((id) => validos.has(id)));
   atualizar(visitaId);
   return null;

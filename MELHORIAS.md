@@ -15,7 +15,7 @@ Registradas em 26/10/2026. Legenda: ✅ definido · ⚠ ponto de atenção · *E
 
 **Situação em 28/10/2026:** feitos **1, 2, 3, 5, 6, 10, 11 e 12** (o 2 só para o participante; o 5 é o botão de busca de coordenadas, desligado por padrão e testado com o serviço real em 28/10/2026) · parcial **9** (campo de telefone feito; falta o envio) · sem código por definição **4, 7 e 8**. Além dos pontos, entraram na `main` as duas entregas externas (**chamados de suporte** e **localização por CEP**): ver "Entregas externas integradas", mais abaixo. Os motivos, as evidências e o que destrava cada um estão em **"Pontos bloqueados e decisões em aberto"**, mais abaixo.
 
-- **1. Sistema da operação, não de uma pessoa.** O sistema tem três papéis — Gestor, Técnico e Aprovador — e qualquer pessoa pode ocupar qualquer um deles. Pode existir mais de um gestor, e a coordenação pode mudar de mão sem que nada quebre: nenhum cadastro, relatório ou fluxo tem nome de pessoa escrito dentro. O mesmo vale para o que é configurável (clientes, estabelecimentos, setores, temas): fica em cadastro, não no código. **Auditado e ajustado em 27/10/2026 (`c4c4c81`).**
+- **1. Sistema da operação, não de uma pessoa.** O sistema tem três papéis — Gestor, Técnico e Aprovador — e qualquer pessoa pode ocupar qualquer um deles. *(Substituído em 29/10/2026 pela decisão D-06 do plano da plataforma: não existe mais perfil "gestor"; o que a pessoa faz vem das permissões, e os usuários são gerenciados no SINC. Os detalhes abaixo sobre o cadastro de usuários e a troca de papel são histórico.)* Pode existir mais de um gestor, e a coordenação pode mudar de mão sem que nada quebre: nenhum cadastro, relatório ou fluxo tem nome de pessoa escrito dentro. O mesmo vale para o que é configurável (clientes, estabelecimentos, setores, temas): fica em cadastro, não no código. **Auditado e ajustado em 27/10/2026 (`c4c4c81`).**
    - **Nomes de pessoa:** só aparecem nos dados de exemplo (`src/lib/repo/*`), que o banco real substitui. O único nome fora disso, um exemplo no campo de ajuste da página do aprovador, virou texto genérico.
    - **Vários gestores:** o cadastro de usuários já permite. O gestor não consegue inativar a própria conta nem mudar o próprio perfil, então sempre sobra um gestor ativo. O histórico guarda o nome de quem agiu e as visitas antigas continuam mostrando técnicos já inativos, então trocar de pessoa não apaga nada.
    - **Corrigido:** mudar o papel de alguém (ou inativá-lo) enquanto ele estava logado fazia o navegador entrar num laço de redirecionamentos, com tela em branco (37 redirecionamentos em 5 segundos). Agora a pessoa cai no login e entra de novo na área certa. Testado nos três casos: técnico promovido, gestor rebaixado e conta inativada.
@@ -71,7 +71,7 @@ Atualizado em 27/10/2026. Aqui está tudo o que **não anda sem uma ação de fo
 | **4. Lista de presença por seleção** | Dependência | Definir de onde vem a base de pessoas do cliente | Time de desenvolvimento |
 | **7 e 8. Implantação e check-list** | Não é bloqueio: adiados por definição | Entram quando a função existir | — |
 | **3 decisões em aberto (2, 6 e 7)** | Decisão | Uma resposta para cada. As decisões 1, 3, 4 e 5 foram respondidas em 27/10/2026. | Quem decide o produto |
-| **Login único entre sistemas** | Dependência (nova) | Decidir antes do banco real | Quem decide a arquitetura |
+| **Plataforma SIDIM (SINC + ReportS)** | Plano aprovado em 29/10/2026 | Fases 0 a 3 do SINC antes do banco real do ReportS | Helena e desenvolvimento do SINC |
 
 ### Ponto 5 — Coordenadas do estabelecimento sem digitação · feito e testado com o serviço real (28/10/2026)
 
@@ -149,9 +149,74 @@ Duas entregas vieram do time e entraram na `main` por PR, **desligadas por padr�
 - **Testado em 28/10/2026** no computador, com os serviços reais: o CEP apareceu em todas as telas, sem coordenadas. Observação importante: o navegador do computador estima a posição por Wi-Fi e IP, e o mapa gratuito devolveu a via mais próxima, com um CEP diferente do oficial do endereço. Por isso o CEP é só uma referência, e a prova de presença mais confiável continua sendo a **distância até o estabelecimento** (ponto 6). No celular, com GPS, a posição deve ser bem melhor, mas isso **ainda não foi testado**.
 - Em aberto: teste no celular com https; aviso de LGPD ao técnico (a coordenada vai a um serviço de terceiros); confirmar se o aprovador do cliente deve ver o CEP; o cadastro do estabelecimento ainda pede latitude e longitude digitadas.
 
-### Login único entre sistemas · dependência nova (a organizar em arquivo próprio)
+### Plataforma SIDIM — unificação SINC + ReportS · plano aprovado (29/10/2026)
 
-Surgiu em 27/10/2026: a ideia de unificar os acessos dos sistemas internos, com um cadastro central de usuários e um portal comum. O ponto que interessa aqui é a **ordem**: o banco real do ReportS (item de infraestrutura abaixo) prevê uma tabela de usuários. Se ela for criada antes da decisão de identidade, será descartada depois. Na parte do ReportS, a troca fica concentrada em `src/lib/repo/usuarios.ts`, `src/lib/session.ts` e `src/lib/dal.ts`. O plano completo será escrito à parte, a pedido.
+Substitui a antiga ideia de "login único". A Helena fechou 24 decisões (documento "Plataforma SIDIM — Unificação SINC + ReportS: plano e documentação"). Em resumo: banco `plataforma` comum no PostgreSQL do SINC (só o SINC altera a estrutura), banco `reports` próprio, ReportS no mesmo servidor, sistemas e clientes (por CNPJ) com uma fonte só, usuários da SIDIM com papéis e permissões geridos no Admin do SINC, participantes confirmados/provisórios com junção. O plano anterior (Prisma + Supabase + Vercel + Resend) foi substituído.
+
+O ReportS adapta o protótipo **em memória** enquanto o SINC faz as Fases 0 a 3; só na Fase 4 troca a camada de dados. Trilha do ReportS:
+
+| Fase | No ReportS | Situação |
+|---|---|---|
+| 0 | README e MELHORIAS atualizados; biblioteca de banco; inventário do que depende de perfil, cliente e participante | Docs e biblioteca de banco **decididos** em 29/10/2026 (ver abaixo); inventário pendente |
+| 1 | Cadastro de sistemas (SERP, SCA, SE, Saúde) só de leitura; tema escolhe o sistema numa lista; dados de exemplo sem sistemas fictícios | **Feito** em 29/10/2026 (`src/lib/repo/sistemas.ts`) |
+| 2 | Cliente em três (cliente, sistemas do cliente, contrato por sistema); aprovador próprio; check-in cliente → sistema → estabelecimento → setor; relatório por contrato; chamados por sistema | **Feito em 29/10/2026**, menos os chamados por sistema (depende do parâmetro de sistema no fluxo do n8n e dos valores que o Fortics grava) |
+| 3 | Perfil gestor/técnico sai; permissões; sessão só com o id; telas de usuários saem | **Feito em 29/10/2026**, menos o "esqueci minha senha" apontando para o SINC e o limite de tentativas do login (RN-PL-55) |
+| 4 | Banco `reports`, leitura/escrita na plataforma, arquivos em disco, SMTP, deploy | Depende das Fases 1 a 3 do SINC em produção e da decisão de LGPD sobre guardar CPF |
+| 5 | Junção de participantes | Depende da Fase 4 |
+
+#### Fase 2 no ReportS: como ficou (29/10/2026)
+
+- **Cliente** (nome, CNPJ, "Nome no SINC", ativo, origem), **sistemas do cliente** (sistema, tenant, estado "em implantação" ou "vinculado") e **contrato** por sistema do cliente (texto da capa, comprovação, CPF, ativo, aprovadores). O CNPJ é obrigatório ao criar à mão e pode ficar pendente só em cliente que veio do SINC; relatório não é emitido com CNPJ pendente (RN-PL-11).
+- Cliente novo escolhe os sistemas (todos entram "em implantação"); o contrato de cada um é cadastrado na tela do cliente. O ReportS não liga o sistema ao tenant: isso é do SINC. Sistema sem contrato não aparece no check-in.
+- **Aprovadores** têm cadastro próprio (Administração → Aprovadores): e-mail único, um cargo só, ativo/inativo; a mesma pessoa pode estar em vários contratos. Aprovador inativo deixa de receber os próximos relatórios; contrato sem aprovador ativo não emite.
+- **Check-in**: cliente → sistema → estabelecimento → setor (sistema único já vem escolhido; o rascunho do aparelho guarda o contrato). A visita guarda o contrato; comprovação, assinatura e CPF seguem o contrato da visita. Os **temas** da visita (técnico e correção do gestor) são só do sistema do contrato.
+- **Relatório por contrato e período**: visitas elegíveis, sobreposição de períodos, capa, PDF, e-mail e página do aprovador mostram o sistema; só os aprovadores do contrato recebem. Cliente com dois sistemas tem dois relatórios por período.
+- Contrato inativo some do check-in, mas continua podendo gerar relatório das visitas antigas.
+- **Ficou fora** (não pedido nesta etapa): filtro dos chamados de suporte por sistema (parâmetro novo no fluxo do n8n); remover um sistema de um cliente; o inventário da Fase 0. *(Os participantes por sistema do cliente entraram depois: ver "Participantes: confirmado e provisório".)*
+
+#### Fase 3 no ReportS: como ficou (29/10/2026)
+
+- **Perfil "gestor" removido.** O usuário tem papéis; os papéis somam permissões do catálogo do ReportS (`src/lib/permissoes.ts`: `reports.tecnico`, `reports.clientes.cadastrar`, `reports.contratos.gerenciar`, `reports.temas.gerenciar`, `reports.participantes.gerenciar`, `reports.participantes.revisar`, `reports.visitas.gerenciar`, `reports.relatorios.gerenciar`). Papéis e usuários de teste são dados de exemplo em memória; na plataforma são do SINC.
+- **Sessão só com o id** (`session.ts`). As permissões são lidas a cada requisição, **sem cache** (o `getUsuarioAtual` perdeu o `use cache: private`): revogar ou mudar uma permissão vale na próxima tela ou ação (RN-PL-52 e 64).
+- **`dal.ts`**: `exigirPermissao`/`exigirAdministracao`/`exigirTecnico` para páginas e `exigirPermissaoAcao` para ações no lugar de `exigirPerfil`, `exigirGestorAcao`, `exigirTecnicoAcao` e `exigirLogadoAcao`. Cada seção da Administração tem um guarda de tela, e cada ação confere a permissão própria.
+- **`proxy.ts`** só confere a sessão. A área certa é decidida em `/inicio`: uma área abre direto, as duas mostram o seletor (e "Trocar de área" no cabeçalho), nenhuma avisa que não há acesso. O login recusa quem não tem nenhuma permissão do ReportS (RN-PL-61).
+- **Menu e atalhos** da Administração mostram só as telas que as permissões liberam; botões de editar somem sem a permissão (cliente e estabelecimentos exigem cadastrar cliente; contratos e aprovadores exigem gerenciar contratos).
+- **Telas de usuários removidas**: `/admin/usuarios` virou o aviso "Usuários e permissões são gerenciados no SINC", com o link (`SINC_URL`) e a lista das permissões do ReportS.
+- "Gestor" virou "administração" nos nomes e textos (`encerradaPelaAdministracao`, `encerrarPelaAdministracao`, `cancelarPelaAdministracao`, `corrigirPelaAdministracao`, "Encerrada pela administração"). Os e-mails de teste continuam os mesmos (`gestor@sidim.com.br` agora é a "Coordenação ReportS").
+- **Ficou fora**: "esqueci minha senha" apontando para o SINC e limite de 10 tentativas em 3 minutos por IP no login (RN-PL-55); o catálogo é registrado na plataforma só na Fase 4.
+
+#### Participantes: confirmado e provisório (29/10/2026)
+
+- **Participante é do sistema do cliente** (RN-PL-30), não do cliente: a mesma pessoa pode ter cadastros diferentes em cada sistema, e a lista, o CPF único e a busca são por sistema. A visita usa os participantes do sistema do contrato dela.
+- **Estados (RN-PL-31):** *confirmado pelo ERP* (tem o id do usuário no ERP; nome vem do ERP e não se edita no ReportS; nos dados de exemplo representa a captura do painel do SINC, sem CPF) e *provisório* (criado no ReportS, sem id do ERP). O "unido" e a junção são a fase seguinte. Origem do registro: painel do SINC, em campo (técnico) ou cadastro no ReportS (Administração).
+- **Quem edita o quê (RN-PL-42):** nome do confirmado, o ERP; nome do provisório, CBO, setor e CPF, o ReportS.
+- **Busca antes de criar (RN-PL-34):** ao criar um provisório (técnico em campo ou Administração), o ReportS procura, no mesmo sistema do cliente, quem já tem o **CPF** e quem tem **nome igual ou parecido** (sem acento; mesma semelhança do SINC: Levenshtein, a partir de 0,75). CPF igual **bloqueia** a criação e, no técnico, oferece "Usar esta pessoa". Nome parecido mostra **"É esta pessoa?"** com a lista e só cria depois de o usuário marcar que não é nenhuma delas.
+- **Selos** "Confirmado pelo ERP" e "Provisório" na lista de participantes, na escolha de presenças, no detalhe da visita (técnico e Administração) e no relatório da Administração. O aprovador e o PDF mostram só os nomes. A presença guarda o estado do dia.
+- **Temas com os 4 sistemas reais:** os temas escolhem o sistema entre SERP, SCA, SE e Saúde desde a Fase 1; agora os dados de exemplo têm temas para os quatro.
+- **Ficou fora (fase seguinte):** junção automática por CPF e pela revisão, desfazer junção, o estado "unido", a lista de revisão e a permissão `reports.participantes.revisar` em uso; a importação do ERP.
+
+Pontos para alinhar com a Helena que afetam o ReportS: o campo hoje chamado "Nome no SINC" (nomes do cliente nos chamados) é "Nomes no Fortics" no plano, e o plano também prevê "nome no Fortics" por sistema; um cliente pode ter dois tenants do mesmo sistema?; cargo do aprovador (um só, mesmo aprovando para vários clientes).
+
+#### Decisão técnica: biblioteca de banco — Prisma 7 (29/10/2026)
+
+**Segue o artefato.** A Fase 0 do plano diz: "Prisma com dois esquemas, o `reports` com migrações próprias e o `plataforma` só por introspecção, nunca migrado pelo ReportS (D-03)"; "Pontos a confirmar" deixa a escolha com o Desenvolvimento; a Fase 4 pede um teste que falhe se a introspecção estiver desatualizada. Escolhido: **Prisma 7.x** (`prisma`, `@prisma/client` e `@prisma/adapter-pg`).
+
+Como o plano será seguido (a "dois esquemas" foi lida como **um schema do Prisma por banco**, `reports` e `plataforma`, porque os dois são bancos separados pela D-02):
+
+- **`reports`**: schema com migrações do Prisma.
+- **`plataforma`**: schema só por introspecção (`prisma db pull`), sem pasta de migrações e sem `migrate`. A proteção de verdade é o usuário de banco do ReportS, sem permissão de alterar estrutura.
+- **Teste de atualização (Fase 4)**: `prisma db pull --print` comparado com o `schema.prisma` versionado; falha se a plataforma mudou.
+- **Rails**: a leitura aceita as tabelas da plataforma como o plano as descreve, com `now()` como padrão de `created_at`/`updated_at`, índices únicos parciais (CNPJ, opção do ClickUp, tenant) e `check`.
+
+**Observações do desenvolvimento (não constam no artefato; não mudam nenhuma decisão dele).** Vêm de um teste prático feito em 29/10/2026, em PostgreSQL 16 com tabelas no estilo do Rails, comparando com o Drizzle:
+
+- O Prisma não entende `check` (só avisa na introspecção): a restrição fica no banco e o código do ReportS precisa tratar o erro. O índice único parcial devolve `P2002`.
+- Os ids `bigint` da plataforma voltam como `BigInt` do JavaScript, que não vai para JSON nem para componentes de cliente. Os repositórios (`src/lib/repo/*`) convertem para texto na fronteira.
+- Versão: usar a 7.x estável; a 8.0 ainda é candidata a lançamento (RC).
+- O Prisma 7 exige Node `^20.19`, `^22.12` ou `24+`. O plano diz "Node 20 ou mais novo" para o servidor; conferir que seja pelo menos 20.19.
+- O client é gerado (`prisma generate`); o build e o script de publicação precisam gerar os dois clients.
+- As tabelas do Rails vêm em inglês e snake_case (`users`, `email_address`, `active`); o mapeamento para os nomes do ReportS fica nos repositórios.
+- Se o Prisma der problema no servidor, o Drizzle leu as mesmas tabelas no teste e a troca ficaria restrita a `src/lib/repo/*`. Não foi escolhido porque o plano indica o Prisma.
 
 ### Pré-requisitos externos dos itens de infraestrutura (não verificados)
 
@@ -159,16 +224,16 @@ Não sabemos se já existem; precisam ser confirmados antes de cada item começa
 
 | Item | Precisa de |
 |---|---|
-| Banco de dados real e armazenamento | Um projeto Supabase (conta e credenciais) e a decisão de identidade acima |
-| Envio real de e-mail | Conta no Resend e acesso ao DNS do domínio da SIDIM (para verificar o domínio de envio); o LGPD dos PDFs que passam por um serviço de terceiros |
+| Banco de dados real e armazenamento | Banco `reports` e acesso à base `plataforma` no servidor do SINC (Fases 0 a 3 do SINC); disco do servidor para os arquivos |
+| Envio real de e-mail | As credenciais do SMTP da SIDIM (usuário, senha e remetente aprovado no OCI), guardadas só no servidor; SPF/DKIM do domínio do remetente |
 | Tabela CBO oficial | O arquivo oficial do Ministério do Trabalho. Não testamos se o ambiente consegue baixá-lo |
-| Publicação e teste no celular com https | Conta Vercel e o domínio |
+| Publicação e teste no celular com https | Servidor do SINC e o domínio `reports.sidim.com.br` |
 
 ### Ordem sugerida para resolver
 
 1. **Decisões em aberto (2, 6 e 7).** São respostas rápidas e destravam o acabamento do que já foi feito.
 2. **Ponto 5**: testar no computador local, com o serviço real e o endereço real de um estabelecimento (roteiro em `docs/teste-busca-coordenadas.md`).
-3. **Login único**, antes do banco real.
+3. **Plataforma SIDIM**: trilha do ReportS em memória (Fases 1 a 3), em paralelo ao SINC; banco real só depois.
 4. **Pontos 4 e 9**, que dependem do time e do Fortics.
 5. **Infraestrutura**, na ordem da seção "A fazer".
 
@@ -176,11 +241,12 @@ Não sabemos se já existem; precisam ser confirmados antes de cada item começa
 
 ### Infraestrutura (vem do "Próximos passos" do README)
 
-- [ ] **Alta** — Banco de dados real (Prisma + PostgreSQL/Supabase). A troca fica concentrada em `src/lib/repo/*`; as telas não mudam.
-- [ ] **Alta** — Armazenamento de fotos, assinaturas e PDFs (Supabase Storage). Hoje ficam em memória.
-- [ ] **Média** — Envio real de e-mail. **Resend (plano gratuito) escolhido em 28/10/2026**, com SMTP como alternativa (`EMAIL_PROVEDOR=smtp`). **Testado com o Resend real em 29/10/2026**: o e-mail chegou com o PDF e o botão, e a aprovação pelo link pessoal funcionou (com a trava `EMAIL_REDIRECIONAR_PARA`; roteiro em `docs/teste-email-real.md`). **Falta** verificar o domínio da SIDIM no Resend (acesso ao DNS) para enviar aos aprovadores de verdade, e conferir o limite do plano gratuito. Sem as variáveis, segue simulado na Caixa de saída (`src/lib/email.ts`).
+- [ ] **Alta** — Banco de dados real (Fase 4 do plano da plataforma): banco `reports` no PostgreSQL do SINC e leitura/escrita na base `plataforma`. A troca fica concentrada em `src/lib/repo/*`; as telas não mudam.
+- [ ] **Alta** — Armazenamento de fotos, assinaturas e PDFs no disco do servidor, fora da pasta pública (Fase 4). Hoje ficam em memória.
+- [ ] **Média** — Envio real de e-mail. **Decisão da Helena (29/10/2026): usar o SMTP da própria SIDIM** (Oracle Cloud Email Delivery, o mesmo dos outros sistemas; porta 587 com STARTTLS; remetente aprovado no OCI). **Testado de ponta a ponta com o SMTP real da SIDIM em 29/10/2026**: o e-mail chegou com o PDF e o botão, e a aprovação pelo link pessoal funcionou (com a trava `EMAIL_REDIRECIONAR_PARA`). Na máquina de desenvolvimento foi preciso `NODE_OPTIONS=--use-system-ca`, porque o antivírus ou o firewall da rede troca o certificado; em produção isso não deve ser necessário. O Resend, usado nos primeiros testes, sai do plano (D-04 do plano da plataforma); o suporte a ele no código será removido (próximo item). **Falta** para enviar aos aprovadores de verdade: `APP_URL` público (https), remover a trava, e confirmar com a equipe do e-mail o SPF/DKIM do remetente (domínio dinâmico) para não cair no spam. **As credenciais do SMTP foram coladas no chat em 29/10/2026: a equipe responsável deve trocá-las.** Sem as variáveis, segue simulado na Caixa de saída (`src/lib/email.ts`).
+- [ ] **Baixa** — Remover do código o envio pelo Resend (`enviarPeloResend`, `EMAIL_PROVEDOR`, `RESEND_API_KEY`) e do roteiro `docs/teste-email-real.md`, porque o plano da plataforma tira o Resend (D-04) e deixa só o SMTP da SIDIM. Até lá o código ainda o aceita, mas não deve ser usado em produção.
 - [ ] **Média** — Importar a tabela CBO oficial do Ministério do Trabalho. Hoje é uma amostra de 25 ocupações, com códigos não conferidos. Ganha peso com a definição 2, em que o CBO passa a ser o único campo de ocupação.
-- [ ] **Média** — Publicar (Vercel) e testar no celular com https. O GPS do check-in presencial só funciona em https ou em `localhost`.
+- [ ] **Média** — Publicar no servidor do SINC (`reports.sidim.com.br`, https) e testar no celular. O GPS do check-in presencial só funciona em https ou em `localhost`.
 
 ### Documentação
 
@@ -211,3 +277,4 @@ Não sabemos se já existem; precisam ser confirmados antes de cada item começa
 - [x] Ponto 5: botão "Buscar coordenadas pelo endereço" no cadastro do estabelecimento, testado com o serviço real — `8cc34fd` (28/10/2026).
 - [x] Termo **"unidade" passa a ser "estabelecimento"** em telas, mensagens, PDF e documentação, por decisão com a Helena (28/10/2026). Os nomes internos do código (`unidadeId`, `Unidade`, `listarUnidades`) foram mantidos de propósito, para não arriscar uma refatoração grande sem ganho para o usuário.
 - [x] Envio real de e-mail pelo Resend, testado de ponta a ponta (emissão → e-mail com PDF → aprovação pelo link) — 29/10/2026. Aprovadores reais dependem de verificar o domínio da SIDIM.
+- [x] Envio real de e-mail pelo SMTP da SIDIM (Oracle Cloud), testado de ponta a ponta (emissão → e-mail com PDF → aprovação) — 29/10/2026. Aprovadores reais dependem de `APP_URL` público, remover a trava e SPF/DKIM.

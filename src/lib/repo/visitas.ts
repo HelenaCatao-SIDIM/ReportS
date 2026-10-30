@@ -3,6 +3,7 @@ import { formatarDataHora } from "@/lib/datas";
 import { rotuloTipo } from "@/lib/visitas";
 import type { AlteracaoVisita, EnderecoVisita, Foto, MudancaCampo, PresencaVisita, Tema, TipoVisita, UsuarioPublico, Visita, VisitaDetalhada } from "@/lib/types";
 import { buscarCliente, buscarUnidade, buscarSetor } from "./clientes";
+import { buscarContrato } from "./contratos";
 import { listarTemas } from "./temas";
 import { buscarPorId as buscarUsuario } from "./usuarios";
 import { relatorioAprovado } from "./relatorios-dados";
@@ -23,15 +24,15 @@ const presenca = (p: Omit<PresencaVisita, "assinatura" | "confirmacao">, assinad
   assinatura: assinada ? ASSINATURA : null,
 });
 
-const LUCIANA = { participanteId: "p1", nome: "Luciana Ferraz", cbo: { codigo: "411010", titulo: "Assistente administrativo" }, setor: "Protocolo", cpf: "12345678909" };
-const PATRICIA = { participanteId: "p3", nome: "Patrícia Gomes", cbo: { codigo: "252405", titulo: "Analista de recursos humanos" }, setor: "Recursos Humanos", cpf: "11144477735" };
-const SANDRA = { participanteId: "p4", nome: "Sandra Moura", cbo: { codigo: "223505", titulo: "Enfermeiro" }, setor: "Recepção", cpf: "52998224725" };
+const PATRICIA = { participanteId: "p3", estado: "confirmado" as const, nome: "Patrícia Gomes", cbo: { codigo: "252405", titulo: "Analista de recursos humanos" }, setor: "Recursos Humanos", cpf: "11144477735" };
+const EDUARDO = { participanteId: "p7", estado: "provisorio" as const, nome: "Eduardo Pires", cbo: { codigo: "411010", titulo: "Assistente administrativo" }, setor: "Recursos Humanos", cpf: "39053344705" };
+const SANDRA = { participanteId: "p4", estado: "provisorio" as const, nome: "Sandra Moura", cbo: { codigo: "223505", titulo: "Enfermeiro" }, setor: "Recepção", cpf: "52998224725" };
 
-function base(v: Partial<Visita> & Pick<Visita, "id" | "tecnicoId" | "clienteId" | "unidadeId" | "tipo" | "status" | "entrada">): Visita {
+function base(v: Partial<Visita> & Pick<Visita, "id" | "tecnicoId" | "clienteId" | "contratoId" | "unidadeId" | "tipo" | "status" | "entrada">): Visita {
   return {
     setorId: null, setorOutro: null, saida: null, checkin: null, checkout: null, meio: "celular", distanciaCheckinM: null, raioCheckinM: null, fotoAmbiente: null, printTela: null, linkReuniao: null,
     temaIds: [], temaAdicional: "", fotosExtras: [], presencas: [], observacoes: "", pendencias: "", proximosPassos: "",
-    encerradaPorGestor: false, relatorioId: null, historico: [],
+    encerradaPelaAdministracao: false, relatorioId: null, historico: [],
     ...v,
   };
 }
@@ -47,56 +48,56 @@ function seed(): Visita[] {
 
   return [
     base({
-      id: "v1", tecnicoId: "u2", clienteId: "c1", unidadeId: "un1", setorId: "s1", tipo: "suporte_presencial", status: "em_andamento",
+      id: "v1", tecnicoId: "u2", clienteId: "c1", contratoId: "ct1", unidadeId: "un1", setorId: "s1", tipo: "suporte_presencial", status: "em_andamento",
       entrada: haHoras(2), checkin: coords(), ...noLocal, fotoAmbiente: foto(1), temaIds: ["t1"],
     }),
     base({
-      id: "v2", tecnicoId: "u3", clienteId: "c2", unidadeId: "un3", setorId: "s6", tipo: "implantacao", status: "em_andamento",
+      id: "v2", tecnicoId: "u3", clienteId: "c2", contratoId: "ct4", unidadeId: "un3", setorId: "s6", tipo: "implantacao", status: "em_andamento",
       entrada: haHoras(26), checkin: coords(), fotoAmbiente: foto(2),
     }),
     base({
-      id: "v3", tecnicoId: "u2", clienteId: "c1", unidadeId: "un1", setorId: "s2", tipo: "treinamento", status: "encerrada",
+      id: "v3", tecnicoId: "u2", clienteId: "c1", contratoId: "ct2", unidadeId: "un1", setorId: "s2", tipo: "treinamento", status: "encerrada",
       entrada: "2026-10-06T13:00:00.000Z", saida: "2026-10-06T16:30:00.000Z", checkin: coords(), ...noLocal, checkout: coords(),
       fotoAmbiente: foto(3), fotosExtras: [foto(4), foto(5)], temaIds: ["t4", "t5"], temaAdicional: "Dúvidas sobre consignados",
-      presencas: [presenca(PATRICIA, true), presenca(LUCIANA, true)],
+      presencas: [presenca(PATRICIA, true), presenca(EDUARDO, true)],
       observacoes: "Treinamento realizado com a equipe de RH. Boa participação.",
       pendencias: "Enviar o manual de cálculo de férias atualizado.",
       proximosPassos: "Acompanhar o fechamento da folha de outubro.",
     }),
     base({
-      id: "v4", tecnicoId: "u3", clienteId: "c1", unidadeId: "un2", setorId: "s5", tipo: "treinamento_online", status: "encerrada",
+      id: "v4", tecnicoId: "u3", clienteId: "c1", contratoId: "ct3", unidadeId: "un2", setorId: "s5", tipo: "treinamento_online", status: "encerrada",
       meio: "computador", entrada: "2026-10-09T17:00:00.000Z", saida: "2026-10-09T18:30:00.000Z", printTela: foto(6), linkReuniao: "https://meet.example/abc-defg-hij",
       temaIds: ["t8"], presencas: [presenca(SANDRA, false)],
       observacoes: "Treinamento online de dispensação.", proximosPassos: "Agendar a turma da tarde.",
     }),
     base({
-      id: "v5", tecnicoId: "u2", clienteId: "c2", unidadeId: "un3", setorId: "s6", tipo: "reuniao", status: "encerrada",
+      id: "v5", tecnicoId: "u2", clienteId: "c2", contratoId: "ct4", unidadeId: "un3", setorId: "s6", tipo: "reuniao", status: "encerrada",
       entrada: "2026-10-14T12:00:00.000Z", saida: "2026-10-14T13:00:00.000Z", checkin: coords(), checkout: coords(), fotoAmbiente: foto(2),
       observacoes: "Reunião de alinhamento da implantação.", pendencias: "Cliente enviar a planilha de convênios.",
     }),
     base({
-      id: "v6", tecnicoId: "u3", clienteId: "c1", unidadeId: "un1", setorOutro: "Gabinete do Prefeito", tipo: "visita_tecnica", status: "encerrada",
-      entrada: "2026-10-20T14:00:00.000Z", saida: "2026-10-20T15:10:00.000Z", checkin: coordsLonge(), distanciaCheckinM: 178, raioCheckinM: 50, fotoAmbiente: foto(5), encerradaPorGestor: true,
+      id: "v6", tecnicoId: "u3", clienteId: "c1", contratoId: "ct1", unidadeId: "un1", setorOutro: "Gabinete do Prefeito", tipo: "visita_tecnica", status: "encerrada",
+      entrada: "2026-10-20T14:00:00.000Z", saida: "2026-10-20T15:10:00.000Z", checkin: coordsLonge(), distanciaCheckinM: 178, raioCheckinM: 50, fotoAmbiente: foto(5), encerradaPelaAdministracao: true,
       historico: [
         {
-          id: "h1", autorId: "u1", autorNome: "Gestor SIDIM", em: "2026-10-21T11:00:00.000Z", acao: "encerramento",
+          id: "h1", autorId: "u1", autorNome: "Coordenação SIDIM", em: "2026-10-21T11:00:00.000Z", acao: "encerramento",
           motivo: "Técnico esqueceu de fazer o check-out; saída confirmada por telefone.",
           mudancas: [{ campo: "Saída", antes: "—", depois: "20/10/2026 12:10" }],
         },
       ],
     }),
     base({
-      id: "v7", tecnicoId: "u2", clienteId: "c2", unidadeId: "un3", setorId: "s6", tipo: "suporte_presencial", status: "cancelada",
+      id: "v7", tecnicoId: "u2", clienteId: "c2", contratoId: "ct4", unidadeId: "un3", setorId: "s6", tipo: "suporte_presencial", status: "cancelada",
       entrada: "2026-10-21T13:00:00.000Z", checkin: coords(), fotoAmbiente: foto(1),
       historico: [
         {
-          id: "h2", autorId: "u1", autorNome: "Gestor SIDIM", em: "2026-10-21T13:20:00.000Z", acao: "cancelamento",
+          id: "h2", autorId: "u1", autorNome: "Coordenação SIDIM", em: "2026-10-21T13:20:00.000Z", acao: "cancelamento",
           motivo: "Check-in feito por engano no cliente errado.", mudancas: [{ campo: "Situação", antes: "Em andamento", depois: "Cancelada" }],
         },
       ],
     }),
     base({
-      id: "v8", tecnicoId: "u2", clienteId: "c1", unidadeId: "un1", setorId: "s3", tipo: "suporte_presencial", status: "encerrada",
+      id: "v8", tecnicoId: "u2", clienteId: "c1", contratoId: "ct1", unidadeId: "un1", setorId: "s3", tipo: "suporte_presencial", status: "encerrada",
       entrada: "2026-09-15T12:30:00.000Z", saida: "2026-09-15T15:00:00.000Z", checkin: coords(), ...noLocal, checkout: coords(), fotoAmbiente: foto(4),
       temaIds: ["t2", "t3"], observacoes: "Suporte na emissão de guias.", relatorioId: "r-2026-09-c1",
     }),
@@ -104,17 +105,18 @@ function seed(): Visita[] {
 }
 
 // Mantém os dados entre recargas do servidor de desenvolvimento.
-const g = globalThis as unknown as { __visitas?: Visita[] };
-const visitas = (g.__visitas ??= seed());
+const g = globalThis as unknown as { __visitasV2?: Visita[] };
+const visitas = (g.__visitasV2 ??= seed());
 
 // ---------- Consultas ----------
 
 export type { VisitaDetalhada };
 
 async function detalhar(v: Visita, temas?: Tema[]): Promise<VisitaDetalhada> {
-  const [tecnico, cliente, unidade, setor, todos] = await Promise.all([
+  const [tecnico, cliente, contrato, unidade, setor, todos] = await Promise.all([
     buscarUsuario(v.tecnicoId),
     buscarCliente(v.clienteId),
+    buscarContrato(v.contratoId),
     buscarUnidade(v.unidadeId),
     v.setorId ? buscarSetor(v.setorId) : null,
     temas ?? listarTemas(),
@@ -123,6 +125,8 @@ async function detalhar(v: Visita, temas?: Tema[]): Promise<VisitaDetalhada> {
     ...v,
     tecnicoNome: tecnico?.nome ?? "—",
     clienteNome: cliente?.nome ?? "—",
+    sistema: contrato?.sistema ?? "",
+    sistemaNome: contrato?.sistemaNome ?? "—",
     unidadeNome: unidade?.nome ?? "—",
     setorNome: setor?.nome ?? v.setorOutro ?? "—",
     temas: todos.filter((t) => v.temaIds.includes(t.id)),
@@ -167,24 +171,24 @@ export async function buscarVisita(id: string): Promise<VisitaDetalhada | null> 
   return v ? detalhar(v) : null;
 }
 
-// ---------- Alterações pelo gestor ----------
+// ---------- Alterações pela administração ----------
 
 function registrar(v: Visita, autor: UsuarioPublico, acao: AlteracaoVisita["acao"], motivo: string, mudancas: MudancaCampo[]) {
   v.historico.push({ id: crypto.randomUUID(), autorId: autor.id, autorNome: autor.nome, em: new Date().toISOString(), acao, motivo, mudancas });
 }
 
-/** Encerra uma visita esquecida aberta, com o horário de saída informado pelo gestor. */
-export async function encerrarPeloGestor(id: string, saida: string, autor: UsuarioPublico, justificativa: string) {
+/** Encerra uma visita esquecida aberta, com o horário de saída informado pela administração. */
+export async function encerrarPelaAdministracao(id: string, saida: string, autor: UsuarioPublico, justificativa: string) {
   const v = visitas.find((x) => x.id === id);
   if (!v || v.status !== "em_andamento") throw new Error("Visita não está em andamento");
   v.status = "encerrada";
   v.saida = saida;
-  v.encerradaPorGestor = true;
+  v.encerradaPelaAdministracao = true;
   registrar(v, autor, "encerramento", justificativa, [{ campo: "Saída", antes: "—", depois: formatarDataHora(saida) }]);
 }
 
 /** Cancela um check-in feito por engano. A visita não entra em relatório. */
-export async function cancelarPeloGestor(id: string, autor: UsuarioPublico, justificativa: string) {
+export async function cancelarPelaAdministracao(id: string, autor: UsuarioPublico, justificativa: string) {
   const v = visitas.find((x) => x.id === id);
   if (!v || v.status !== "em_andamento") throw new Error("Visita não está em andamento");
   v.status = "cancelada";
@@ -210,7 +214,7 @@ export interface CorrecaoVisita {
 }
 
 /** Aplica a correção e registra o histórico. Retorna as mudanças (vazio = nada mudou, nada é gravado). */
-export async function corrigirPeloGestor(id: string, c: CorrecaoVisita, autor: UsuarioPublico, motivo: string): Promise<MudancaCampo[]> {
+export async function corrigirPelaAdministracao(id: string, c: CorrecaoVisita, autor: UsuarioPublico, motivo: string): Promise<MudancaCampo[]> {
   const v = visitas.find((x) => x.id === id);
   if (!v || v.status !== "encerrada") throw new Error("Só visitas encerradas podem ser corrigidas");
   if (relatorioAprovado(v.relatorioId)) throw new Error("Visita em relatório aprovado");
@@ -276,7 +280,7 @@ export async function visitaAbertaDoTecnico(tecnicoId: string): Promise<VisitaDe
 
 export type DadosCheckin = Pick<
   Visita,
-  | "tecnicoId" | "clienteId" | "unidadeId" | "setorId" | "setorOutro" | "tipo" | "checkin" | "meio" | "distanciaCheckinM" | "raioCheckinM"
+  | "tecnicoId" | "clienteId" | "contratoId" | "unidadeId" | "setorId" | "setorOutro" | "tipo" | "checkin" | "meio" | "distanciaCheckinM" | "raioCheckinM"
   | "fotoAmbiente" | "printTela" | "linkReuniao"
 >;
 
@@ -365,12 +369,12 @@ export async function listarDoTecnico(tecnicoId: string, f: { de?: string; ate?:
 // ---------- Relatórios ----------
 
 /**
- * Visitas que entram num relatório do cliente até a data `ate` (ISO): encerradas e sem relatório
+ * Visitas que entram num relatório do contrato até a data `ate` (ISO): encerradas e sem relatório
  * (ou já reservadas para `relatorioId`). Inclui as de períodos anteriores que ficaram de fora.
  */
-export async function elegiveisParaRelatorio(clienteId: string, ate: string, relatorioId?: string): Promise<Visita[]> {
+export async function elegiveisParaRelatorio(contratoId: string, ate: string, relatorioId?: string): Promise<Visita[]> {
   return visitas
-    .filter((v) => v.clienteId === clienteId && v.status === "encerrada" && v.entrada <= ate)
+    .filter((v) => v.contratoId === contratoId && v.status === "encerrada" && v.entrada <= ate)
     .filter((v) => v.relatorioId === null || v.relatorioId === relatorioId)
     .sort((a, b) => a.entrada.localeCompare(b.entrada));
 }

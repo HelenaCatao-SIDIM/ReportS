@@ -18,13 +18,16 @@ export function NovoRelatorioForm({
   mesPassado,
   mesAtual,
 }: {
-  clientes: { id: string; nome: string }[];
+  clientes: { id: string; nome: string; contratos: { id: string; sistemaNome: string }[] }[];
   mesPassado: Periodo;
   mesAtual: Periodo;
 }) {
   const [state, onSubmit, pending] = useAcao<NovoRelatorioState>(criarRelatorio, {});
   const e = state.erros ?? {};
   const [periodo, setPeriodo] = useState<Periodo>(mesPassado);
+  const [clienteId, setClienteId] = useState("");
+  const [contratoId, setContratoId] = useState("");
+  const cliente = clientes.find((c) => c.id === clienteId);
 
   return (
     <Card className="max-w-xl">
@@ -37,13 +40,45 @@ export function NovoRelatorioForm({
             </Alert>
           )}
           <Campo id="clienteId" label="Cliente" erro={e.cliente}>
-            <select id="clienteId" name="clienteId" defaultValue="" className={selectClass} aria-invalid={!!e.cliente}>
+            <select
+              id="clienteId"
+              name="clienteId"
+              value={clienteId}
+              onChange={(ev) => {
+                setClienteId(ev.target.value);
+                const c = clientes.find((x) => x.id === ev.target.value);
+                // Cliente com um só sistema já vem com o contrato escolhido.
+                setContratoId(c?.contratos.length === 1 ? c.contratos[0].id : "");
+              }}
+              className={selectClass}
+              aria-invalid={!!e.cliente}
+            >
               <option value="" disabled>
                 Escolha o cliente
               </option>
               {clientes.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.nome}
+                </option>
+              ))}
+            </select>
+          </Campo>
+          <Campo id="contratoId" label="Sistema (contrato)" erro={e.contrato}>
+            <select
+              id="contratoId"
+              name="contratoId"
+              value={contratoId}
+              disabled={!cliente}
+              onChange={(ev) => setContratoId(ev.target.value)}
+              className={selectClass}
+              aria-invalid={!!e.contrato}
+            >
+              <option value="" disabled>
+                {cliente ? "Escolha o sistema" : "Escolha o cliente primeiro"}
+              </option>
+              {cliente?.contratos.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.sistemaNome}
                 </option>
               ))}
             </select>
@@ -68,7 +103,7 @@ export function NovoRelatorioForm({
             </div>
           </div>
           <ul className="list-disc space-y-1 rounded-lg bg-muted/50 p-3 pl-7 text-xs text-muted-foreground">
-            <li>Entram automaticamente todas as visitas encerradas do cliente no período.</li>
+            <li>Entram automaticamente todas as visitas encerradas do cliente neste sistema (contrato) no período.</li>
             <li>Visitas encerradas de períodos anteriores que ficaram fora de relatório também entram, sinalizadas.</li>
             <li>Visitas em andamento ficam de fora e entram no relatório seguinte.</li>
             <li>O relatório nasce como rascunho; nada é enviado ao cliente nesta etapa.</li>
