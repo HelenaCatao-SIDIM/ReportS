@@ -122,7 +122,7 @@ function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao }: { v: Visit
               <View key={p.participanteId} style={s.linha} wrap={false}>
                 <Text style={{ width: "26%" }}>{p.nome}</Text>
                 <Text style={{ width: "28%", fontSize: 8 }}>
-                  {formatarCbo(p.cbo.codigo)} {p.cbo.titulo}
+                  {p.cbo ? `${formatarCbo(p.cbo.codigo)} ${p.cbo.titulo}` : "—"}
                 </Text>
                 <Text style={{ width: "15%" }}>{p.setor || "—"}</Text>
                 <Text style={{ width: "15%" }}>{p.cpf ? mascararCpf(p.cpf) : "—"}</Text>

@@ -60,7 +60,7 @@ function ParticipanteForm({ sistemaDoClienteId, exigeCpf, setores, participante,
                   {x.nome}
                   <SeloParticipante estado={x.estado} />
                 </div>
-                <div className="text-xs text-muted-foreground">{[x.cbo.titulo, x.setor].filter(Boolean).join(" · ")}</div>
+                <div className="text-xs text-muted-foreground">{[x.cbo?.titulo, x.setor].filter(Boolean).join(" · ")}</div>
               </li>
             ))}
           </ul>

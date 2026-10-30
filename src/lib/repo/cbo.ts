@@ -1,40 +1,24 @@
 import "server-only";
+import { reports } from "@/lib/db";
 import { normalizar } from "@/lib/format";
 import type { Cbo } from "@/lib/types";
 
 /*
- * Tabela CBO — AMOSTRA PROVISÓRIA para o mockup.
- * Os códigos abaixo NÃO foram conferidos com a tabela oficial do Ministério do Trabalho (CBO 2002).
- * Na fase de banco, esta lista é substituída pela importação da tabela oficial completa (~2.600 ocupações);
- * a função de busca continua com a mesma assinatura.
+ * Tabela CBO (Classificação Brasileira de Ocupações, Ministério do Trabalho), no banco do ReportS.
+ * Carregada por `npm run cbo:importar` a partir do arquivo oficial (scripts/importar-cbo.ts).
+ * São cerca de 2.600 ocupações: a lista fica em memória no processo e a busca é feita aqui, sem acento.
  */
-const AMOSTRA: Cbo[] = [
-  { codigo: "411005", titulo: "Auxiliar de escritório" },
-  { codigo: "411010", titulo: "Assistente administrativo" },
-  { codigo: "410105", titulo: "Supervisor administrativo" },
-  { codigo: "142105", titulo: "Gerente administrativo" },
-  { codigo: "422105", titulo: "Recepcionista, em geral" },
-  { codigo: "252305", titulo: "Secretária(o) executiva(o)" },
-  { codigo: "351505", titulo: "Técnico em secretariado" },
-  { codigo: "252210", titulo: "Contador" },
-  { codigo: "252405", titulo: "Analista de recursos humanos" },
-  { codigo: "212405", titulo: "Analista de desenvolvimento de sistemas" },
-  { codigo: "317210", titulo: "Técnico de apoio ao usuário de informática (helpdesk)" },
-  { codigo: "414105", titulo: "Almoxarife" },
-  { codigo: "421125", titulo: "Operador de caixa" },
-  { codigo: "514320", titulo: "Faxineiro" },
-  { codigo: "223505", titulo: "Enfermeiro" },
-  { codigo: "322205", titulo: "Técnico de enfermagem" },
-  { codigo: "322230", titulo: "Auxiliar de enfermagem" },
-  { codigo: "225125", titulo: "Médico clínico" },
-  { codigo: "223405", titulo: "Farmacêutico" },
-  { codigo: "223605", titulo: "Fisioterapeuta geral" },
-  { codigo: "223710", titulo: "Nutricionista" },
-  { codigo: "223208", titulo: "Cirurgião dentista - clínico geral" },
-  { codigo: "251510", titulo: "Psicólogo clínico" },
-  { codigo: "251605", titulo: "Assistente social" },
-  { codigo: "515105", titulo: "Agente comunitário de saúde" },
-];
+
+let cache: { em: number; lista: (Cbo & { busca: string })[] } | null = null;
+const VALIDADE_MS = 10 * 60 * 1000;
+
+async function tabela() {
+  if (!cache || Date.now() - cache.em > VALIDADE_MS) {
+    const linhas = await reports.cbo.findMany({ orderBy: { titulo: "asc" } });
+    cache = { em: Date.now(), lista: linhas.map((c) => ({ ...c, busca: normalizar(c.titulo) })) };
+  }
+  return cache.lista;
+}
 
 /** Busca ocupações pelo título (sem acento) ou pelo código. Retorna no máximo `limite` itens. */
 export async function pesquisarCbo(termo: string, limite = 20): Promise<Cbo[]> {
@@ -42,15 +26,13 @@ export async function pesquisarCbo(termo: string, limite = 20): Promise<Cbo[]> {
   if (t.length < 2) return [];
   const digitos = termo.replace(/\D/g, "");
   const palavras = t.split(/\s+/);
-  return AMOSTRA.filter((c) => {
-    if (digitos.length >= 3 && c.codigo.startsWith(digitos)) return true;
-    const titulo = normalizar(c.titulo);
-    return palavras.every((p) => titulo.includes(p));
-  })
-    .sort((a, b) => a.titulo.localeCompare(b.titulo, "pt-BR"))
-    .slice(0, limite);
+  return (await tabela())
+    .filter((c) => (digitos.length >= 3 && c.codigo.startsWith(digitos)) || palavras.every((p) => c.busca.includes(p)))
+    .slice(0, limite)
+    .map(({ codigo, titulo }) => ({ codigo, titulo }));
 }
 
 export async function buscarCbo(codigo: string): Promise<Cbo | null> {
-  return AMOSTRA.find((c) => c.codigo === codigo) ?? null;
+  if (!/^\d{6}$/.test(codigo)) return null;
+  return reports.cbo.findUnique({ where: { codigo } });
 }

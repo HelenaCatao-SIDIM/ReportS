@@ -112,8 +112,14 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/participantes">
                   </TableCell>
                   <TableCell className="font-mono text-xs">{p.idErp ?? <span className="text-muted-foreground">—</span>}</TableCell>
                   <TableCell className="max-w-56">
-                    <span className="font-mono text-xs text-muted-foreground">{formatarCbo(p.cbo.codigo)}</span>
-                    <span className="block truncate text-xs">{p.cbo.titulo}</span>
+                    {p.cbo ? (
+                      <>
+                        <span className="font-mono text-xs text-muted-foreground">{formatarCbo(p.cbo.codigo)}</span>
+                        <span className="block truncate text-xs">{p.cbo.titulo}</span>
+                      </>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Ocupação não informada</span>
+                    )}
                   </TableCell>
                   <TableCell>{p.setor || "—"}</TableCell>
                   {exigeCpf && <TableCell className="font-mono text-xs">{p.cpf ? formatarCpf(p.cpf) : "—"}</TableCell>}

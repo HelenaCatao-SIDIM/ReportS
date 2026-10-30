@@ -151,7 +151,7 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
                       <SeloParticipante estado={s.estado} />
                     </span>
                     <span className="block text-xs text-muted-foreground">
-                      {juntar(s.cbo.titulo, s.setor)}
+                      {juntar(s.cbo?.titulo ?? "", s.setor)}
                     </span>
                   </button>
                 </li>
@@ -192,9 +192,11 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
                   {!escolhido.setor && <span className="ml-1 text-xs">(setor da visita)</span>}
                 </div>
               )}
-              <div className="text-xs text-muted-foreground">
-                <span className="font-mono">{formatarCbo(escolhido.cbo.codigo)}</span> {escolhido.cbo.titulo}
-              </div>
+              {escolhido.cbo && (
+                <div className="text-xs text-muted-foreground">
+                  <span className="font-mono">{formatarCbo(escolhido.cbo.codigo)}</span> {escolhido.cbo.titulo}
+                </div>
+              )}
               {escolhido.cpfMascarado && <div className="font-mono text-xs text-muted-foreground">CPF {escolhido.cpfMascarado}</div>}
             </div>
             <Button
@@ -254,7 +256,7 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
                         {s.nome}
                         <SeloParticipante estado={s.estado} />
                       </div>
-                      <div className="truncate text-xs text-muted-foreground">{juntar(s.cbo.titulo, s.setor)}</div>
+                      <div className="truncate text-xs text-muted-foreground">{juntar(s.cbo?.titulo ?? "", s.setor)}</div>
                     </div>
                     <Button
                       type="button"
@@ -318,7 +320,7 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
                       {state.existente.nome}
                       <SeloParticipante estado={state.existente.estado} />
                     </div>
-                    <div className="truncate text-xs text-muted-foreground">{juntar(state.existente.cbo.titulo, state.existente.setor)}</div>
+                    <div className="truncate text-xs text-muted-foreground">{juntar(state.existente.cbo?.titulo ?? "", state.existente.setor)}</div>
                   </div>
                   <Button
                     type="button"
@@ -367,7 +369,7 @@ function LinhaPresenca({ visitaId, p }: { visitaId: string; p: PresencaVisita })
           <SeloParticipante estado={p.estado} className="shrink-0" />
         </div>
         <div className="truncate text-xs text-muted-foreground">
-          {juntar(p.cbo.titulo, p.setor)}
+          {juntar(p.cbo?.titulo ?? "", p.setor)}
           {p.cpf && ` · ${mascararCpf(p.cpf)}`}
         </div>
       </div>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ClipboardCheck } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { sincUrl } from "@/lib/config";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Entrar · SIDIM Visitas" };
@@ -21,8 +22,14 @@ export default function LoginPage() {
             <CardTitle>Entrar</CardTitle>
             <CardDescription>Use seu e-mail e senha da SIDIM.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <LoginForm />
+            {/* A senha é a mesma do SINC e é trocada lá (o cadastro de usuários é um só). */}
+            <p className="text-center text-sm">
+              <a href={`${sincUrl()}/passwords/new`} className="text-muted-foreground underline-offset-4 hover:underline">
+                Esqueci minha senha
+              </a>
+            </p>
           </CardContent>
         </Card>
       </div>

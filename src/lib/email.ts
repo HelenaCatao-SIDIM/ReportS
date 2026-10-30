@@ -1,12 +1,14 @@
 import "server-only";
 import nodemailer from "nodemailer";
 import { emailRedirecionarPara, emailReal, emailRemetente, provedorEmail, smtp } from "@/lib/config";
+import { reports } from "@/lib/db";
 import { lerArquivo } from "@/lib/repo/arquivos";
 
 /*
  * Envio de e-mail. Com EMAIL_REAL=true e as credenciais do provedor (Resend, por padrão, ou SMTP), envia de verdade;
- * sem isso, só grava na caixa de saída (visível em /admin/emails), como antes. Quem chama `enviarEmail` não muda, e a função nunca lança exceção:
- * uma falha de envio vira situação "falhou" na caixa de saída, para não desfazer uma emissão já registrada.
+ * sem isso, só grava na caixa de saída (visível em /admin/emails). Todo e-mail fica registrado no banco do ReportS, com o resultado.
+ * A função nunca lança exceção por falha de envio: ela vira situação "falhou" na caixa de saída, para não desfazer uma emissão
+ * já registrada.
  */
 
 export interface Anexo {
@@ -38,9 +40,6 @@ export interface EmailEnviado {
 }
 
 export type NovoEmail = Pick<EmailEnviado, "para" | "assunto" | "html" | "anexos" | "botao" | "relatorioId">;
-
-const g = globalThis as unknown as { __emails?: EmailEnviado[] };
-const caixa = (g.__emails ??= []);
 
 const ESPERA_NOVA_TENTATIVA_MS = 1500;
 const RESEND = "https://api.resend.com/emails";
@@ -229,10 +228,41 @@ export async function enviarEmail(e: NovoEmail): Promise<EmailEnviado> {
     }
   }
 
-  caixa.push(email);
+  await reports.email.create({
+    data: {
+      id,
+      paraNome: email.para.nome,
+      paraEmail: email.para.email,
+      assunto: email.assunto,
+      html: email.html,
+      anexos: email.anexos as unknown as object[],
+      botao: email.botao ?? undefined,
+      enviadoEm: new Date(email.enviadoEm),
+      relatorioId: email.relatorioId,
+      situacao: email.situacao,
+      idMensagem: email.idMensagem,
+      erro: email.erro,
+      redirecionadoPara: email.redirecionadoPara,
+    },
+  });
   return email;
 }
 
-export async function listarEmails(): Promise<EmailEnviado[]> {
-  return [...caixa].reverse();
+/** Caixa de saída: os mais recentes primeiro (os últimos `limite`). */
+export async function listarEmails(limite = 300): Promise<EmailEnviado[]> {
+  const linhas = await reports.email.findMany({ orderBy: { enviadoEm: "desc" }, take: limite });
+  return linhas.map((e) => ({
+    id: e.id,
+    para: { nome: e.paraNome, email: e.paraEmail },
+    assunto: e.assunto,
+    html: e.html,
+    anexos: e.anexos as unknown as Anexo[],
+    botao: e.botao as EmailEnviado["botao"],
+    enviadoEm: e.enviadoEm.toISOString(),
+    relatorioId: e.relatorioId,
+    situacao: e.situacao as SituacaoEmail,
+    idMensagem: e.idMensagem,
+    erro: e.erro,
+    redirecionadoPara: e.redirecionadoPara,
+  }));
 }

@@ -28,7 +28,7 @@ export interface SugestaoParticipante {
   id: string;
   nome: string;
   estado: EstadoParticipante;
-  cbo: Cbo;
+  cbo: Cbo | null;
   setor: string;
   cpfMascarado: string;
 }
@@ -106,7 +106,7 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
       return { erros: { nome: "Já existe alguém com nome igual ou parecido. Confira se é a mesma pessoa." }, semelhantes: achados.nomesParecidos.map(sugestao) };
     }
 
-    participante = await criarProvisorio(sistemaDoClienteId, { nome, cbo: cbo!, setor, cpf: exigeCpf ? cpf : null }, "campo_reports");
+    participante = await criarProvisorio(sistemaDoClienteId, { nome, cbo: cbo!, setor, cpf: exigeCpf ? cpf : null }, "campo_reports", tecnico.id);
   } else if (Object.keys(erros).length) {
     return { erros };
   }

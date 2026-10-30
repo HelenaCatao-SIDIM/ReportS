@@ -15,7 +15,7 @@ export interface ParecidoNoCadastro {
   id: string;
   nome: string;
   estado: EstadoParticipante;
-  cbo: Cbo;
+  cbo: Cbo | null;
   setor: string;
 }
 
@@ -42,7 +42,7 @@ export async function salvarParticipante(
   _: ParticipanteFormState,
   fd: FormData,
 ): Promise<ParticipanteFormState> {
-  await exigirPermissaoAcao(PERMISSOES.participantesGerenciar);
+  const usuario = await exigirPermissaoAcao(PERMISSOES.participantesGerenciar);
   const sdc = await buscarSistemaDoCliente(sistemaDoClienteId);
   if (!sdc) throw new Error("Sistema do cliente não encontrado");
   // O CPF segue o contrato deste sistema.
@@ -85,7 +85,7 @@ export async function salvarParticipante(
 
   const dados = { nome, cbo: cbo!, setor, cpf: exigeCpf ? cpf : null };
   if (participanteId) await atualizarParticipante(participanteId, dados);
-  else await criarProvisorio(sistemaDoClienteId, dados, "cadastro_reports");
+  else await criarProvisorio(sistemaDoClienteId, dados, "cadastro_reports", usuario.id);
   revalidatePath("/admin/participantes");
   return { ok: true };
 }

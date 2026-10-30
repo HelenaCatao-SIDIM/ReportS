@@ -1,94 +1,91 @@
 import "server-only";
+import { reports } from "@/lib/db";
 import { normalizar } from "@/lib/format";
 import type { Sistema, Tema } from "@/lib/types";
 import { buscarSistema, listarSistemas, nomesDosSistemas } from "./sistemas";
 
 /*
- * Repositório de temas — implementação MOCK em memória.
- * Na fase de banco, só este arquivo muda (Prisma/Postgres).
+ * Temas — banco do ReportS. O sistema é o código do cadastro de sistemas da plataforma; o nome vem de lá na leitura.
  */
 
 /** O que fica gravado: o sistema é só o código; o nome vem do cadastro de sistemas. */
 type TemaRegistro = Omit<Tema, "sistemaNome">;
 
-function seed(): TemaRegistro[] {
-  const t = (id: string, nome: string, sistema: string, modulo: string, ativo = true): TemaRegistro => ({ id, nome, sistema, modulo, ativo });
-  return [
-    t("t1", "Cadastro de contribuintes", "serp", "Cadastros"),
-    t("t2", "Emissão de guias de IPTU", "serp", "Arrecadação"),
-    t("t3", "Baixa de pagamentos", "serp", "Arrecadação"),
-    t("t4", "Folha de pagamento mensal", "sca", "Folha"),
-    t("t5", "Cálculo de férias", "sca", "Folha"),
-    t("t6", "Ponto eletrônico", "sca", "Frequência"),
-    t("t7", "Agendamento de consultas", "saude", "Recepção"),
-    t("t8", "Dispensação de medicamentos", "saude", "Farmácia"),
-    t("t9", "Relatórios gerenciais (versão antiga)", "saude", "Relatórios", false),
-    t("t10", "Cadastros básicos", "se", "Cadastros"),
-    t("t11", "Emissão de relatórios", "se", "Relatórios"),
-  ];
-}
-
-// Mantém os dados entre recargas do servidor de desenvolvimento.
-const g = globalThis as unknown as { __temas?: TemaRegistro[] };
-const temas = (g.__temas ??= seed());
+const SELECAO = { id: true, nome: true, sistema: true, modulo: true, ativo: true } as const;
 
 const comNome = (t: TemaRegistro, nomeDe: (codigo: string) => string): Tema => ({ ...t, sistemaNome: nomeDe(t.sistema) });
 
 /** Busca em nome, sistema e módulo (sem acento). Ordena pela ordem do cadastro de sistemas. */
 export async function listarTemas(filtro: { busca?: string; sistema?: string } = {}): Promise<Tema[]> {
-  const [nomeDe, todos] = await Promise.all([nomesDosSistemas(), listarSistemas({ incluirInativos: true })]);
-  const posicao = (codigo: string) => todos.find((s) => s.codigo === codigo)?.ordem ?? Number.MAX_SAFE_INTEGER;
+  const [nomeDe, todos, temas] = await Promise.all([
+    nomesDosSistemas(),
+    listarSistemas({ incluirInativos: true }),
+    reports.tema.findMany({ where: filtro.sistema ? { sistema: filtro.sistema } : undefined, select: SELECAO }),
+  ]);
+  const posicao = new Map(todos.map((s) => [s.codigo, s.ordem]));
+  const ordem = (codigo: string) => posicao.get(codigo) ?? Number.MAX_SAFE_INTEGER;
   const b = normalizar(filtro.busca ?? "");
   return temas
-    .filter((t) => !filtro.sistema || t.sistema === filtro.sistema)
     .map((t) => comNome(t, nomeDe))
     .filter((t) => !b || [t.nome, t.sistemaNome, t.sistema, t.modulo].some((c) => normalizar(c).includes(b)))
     .sort(
       (a, c) =>
-        posicao(a.sistema) - posicao(c.sistema) ||
+        ordem(a.sistema) - ordem(c.sistema) ||
         a.modulo.localeCompare(c.modulo, "pt-BR") ||
         a.nome.localeCompare(c.nome, "pt-BR"),
     );
 }
 
+/** Temas pelos ids, com o nome do sistema (para as visitas). */
+export async function buscarTemasPorIds(ids: string[]): Promise<Tema[]> {
+  if (!ids.length) return [];
+  const [nomeDe, temas] = await Promise.all([nomesDosSistemas(), reports.tema.findMany({ where: { id: { in: ids } }, select: SELECAO })]);
+  return temas.map((t) => comNome(t, nomeDe));
+}
+
+async function modulosUsados(): Promise<string[]> {
+  const linhas = await reports.tema.findMany({ distinct: ["modulo"], select: { modulo: true } });
+  return linhas.map((t) => t.modulo).sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
 /** Opções dos campos: sistemas ativos e módulos já usados. */
 export async function sugestoes(): Promise<{ sistemas: Sistema[]; modulos: string[] }> {
-  const modulos = [...new Set(temas.map((t) => t.modulo))].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  return { sistemas: await listarSistemas(), modulos };
+  const [sistemas, modulos] = await Promise.all([listarSistemas(), modulosUsados()]);
+  return { sistemas, modulos };
 }
 
 /** Sistema aceito para um tema: ativo, ou o mesmo que o tema já tinha (RN-PL-02). */
 export async function sistemaValido(codigo: string, temaId?: string): Promise<boolean> {
   const s = await buscarSistema(codigo);
   if (!s) return false;
-  return s.ativo || temas.find((t) => t.id === temaId)?.sistema === codigo;
-}
-
-export async function temaDuplicado(d: DadosTema, excetoId?: string) {
-  const chave = (t: DadosTema) => [t.nome, t.sistema, t.modulo].map(normalizar).join("|");
-  return temas.some((t) => t.id !== excetoId && chave(t) === chave(d));
+  if (s.ativo) return true;
+  const tema = temaId ? await reports.tema.findUnique({ where: { id: temaId }, select: { sistema: true } }) : null;
+  return tema?.sistema === codigo;
 }
 
 export type DadosTema = Pick<TemaRegistro, "nome" | "sistema" | "modulo">;
 
+export async function temaDuplicado(d: DadosTema, excetoId?: string) {
+  const chave = (t: DadosTema) => [t.nome, t.sistema, t.modulo].map(normalizar).join("|");
+  const doSistema = await reports.tema.findMany({ where: { sistema: d.sistema }, select: SELECAO });
+  return doSistema.some((t) => t.id !== excetoId && chave(t) === chave(d));
+}
+
 /** Reaproveita a grafia já cadastrada quando o módulo só difere em acento/caixa ("recepcao" → "Recepção"). */
 export async function grafiaCanonica(d: DadosTema, excetoId?: string): Promise<DadosTema> {
-  const outros = temas.filter((t) => t.id !== excetoId);
+  const outros = await reports.tema.findMany({ where: excetoId ? { NOT: { id: excetoId } } : undefined, select: { modulo: true } });
   return { ...d, modulo: outros.find((t) => normalizar(t.modulo) === normalizar(d.modulo))?.modulo ?? d.modulo };
 }
 
 export async function criarTema(d: DadosTema): Promise<Tema> {
-  const t: TemaRegistro = { ...d, id: crypto.randomUUID(), ativo: true };
-  temas.push(t);
+  const t = await reports.tema.create({ data: { ...d, id: crypto.randomUUID() }, select: SELECAO });
   return comNome(t, await nomesDosSistemas());
 }
 
 export async function atualizarTema(id: string, d: DadosTema): Promise<void> {
-  const t = temas.find((x) => x.id === id);
-  if (t) Object.assign(t, d);
+  await reports.tema.updateMany({ where: { id }, data: d });
 }
 
 export async function definirTemaAtivo(id: string, ativo: boolean): Promise<void> {
-  const t = temas.find((x) => x.id === id);
-  if (t) t.ativo = ativo;
+  await reports.tema.updateMany({ where: { id }, data: { ativo } });
 }

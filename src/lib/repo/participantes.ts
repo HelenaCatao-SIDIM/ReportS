@@ -1,52 +1,63 @@
 import "server-only";
+import { idPlataforma, idTexto, plataforma } from "@/lib/db";
 import { normalizar } from "@/lib/format";
 import { nomesParecidos } from "@/lib/similaridade";
-import type { OrigemParticipante, Participante } from "@/lib/types";
+import type { EstadoParticipante, OrigemParticipante, Participante } from "@/lib/types";
 
 /*
- * Repositório de participantes — implementação MOCK em memória.
- * O confirmado nasce da captura do painel do SINC (aqui, só nos dados de exemplo); o provisório nasce no ReportS.
- * Na fase de banco, só este arquivo muda (leitura e escrita na plataforma).
+ * Participantes — tabela `client_users` da plataforma, comum com o SINC.
+ * O confirmado nasce da captura do painel do SINC (com o id do usuário no ERP); o provisório nasce no ReportS.
+ * Os unidos (Fase 5) ficam de fora. O ReportS grava só nome (do provisório), CPF, CBO e setor (ADR-035 do SINC);
+ * a inclusão é em SQL direto para não mandar as colunas com valor padrão, que ele não pode gravar.
  */
 
-function seed(): Participante[] {
-  const p = (
-    id: string, sistemaDoClienteId: string, idErp: string | null, nome: string, cbo: [string, string], setor: string, cpf: string | null, origem: OrigemParticipante,
-  ): Participante => ({
-    id, sistemaDoClienteId, idErp, estado: idErp ? "confirmado" : "provisorio", origem, nome, cbo: { codigo: cbo[0], titulo: cbo[1] }, setor, cpf,
-  });
-  return [
-    // Prefeitura de Vale Verde: SERP (sc1), SCA (sc2), Saúde (sc3)
-    p("p1", "sc1", "1021", "Luciana Ferraz", ["411010", "Assistente administrativo"], "Protocolo", "12345678909", "painel_sinc"),
-    p("p2", "sc1", "1034", "Rogério Batista", ["411010", "Assistente administrativo"], "Tributação", "98765432100", "painel_sinc"),
-    p("p3", "sc2", "2005", "Patrícia Gomes", ["252405", "Analista de recursos humanos"], "Recursos Humanos", "11144477735", "painel_sinc"),
-    p("p7", "sc2", null, "Eduardo Pires", ["411010", "Assistente administrativo"], "Recursos Humanos", "39053344705", "cadastro_reports"),
-    p("p4", "sc3", null, "Sandra Moura", ["223505", "Enfermeiro"], "Recepção", "52998224725", "campo_reports"),
-    // Clínica Bem Viver: Saúde (sc4)
-    p("p5", "sc4", "3001", "Fábio Nunes", ["411005", "Auxiliar de escritório"], "Faturamento", null, "painel_sinc"),
-    p("p6", "sc4", null, "Cíntia Alves", ["422105", "Recepcionista, em geral"], "Recepção", null, "campo_reports"),
-  ];
-}
+const VISIVEL = { estado: { in: ["confirmado", "provisorio"] } };
 
-// Mantém os dados entre recargas do servidor de desenvolvimento.
-const g = globalThis as unknown as { __participantesV2?: Participante[] };
-const participantes = (g.__participantesV2 ??= seed());
+type Linha = Awaited<ReturnType<typeof plataforma.client_users.findFirstOrThrow>>;
+
+const paraParticipante = (p: Linha): Participante => ({
+  id: idTexto(p.id),
+  sistemaDoClienteId: idTexto(p.client_id),
+  idErp: p.external_user_id,
+  estado: p.estado as EstadoParticipante,
+  origem: p.origem as OrigemParticipante,
+  // O confirmado sem nome no ERP aparece pelo id do ERP.
+  nome: p.nome ?? (p.external_user_id ? `Usuário ${p.external_user_id} do ERP` : ""),
+  // Os confirmados chegam do SINC sem ocupação; ela é preenchida no ReportS.
+  cbo: p.cbo_codigo ? { codigo: p.cbo_codigo, titulo: p.cbo_titulo ?? "" } : null,
+  setor: p.setor ?? "",
+  cpf: p.cpf,
+});
+
+const porNome = (a: Participante, b: Participante) => a.nome.localeCompare(b.nome, "pt-BR");
+
+async function doSistemaDoCliente(sistemaDoClienteId: string, excetoId?: string): Promise<Participante[]> {
+  const chave = idPlataforma(sistemaDoClienteId);
+  if (chave === null) return [];
+  const linhas = await plataforma.client_users.findMany({
+    where: { client_id: chave, ...VISIVEL, NOT: { id: idPlataforma(excetoId) ?? BigInt(-1) } },
+  });
+  return linhas.map(paraParticipante);
+}
 
 /** Participantes de um sistema do cliente, com busca por nome, ocupação (CBO) ou setor. */
 export async function listarParticipantes(sistemaDoClienteId: string, busca = ""): Promise<Participante[]> {
   const b = normalizar(busca);
-  return participantes
-    .filter((p) => p.sistemaDoClienteId === sistemaDoClienteId)
-    .filter((p) => !b || [p.nome, p.cbo.titulo, p.setor].some((c) => normalizar(c).includes(b)))
-    .sort((a, b2) => a.nome.localeCompare(b2.nome, "pt-BR"));
+  return (await doSistemaDoCliente(sistemaDoClienteId))
+    .filter((p) => !b || [p.nome, p.cbo?.titulo ?? "", p.setor].some((c) => normalizar(c).includes(b)))
+    .sort(porNome);
 }
 
 export async function buscarParticipante(id: string): Promise<Participante | null> {
-  return participantes.find((p) => p.id === id) ?? null;
+  const chave = idPlataforma(id);
+  if (chave === null) return null;
+  const p = await plataforma.client_users.findFirst({ where: { id: chave, ...VISIVEL } });
+  return p ? paraParticipante(p) : null;
 }
 
+/** CPF é único por sistema do cliente entre os não unidos (o banco também garante). */
 export async function cpfEmUso(sistemaDoClienteId: string, cpf: string, excetoId?: string) {
-  return participantes.some((p) => p.sistemaDoClienteId === sistemaDoClienteId && p.id !== excetoId && p.cpf === cpf);
+  return (await doSistemaDoCliente(sistemaDoClienteId, excetoId)).some((p) => p.cpf === cpf);
 }
 
 export interface Semelhantes {
@@ -61,27 +72,43 @@ export interface Semelhantes {
  * e quem tem nome igual ou parecido.
  */
 export async function buscarSemelhantes(sistemaDoClienteId: string, d: { nome: string; cpf?: string | null }, excetoId?: string): Promise<Semelhantes> {
-  const doSistema = participantes.filter((p) => p.sistemaDoClienteId === sistemaDoClienteId && p.id !== excetoId);
+  const doSistema = await doSistemaDoCliente(sistemaDoClienteId, excetoId);
   return {
     mesmoCpf: d.cpf ? (doSistema.find((p) => p.cpf === d.cpf) ?? null) : null,
-    nomesParecidos: doSistema.filter((p) => nomesParecidos(p.nome, d.nome)).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
+    nomesParecidos: doSistema.filter((p) => nomesParecidos(p.nome, d.nome)).sort(porNome),
   };
 }
 
-export type DadosParticipante = Pick<Participante, "nome" | "cbo" | "setor" | "cpf">;
+export type DadosParticipante = { nome: string; cbo: NonNullable<Participante["cbo"]>; setor: string; cpf: string | null };
 
 /** Cria um participante provisório (sem id do ERP): pelo técnico em campo ou pela Administração. */
-export async function criarProvisorio(sistemaDoClienteId: string, d: DadosParticipante, origem: Exclude<OrigemParticipante, "painel_sinc">): Promise<Participante> {
-  const p: Participante = { ...d, id: crypto.randomUUID(), sistemaDoClienteId, idErp: null, estado: "provisorio", origem };
-  participantes.push(p);
-  return p;
+export async function criarProvisorio(
+  sistemaDoClienteId: string,
+  d: DadosParticipante,
+  origem: Exclude<OrigemParticipante, "painel_sinc">,
+  criadoPor: string,
+): Promise<Participante> {
+  const [{ id }] = await plataforma.$queryRaw<{ id: bigint }[]>`
+    INSERT INTO client_users (client_id, nome, estado, origem, cpf, cbo_codigo, cbo_titulo, setor, criado_por_user_id)
+    VALUES (${idPlataforma(sistemaDoClienteId)}, ${d.nome}, 'provisorio', ${origem}, ${d.cpf}, ${d.cbo.codigo}, ${d.cbo.titulo},
+            ${d.setor || null}, ${idPlataforma(criadoPor)})
+    RETURNING id`;
+  return (await buscarParticipante(idTexto(id)))!;
 }
 
 /** Atualiza CBO, setor e CPF. O nome só muda no provisório: o do confirmado vem do ERP (RN-PL-42). */
 export async function atualizarParticipante(id: string, d: DadosParticipante): Promise<void> {
-  const p = participantes.find((x) => x.id === id);
-  if (!p) return;
-  const { nome, ...resto } = d;
-  Object.assign(p, resto);
-  if (p.estado === "provisorio") p.nome = nome;
+  const atual = await buscarParticipante(id);
+  if (!atual) return;
+  await plataforma.client_users.update({
+    where: { id: idPlataforma(id)! },
+    data: {
+      ...(atual.estado === "provisorio" ? { nome: d.nome } : {}),
+      cpf: d.cpf,
+      cbo_codigo: d.cbo.codigo,
+      cbo_titulo: d.cbo.titulo,
+      setor: d.setor || null,
+      updated_at: new Date(),
+    },
+  });
 }

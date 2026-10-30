@@ -1,9 +1,12 @@
-/** Pessoa da SIDIM (cadastro único da plataforma). O que ela pode fazer vem dos papéis e permissões. */
-export interface Usuario {
+/**
+ * Pessoa da SIDIM (cadastro único da plataforma, tabela `users`). O que ela pode fazer vem dos papéis e permissões.
+ * O id é o da plataforma (número), em texto. A senha nunca sai do repositório de usuários.
+ */
+export interface UsuarioPublico {
   id: string;
+  /** Usuário migrado do SINC sem nome: o e-mail. */
   nome: string;
   email: string;
-  senhaHash: string;
   ativo: boolean;
   /** Só dígitos, com DDD (10 ou 11). Opcional; será o destino do aviso de visita aberta por WhatsApp. */
   telefone: string | null;
@@ -11,22 +14,11 @@ export interface Usuario {
   papelIds: string[];
 }
 
-/** Dados do usuário que podem ir para a tela (sem o hash da senha). */
-export type UsuarioPublico = Omit<Usuario, "senhaHash">;
-
 /** Usuário da sessão com o que ele pode fazer, lido a cada requisição. */
 export interface UsuarioLogado extends UsuarioPublico {
   /** Códigos das permissões somadas dos papéis. */
   permissoes: string[];
   papeis: string[];
-}
-
-/** Papel: agrupa permissões. Na plataforma é gerido no Admin do SINC; aqui é um exemplo em memória. */
-export interface Papel {
-  id: string;
-  nome: string;
-  descricao: string;
-  permissoes: string[];
 }
 
 export type NivelComprovacao = "nominal" | "assinado";
@@ -55,6 +47,8 @@ export interface Cliente {
   origem: "manual" | "sinc";
   /** Nome do cliente no SINC (o mesmo do campo "Cliente / Município" dos atendimentos), para cruzar os chamados de suporte. O identificador interno continua `nomesFortics`. */
   nomesFortics: string[];
+  /** Com vínculo no ClickUp, o nome é o da opção e não se edita no ReportS (RN-PL-12). */
+  nomeDoClickUp: boolean;
 }
 
 /**
@@ -157,7 +151,8 @@ export interface Participante {
   estado: EstadoParticipante;
   origem: OrigemParticipante;
   nome: string;
-  cbo: Cbo;
+  /** Null no confirmado que ainda não teve a ocupação preenchida no ReportS. */
+  cbo: Cbo | null;
   setor: string;
   /** Somente dígitos; preenchido só quando o contrato exige CPF. */
   cpf: string | null;
@@ -219,7 +214,7 @@ export interface PresencaVisita {
   /** Situação do participante no dia da presença (selo "Confirmado" ou "Provisório"; o aprovador e o PDF só mostram o nome). */
   estado: EstadoParticipante;
   nome: string;
-  cbo: Cbo;
+  cbo: Cbo | null;
   setor: string;
   cpf: string | null;
   confirmacao: "nominal" | "assinatura";

@@ -50,8 +50,13 @@ export function ClienteForm({ acao, cliente, chamadosAtivos = false, sistemasDis
           <CardDescription>Um cadastro por cliente, identificado pelo CNPJ. O contrato, a comprovação e os aprovadores ficam em cada sistema.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-5 sm:grid-cols-2">
-          <Campo id="nome" label="Nome" erro={e.nome}>
-            <Input id="nome" name="nome" defaultValue={v?.nome} aria-invalid={!!e.nome} className="h-9" />
+          <Campo
+            id="nome"
+            label="Nome"
+            erro={e.nome}
+            dica={cliente?.nomeDoClickUp ? "Cliente vinculado ao ClickUp: o nome é o da opção no ClickUp e muda por lá." : undefined}
+          >
+            <Input id="nome" name="nome" defaultValue={v?.nome} readOnly={cliente?.nomeDoClickUp} aria-invalid={!!e.nome} className="h-9" />
           </Campo>
           <Campo
             id="cnpj"

@@ -166,7 +166,7 @@ export function CorrecaoForm({ visita: v, unidades, temas }: { visita: VisitaDet
                         {p.nome}
                         <span className="text-xs text-muted-foreground">
                           {" "}
-                          · {p.cbo.titulo} · {p.confirmacao === "assinatura" ? "assinou" : "nominal"}
+                          · {p.cbo?.titulo ?? "—"} · {p.confirmacao === "assinatura" ? "assinou" : "nominal"}
                         </span>
                       </span>
                       <span className="text-xs text-muted-foreground">remover</span>

@@ -55,12 +55,12 @@ async function validarCliente(d: ReturnType<typeof lerCliente>, opcoes: { id?: s
 }
 
 export async function criarCliente(_: ClienteFormState, fd: FormData): Promise<ClienteFormState> {
-  await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
+  const usuario = await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
   const d = lerCliente(fd);
   const erros = await validarCliente(d, { exigirSistema: true });
   if (Object.keys(erros).length) return { erros, valores: d };
 
-  const c = await repo.criarCliente({ nome: d.nome, cnpj: d.cnpj, ativo: true, nomesFortics: d.nomesFortics }, d.sistemas);
+  const c = await repo.criarCliente({ nome: d.nome, cnpj: d.cnpj, ativo: true, nomesFortics: d.nomesFortics }, d.sistemas, usuario.id);
   revalidatePath("/admin/clientes");
   // Segue para a tela do cliente, onde ficam os contratos e os estabelecimentos.
   redirect(`/admin/clientes/${c.id}?ok=criado`);
@@ -72,6 +72,8 @@ export async function editarCliente(id: string, _: ClienteFormState, fd: FormDat
   if (!atual) return { erros: { nome: "Cliente não encontrado." } };
   // Com os chamados de suporte desligados o campo não aparece no formulário; os nomes já cadastrados ficam como estão.
   const d = lerCliente(fd, atual.nomesFortics);
+  // Com vínculo no ClickUp o nome é o da opção (RN-PL-12): o campo vem travado e o nome atual vale.
+  if (atual.nomeDoClickUp) d.nome = atual.nome;
   const erros = await validarCliente(d, { id, exigirSistema: false, cnpjPendente: atual.origem === "sinc" });
   const jaTem = new Set((await repo.listarSistemasDoCliente(id)).map((x) => x.sistema));
   if (d.sistemas.some((codigo) => jaTem.has(codigo))) erros.sistemas = "O cliente já tem um destes sistemas.";
@@ -140,12 +142,19 @@ export async function salvarUnidade(
   return { ok: true };
 }
 
-export async function removerUnidade(unidadeId: string) {
+/** Retorna a mensagem de erro, se houver (estabelecimento com visitas não é removido). */
+export async function removerUnidade(unidadeId: string): Promise<string | null> {
   await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
   const u = await repo.buscarUnidade(unidadeId);
-  if (!u) return;
-  await repo.removerUnidade(unidadeId);
+  if (!u) return null;
+  try {
+    await repo.removerUnidade(unidadeId);
+  } catch (e) {
+    if (e instanceof repo.EmUsoError) return e.message;
+    throw e;
+  }
   revalidatePath(`/admin/clientes/${u.clienteId}`);
+  return null;
 }
 
 // ---------- Setor ----------
@@ -168,10 +177,17 @@ export async function salvarSetor(unidadeId: string, setorId: string | null, nom
   return null;
 }
 
-export async function removerSetor(setorId: string) {
+/** Retorna a mensagem de erro, se houver (setor com visitas não é removido). */
+export async function removerSetor(setorId: string): Promise<string | null> {
   await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
   const s = await repo.buscarSetor(setorId);
-  if (!s) return;
-  await repo.removerSetor(setorId);
+  if (!s) return null;
+  try {
+    await repo.removerSetor(setorId);
+  } catch (e) {
+    if (e instanceof repo.EmUsoError) return e.message;
+    throw e;
+  }
   await revalidarPorUnidade(s.unidadeId);
+  return null;
 }

@@ -1,0 +1,176 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../../src/generated/plataforma"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// We could not retrieve columns for the underlying table. Either it has none or you are missing rights to see them. Please check your privileges.
+// model ar_internal_metadata {
+// }
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model client_users {
+  id                 BigInt   @id @default(autoincrement())
+  client_id          BigInt
+  external_user_id   String?  @db.VarChar
+  nome               String?  @db.VarChar
+  telefone           String?  @db.VarChar
+  cargo              String?  @db.VarChar
+  cpf                String?  @db.VarChar
+  estado             String   @default("confirmado") @db.VarChar
+  origem             String   @default("painel_sinc") @db.VarChar
+  created_at         DateTime @default(now()) @db.Timestamp(6)
+  updated_at         DateTime @default(now()) @db.Timestamp(6)
+  cbo_codigo         String?  @db.VarChar
+  cbo_titulo         String?  @db.VarChar
+  setor              String?  @db.VarChar
+  criado_por_user_id BigInt?
+  clients            clients  @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rails_91818ac2d3")
+
+  @@unique([client_id, cpf], map: "index_client_users_cpf_por_sistema_do_cliente", where: raw("((cpf IS NOT NULL) AND ((estado)::text <> 'unido'::text))"))
+  @@unique([client_id, external_user_id], map: "index_client_users_on_client_id_and_external_user_id")
+  @@index([client_id], map: "index_client_users_on_client_id")
+  @@index([cpf], map: "index_client_users_on_cpf")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model clients {
+  id                 BigInt         @id @default(autoincrement())
+  customer_id        BigInt?
+  sistema            String         @db.VarChar
+  tenant_id          String?        @db.VarChar
+  estado             String         @default("sem_cliente") @db.VarChar
+  ligado_em          DateTime?      @db.Timestamp(6)
+  ligado_por_user_id BigInt?
+  ligacao_forma      String?        @db.VarChar
+  unido_a_id         BigInt?
+  tenant_id_unido    String?        @db.VarChar
+  nome_antigo        String?        @db.VarChar
+  created_at         DateTime       @default(now()) @db.Timestamp(6)
+  updated_at         DateTime       @default(now()) @db.Timestamp(6)
+  client_users       client_users[]
+  customers          customers?     @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rails_acf7e073e4")
+  clients            clients?       @relation("clientsToclients", fields: [unido_a_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rails_cd382d746f")
+  other_clients      clients[]      @relation("clientsToclients")
+
+  @@unique([sistema, tenant_id], map: "index_clients_on_sistema_and_tenant_id", where: raw("(tenant_id IS NOT NULL)"))
+  @@unique([customer_id, sistema], map: "index_clients_um_por_sistema_do_customer", where: raw("((customer_id IS NOT NULL) AND ((estado)::text <> 'unido'::text))"))
+  @@index([customer_id], map: "index_clients_on_customer_id")
+  @@index([estado], map: "index_clients_on_estado")
+  @@index([unido_a_id], map: "index_clients_on_unido_a_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model customers {
+  id                               BigInt       @id @default(autoincrement())
+  nome                             String       @db.VarChar
+  cnpj                             String?      @unique(map: "index_customers_on_cnpj", where: raw("(cnpj IS NOT NULL)")) @db.VarChar
+  clickup_cliente_option_id        String?      @unique(map: "index_customers_on_clickup_cliente_option_id", where: raw("(clickup_cliente_option_id IS NOT NULL)")) @db.VarChar
+  clickup_sync_status              String       @default("pendente") @db.VarChar
+  clickup_match_sugerido_option_id String?      @db.VarChar
+  clickup_match_sugerido_nome      String?      @db.VarChar
+  clickup_synced_at                DateTime?    @db.Timestamp(6)
+  fortics_nomes                    Json         @default("[]")
+  origem                           String       @default("sinc") @db.VarChar
+  ativo                            Boolean      @default(true)
+  criado_por_user_id               BigInt?
+  created_at                       DateTime     @default(now()) @db.Timestamp(6)
+  updated_at                       DateTime     @default(now()) @db.Timestamp(6)
+  clients                          clients[]
+  user_roles                       user_roles[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model erp_systems {
+  id                 BigInt   @id @default(autoincrement())
+  ativo              Boolean  @default(true)
+  clickup_opcao_nome String?  @db.VarChar
+  codigo             String   @unique(map: "index_erp_systems_on_codigo") @db.VarChar
+  created_at         DateTime @default(now()) @db.Timestamp(6)
+  fortics_nome       String?  @db.VarChar
+  nome               String   @db.VarChar
+  posicao            Int      @default(0)
+  updated_at         DateTime @default(now()) @db.Timestamp(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model permissions {
+  id               BigInt             @id @default(autoincrement())
+  codigo           String             @unique(map: "index_permissions_on_codigo") @db.VarChar
+  produto          String             @db.VarChar
+  grupo            String             @db.VarChar
+  descricao        String             @db.VarChar
+  ativa            Boolean            @default(true)
+  created_at       DateTime           @default(now()) @db.Timestamp(6)
+  updated_at       DateTime           @default(now()) @db.Timestamp(6)
+  role_permissions role_permissions[]
+}
+
+model role_permissions {
+  id            BigInt      @id @default(autoincrement())
+  role_id       BigInt
+  permission_id BigInt
+  created_at    DateTime    @default(now()) @db.Timestamp(6)
+  updated_at    DateTime    @default(now()) @db.Timestamp(6)
+  permissions   permissions @relation(fields: [permission_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rails_439e640a3f")
+  roles         roles       @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_rails_60126080bd")
+
+  @@unique([role_id, permission_id], map: "index_role_permissions_on_role_id_and_permission_id")
+  @@index([permission_id], map: "index_role_permissions_on_permission_id")
+  @@index([role_id], map: "index_role_permissions_on_role_id")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model roles {
+  id               BigInt             @id @default(autoincrement())
+  nome             String             @db.VarChar
+  descricao        String?            @db.VarChar
+  protegido        Boolean            @unique(map: "index_roles_um_protegido", where: raw("protegido")) @default(false)
+  created_at       DateTime           @default(now()) @db.Timestamp(6)
+  updated_at       DateTime           @default(now()) @db.Timestamp(6)
+  role_permissions role_permissions[]
+  user_roles       user_roles[]
+}
+
+/// We could not retrieve columns for the underlying table. Either it has none or you are missing rights to see them. Please check your privileges.
+// model schema_migrations {
+// }
+
+/// We could not retrieve columns for the underlying table. Either it has none or you are missing rights to see them. Please check your privileges.
+// model sessions {
+// }
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model user_roles {
+  id                 BigInt     @id @default(autoincrement())
+  user_id            BigInt
+  role_id            BigInt
+  escopo_sistema     String?    @db.VarChar
+  escopo_customer_id BigInt?
+  created_at         DateTime   @default(now()) @db.Timestamp(6)
+  updated_at         DateTime   @default(now()) @db.Timestamp(6)
+  users              users      @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rails_318345354e")
+  roles              roles      @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rails_3369e0d5fc")
+  customers          customers? @relation(fields: [escopo_customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rails_96da9aa796")
+
+  @@index([escopo_customer_id], map: "index_user_roles_on_escopo_customer_id")
+  @@index([role_id], map: "index_user_roles_on_role_id")
+  @@index([user_id], map: "index_user_roles_on_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model users {
+  id              BigInt       @id @default(autoincrement())
+  email_address   String       @unique(map: "index_users_on_email_address") @db.VarChar
+  password_digest String       @db.VarChar
+  nome            String?      @db.VarChar
+  telefone        String?      @db.VarChar
+  active          Boolean      @default(true)
+  created_at      DateTime     @default(now()) @db.Timestamp(6)
+  updated_at      DateTime     @default(now()) @db.Timestamp(6)
+  user_roles      user_roles[]
+}

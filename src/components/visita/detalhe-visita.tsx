@@ -208,7 +208,13 @@ export function DetalheVisita({
                       {selos && <SeloParticipante estado={p.estado} className="ml-2" />}
                     </TableCell>
                     <TableCell className="text-xs">
-                      <span className="font-mono text-muted-foreground">{formatarCbo(p.cbo.codigo)}</span> {p.cbo.titulo}
+                      {p.cbo ? (
+                        <>
+                          <span className="font-mono text-muted-foreground">{formatarCbo(p.cbo.codigo)}</span> {p.cbo.titulo}
+                        </>
+                      ) : (
+                        "—"
+                      )}
                     </TableCell>
                     <TableCell>{p.setor || "—"}</TableCell>
                     <TableCell className="font-mono text-xs">{p.cpf ? (cpf === "completo" ? formatarCpf(p.cpf) : mascararCpf(p.cpf)) : "—"}</TableCell>
