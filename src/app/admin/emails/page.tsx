@@ -42,7 +42,7 @@ function Cabecalho() {
       ) : (
         <Alert className="mb-4">
           <FlaskConical />
-          <AlertDescription>Envio simulado. Para enviar de verdade, ligue <code>EMAIL_REAL</code> e configure o provedor de e-mail (Resend ou SMTP) no servidor.</AlertDescription>
+          <AlertDescription>Envio simulado. Para enviar de verdade, ligue <code>EMAIL_REAL</code> e configure o SMTP no servidor.</AlertDescription>
         </Alert>
       )}
     </>

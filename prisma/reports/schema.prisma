@@ -1,0 +1,285 @@
+// Banco próprio do ReportS (Fase 4 do plano da plataforma). As referências à plataforma — cliente, sistema do
+// cliente, participante, técnico — são ids simples (bigint), sem chave estrangeira: bancos separados não se
+// enxergam. Os ids das tabelas daqui são texto (UUID), como no protótipo em memória.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../../src/generated/reports"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Estabelecimento do cliente, comum a todos os sistemas dele.
+model Estabelecimento {
+  id          String   @id
+  clienteId   BigInt   @map("cliente_id")
+  nome        String
+  endereco    String   @default("")
+  latitude    Float?
+  longitude   Float?
+  raioMetros  Int      @map("raio_metros")
+  criadoEm    DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em")
+  setores     Setor[]
+  visitas     Visita[]
+
+  @@index([clienteId])
+  @@map("estabelecimentos")
+}
+
+model Setor {
+  id                String          @id
+  estabelecimentoId String          @map("estabelecimento_id")
+  nome              String
+  estabelecimento   Estabelecimento @relation(fields: [estabelecimentoId], references: [id], onDelete: Cascade)
+  visitas           Visita[]
+
+  @@index([estabelecimentoId])
+  @@map("setores")
+}
+
+/// Pessoa que aprova relatórios, em cadastro próprio (D-07). Sem login.
+model Aprovador {
+  id        String              @id
+  nome      String
+  cargo     String
+  email     String              @unique
+  ativo     Boolean             @default(true)
+  criadoEm  DateTime            @default(now()) @map("criado_em")
+  contratos ContratoAprovador[]
+
+  @@map("aprovadores")
+}
+
+/// Um contrato por sistema do cliente (D-14). O cliente é guardado junto para filtrar sem consultar a plataforma.
+model Contrato {
+  id                 String              @id
+  clienteId          BigInt              @map("cliente_id")
+  sistemaDoClienteId BigInt              @unique @map("sistema_do_cliente_id")
+  texto              String
+  nivel              String
+  exigeCpf           Boolean             @map("exige_cpf")
+  ativo              Boolean             @default(true)
+  criadoEm           DateTime            @default(now()) @map("criado_em")
+  atualizadoEm       DateTime            @default(now()) @updatedAt @map("atualizado_em")
+  aprovadores        ContratoAprovador[]
+  visitas            Visita[]
+  relatorios         Relatorio[]
+
+  @@index([clienteId])
+  @@map("contratos")
+}
+
+/// Aprovadores do contrato, na ordem em que foram marcados.
+model ContratoAprovador {
+  contratoId  String    @map("contrato_id")
+  aprovadorId String    @map("aprovador_id")
+  ordem       Int
+  contrato    Contrato  @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  aprovador   Aprovador @relation(fields: [aprovadorId], references: [id])
+
+  @@id([contratoId, aprovadorId])
+  @@index([aprovadorId])
+  @@map("contrato_aprovadores")
+}
+
+/// Tema trabalhado na visita; o sistema é o código do cadastro de sistemas da plataforma.
+model Tema {
+  id      String       @id
+  nome    String
+  sistema String
+  modulo  String
+  ativo   Boolean      @default(true)
+  visitas VisitaTema[]
+
+  @@map("temas")
+}
+
+/// Classificação Brasileira de Ocupações (tabela oficial do Ministério do Trabalho).
+model Cbo {
+  codigo String @id
+  titulo String
+
+  @@map("cbo")
+}
+
+/// Visita registrada pelo técnico. Cliente e sistema saem do contrato; o cliente fica copiado para filtrar.
+/// Local do check-in e do check-out (coordenada, precisão, horários, CEP e endereço), fotos e prints: JSON com a
+/// mesma forma do protótipo. Só pode haver uma visita em andamento por técnico (índice único parcial na migração).
+model Visita {
+  id                         String           @id
+  tecnicoId                  BigInt           @map("tecnico_id")
+  clienteId                  BigInt           @map("cliente_id")
+  contratoId                 String           @map("contrato_id")
+  estabelecimentoId          String           @map("estabelecimento_id")
+  setorId                    String?          @map("setor_id")
+  setorOutro                 String?          @map("setor_outro")
+  tipo                       String
+  status                     String
+  entrada                    DateTime
+  saida                      DateTime?
+  checkin                    Json?
+  checkout                   Json?
+  meio                       String
+  distanciaCheckinM          Int?             @map("distancia_checkin_m")
+  raioCheckinM               Int?             @map("raio_checkin_m")
+  fotoAmbiente               Json?            @map("foto_ambiente")
+  printTela                  Json?            @map("print_tela")
+  linkReuniao                String?          @map("link_reuniao")
+  temaAdicional              String           @default("") @map("tema_adicional")
+  fotosExtras                Json             @default("[]") @map("fotos_extras")
+  observacoes                String           @default("")
+  pendencias                 String           @default("")
+  proximosPassos             String           @default("") @map("proximos_passos")
+  encerradaPelaAdministracao Boolean          @default(false) @map("encerrada_pela_administracao")
+  relatorioId                String?          @map("relatorio_id")
+  contrato                   Contrato         @relation(fields: [contratoId], references: [id])
+  estabelecimento            Estabelecimento  @relation(fields: [estabelecimentoId], references: [id])
+  setor                      Setor?           @relation(fields: [setorId], references: [id])
+  relatorio                  Relatorio?       @relation(fields: [relatorioId], references: [id])
+  temas                      VisitaTema[]
+  presencas                  Presenca[]
+  alteracoes                 AlteracaoVisita[]
+
+  @@index([tecnicoId, status])
+  @@index([contratoId, status])
+  @@index([clienteId])
+  @@index([relatorioId])
+  @@index([entrada])
+  @@map("visitas")
+}
+
+model VisitaTema {
+  visitaId String @map("visita_id")
+  temaId   String @map("tema_id")
+  visita   Visita @relation(fields: [visitaId], references: [id], onDelete: Cascade)
+  tema     Tema   @relation(fields: [temaId], references: [id])
+
+  @@id([visitaId, temaId])
+  @@map("visita_temas")
+}
+
+/// Presença registrada na visita: cópia dos dados do participante no dia (o participante é da plataforma).
+model Presenca {
+  id             String  @id
+  visitaId       String  @map("visita_id")
+  participanteId BigInt  @map("participante_id")
+  estado         String
+  nome           String
+  cboCodigo      String? @map("cbo_codigo")
+  cboTitulo      String? @map("cbo_titulo")
+  setor          String  @default("")
+  cpf            String?
+  confirmacao    String
+  assinatura     String?
+  ordem          Int
+  visita         Visita  @relation(fields: [visitaId], references: [id], onDelete: Cascade)
+
+  @@unique([visitaId, participanteId])
+  @@map("presencas")
+}
+
+/// Histórico de alterações da visita pela administração (encerramento, cancelamento, correção).
+model AlteracaoVisita {
+  id        String   @id
+  visitaId  String   @map("visita_id")
+  autorId   BigInt   @map("autor_id")
+  autorNome String   @map("autor_nome")
+  em        DateTime
+  acao      String
+  motivo    String
+  mudancas  Json
+  visita    Visita   @relation(fields: [visitaId], references: [id], onDelete: Cascade)
+
+  @@index([visitaId])
+  @@map("alteracoes_visita")
+}
+
+/// Relatório de um contrato num período (AAAA-MM-DD, inclusive). As visitas do relatório são as que apontam para
+/// ele (visitas.relatorio_id); cada versão emitida guarda as suas.
+model Relatorio {
+  id           String            @id
+  clienteId    BigInt            @map("cliente_id")
+  contratoId   String            @map("contrato_id")
+  de           DateTime          @db.Date
+  ate          DateTime          @db.Date
+  status       String
+  criadoEm     DateTime          @default(now()) @map("criado_em")
+  atualizadoEm DateTime          @default(now()) @map("atualizado_em")
+  contrato     Contrato          @relation(fields: [contratoId], references: [id])
+  visitas      Visita[]
+  versoes      VersaoRelatorio[]
+  links        LinkAprovacao[]
+
+  @@index([contratoId])
+  @@index([clienteId])
+  @@map("relatorios")
+}
+
+/// Uma emissão do relatório (v1, v2…), congelada no envio.
+model VersaoRelatorio {
+  id           String    @id
+  relatorioId  String    @map("relatorio_id")
+  numero       Int
+  emitidoEm    DateTime  @map("emitido_em")
+  visitaIds    Json      @map("visita_ids")
+  pdfUrl       String?   @map("pdf_url")
+  pdfTamanho   Int       @default(0) @map("pdf_tamanho")
+  enviadoPara  Json      @map("enviado_para")
+  conteudo     Json?
+  decisao      Json?
+  relatorio    Relatorio @relation(fields: [relatorioId], references: [id], onDelete: Cascade)
+
+  @@unique([relatorioId, numero])
+  @@map("versoes_relatorio")
+}
+
+/// Link pessoal de aprovação: um por aprovador e por versão; vale até a primeira decisão ou uma versão nova.
+model LinkAprovacao {
+  token          String    @id
+  relatorioId    String    @map("relatorio_id")
+  versao         Int
+  aprovadorId    String?   @map("aprovador_id")
+  aprovadorNome  String    @map("aprovador_nome")
+  aprovadorCargo String    @map("aprovador_cargo")
+  aprovadorEmail String    @map("aprovador_email")
+  criadoEm       DateTime  @map("criado_em")
+  invalidadoEm   DateTime? @map("invalidado_em")
+  relatorio      Relatorio @relation(fields: [relatorioId], references: [id], onDelete: Cascade)
+
+  @@index([relatorioId, versao])
+  @@map("links_aprovacao")
+}
+
+/// Fotos, assinaturas e PDFs, guardados no disco do servidor (ARQUIVOS_DIR), fora da pasta pública.
+model Arquivo {
+  id       String   @id
+  tipo     String
+  tamanho  Int
+  caminho  String
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  @@map("arquivos")
+}
+
+/// Registro dos e-mails: o que foi enviado (ou simulado, em desenvolvimento) e o resultado.
+model Email {
+  id                String   @id
+  paraNome          String   @map("para_nome")
+  paraEmail         String   @map("para_email")
+  assunto           String
+  html              String
+  anexos            Json     @default("[]")
+  botao             Json?
+  enviadoEm         DateTime @map("enviado_em")
+  relatorioId       String?  @map("relatorio_id")
+  situacao          String
+  idMensagem        String?  @map("id_mensagem")
+  erro              String?
+  redirecionadoPara String?  @map("redirecionado_para")
+
+  @@index([enviadoEm])
+  @@map("emails")
+}

@@ -1,147 +1,130 @@
 import "server-only";
+import { Prisma } from "@/generated/reports/client";
+import { idPlataforma, idTexto, plataforma, reports } from "@/lib/db";
 import { formatarDataHora } from "@/lib/datas";
 import { rotuloTipo } from "@/lib/visitas";
-import type { AlteracaoVisita, EnderecoVisita, Foto, MudancaCampo, PresencaVisita, Tema, TipoVisita, UsuarioPublico, Visita, VisitaDetalhada } from "@/lib/types";
-import { buscarCliente, buscarUnidade, buscarSetor } from "./clientes";
-import { buscarContrato } from "./contratos";
-import { listarTemas } from "./temas";
-import { buscarPorId as buscarUsuario } from "./usuarios";
-import { relatorioAprovado } from "./relatorios-dados";
+import type {
+  AlteracaoVisita, EnderecoVisita, EstadoParticipante, Foto, LocalVisita, MeioRegistro, MudancaCampo, PresencaVisita, StatusVisita, TipoVisita,
+  UsuarioPublico, Visita, VisitaDetalhada,
+} from "@/lib/types";
+import { nomesDosClientes } from "./clientes";
+import { buscarTemasPorIds } from "./temas";
+import { nomesDosSistemas } from "./sistemas";
+import { nomesDosUsuarios } from "./usuarios";
 
 /*
- * Repositório de visitas — implementação MOCK em memória.
- * Na fase de banco, só este arquivo muda (Prisma/Postgres).
+ * Visitas — banco do ReportS. Técnico, cliente e participantes são ids da plataforma; os nomes vêm de lá na leitura.
+ * Locais (coordenada, precisão, horários e CEP), fotos e prints ficam em JSON, na mesma forma do protótipo.
+ * Só pode haver uma visita em andamento por técnico: o índice único parcial do banco garante.
  */
-
-
-const ASSINATURA = "/mock/assinatura.png";
-
-const foto = (n: number): Foto => ({ id: `f${n}-${Math.random().toString(36).slice(2, 7)}`, url: `/mock/foto-${n}.png` });
-
-const presenca = (p: Omit<PresencaVisita, "assinatura" | "confirmacao">, assinada: boolean): PresencaVisita => ({
-  ...p,
-  confirmacao: assinada ? "assinatura" : "nominal",
-  assinatura: assinada ? ASSINATURA : null,
-});
-
-const PATRICIA = { participanteId: "p3", estado: "confirmado" as const, nome: "Patrícia Gomes", cbo: { codigo: "252405", titulo: "Analista de recursos humanos" }, setor: "Recursos Humanos", cpf: "11144477735" };
-const EDUARDO = { participanteId: "p7", estado: "provisorio" as const, nome: "Eduardo Pires", cbo: { codigo: "411010", titulo: "Assistente administrativo" }, setor: "Recursos Humanos", cpf: "39053344705" };
-const SANDRA = { participanteId: "p4", estado: "provisorio" as const, nome: "Sandra Moura", cbo: { codigo: "223505", titulo: "Enfermeiro" }, setor: "Recepção", cpf: "52998224725" };
-
-function base(v: Partial<Visita> & Pick<Visita, "id" | "tecnicoId" | "clienteId" | "contratoId" | "unidadeId" | "tipo" | "status" | "entrada">): Visita {
-  return {
-    setorId: null, setorOutro: null, saida: null, checkin: null, checkout: null, meio: "celular", distanciaCheckinM: null, raioCheckinM: null, fotoAmbiente: null, printTela: null, linkReuniao: null,
-    temaIds: [], temaAdicional: "", fotosExtras: [], presencas: [], observacoes: "", pendencias: "", proximosPassos: "",
-    encerradaPelaAdministracao: false, relatorioId: null, historico: [],
-    ...v,
-  };
-}
-
-function seed(): Visita[] {
-  const agora = Date.now();
-  const haHoras = (h: number) => new Date(agora - h * 3600_000).toISOString();
-  // Um objeto por visita: o CEP é gravado dentro do local (definirEndereco), então não pode ser compartilhado.
-  const coords = () => ({ latitude: -22.9035, longitude: -47.0621 });
-  // ~178 m ao sul da Sede da Prefeitura (raio de 50 m): exemplo de check-in fora do raio.
-  const coordsLonge = () => ({ latitude: -22.9051, longitude: -47.0621 });
-  const noLocal = { distanciaCheckinM: 0, raioCheckinM: 50 };
-
-  return [
-    base({
-      id: "v1", tecnicoId: "u2", clienteId: "c1", contratoId: "ct1", unidadeId: "un1", setorId: "s1", tipo: "suporte_presencial", status: "em_andamento",
-      entrada: haHoras(2), checkin: coords(), ...noLocal, fotoAmbiente: foto(1), temaIds: ["t1"],
-    }),
-    base({
-      id: "v2", tecnicoId: "u3", clienteId: "c2", contratoId: "ct4", unidadeId: "un3", setorId: "s6", tipo: "implantacao", status: "em_andamento",
-      entrada: haHoras(26), checkin: coords(), fotoAmbiente: foto(2),
-    }),
-    base({
-      id: "v3", tecnicoId: "u2", clienteId: "c1", contratoId: "ct2", unidadeId: "un1", setorId: "s2", tipo: "treinamento", status: "encerrada",
-      entrada: "2026-10-06T13:00:00.000Z", saida: "2026-10-06T16:30:00.000Z", checkin: coords(), ...noLocal, checkout: coords(),
-      fotoAmbiente: foto(3), fotosExtras: [foto(4), foto(5)], temaIds: ["t4", "t5"], temaAdicional: "Dúvidas sobre consignados",
-      presencas: [presenca(PATRICIA, true), presenca(EDUARDO, true)],
-      observacoes: "Treinamento realizado com a equipe de RH. Boa participação.",
-      pendencias: "Enviar o manual de cálculo de férias atualizado.",
-      proximosPassos: "Acompanhar o fechamento da folha de outubro.",
-    }),
-    base({
-      id: "v4", tecnicoId: "u3", clienteId: "c1", contratoId: "ct3", unidadeId: "un2", setorId: "s5", tipo: "treinamento_online", status: "encerrada",
-      meio: "computador", entrada: "2026-10-09T17:00:00.000Z", saida: "2026-10-09T18:30:00.000Z", printTela: foto(6), linkReuniao: "https://meet.example/abc-defg-hij",
-      temaIds: ["t8"], presencas: [presenca(SANDRA, false)],
-      observacoes: "Treinamento online de dispensação.", proximosPassos: "Agendar a turma da tarde.",
-    }),
-    base({
-      id: "v5", tecnicoId: "u2", clienteId: "c2", contratoId: "ct4", unidadeId: "un3", setorId: "s6", tipo: "reuniao", status: "encerrada",
-      entrada: "2026-10-14T12:00:00.000Z", saida: "2026-10-14T13:00:00.000Z", checkin: coords(), checkout: coords(), fotoAmbiente: foto(2),
-      observacoes: "Reunião de alinhamento da implantação.", pendencias: "Cliente enviar a planilha de convênios.",
-    }),
-    base({
-      id: "v6", tecnicoId: "u3", clienteId: "c1", contratoId: "ct1", unidadeId: "un1", setorOutro: "Gabinete do Prefeito", tipo: "visita_tecnica", status: "encerrada",
-      entrada: "2026-10-20T14:00:00.000Z", saida: "2026-10-20T15:10:00.000Z", checkin: coordsLonge(), distanciaCheckinM: 178, raioCheckinM: 50, fotoAmbiente: foto(5), encerradaPelaAdministracao: true,
-      historico: [
-        {
-          id: "h1", autorId: "u1", autorNome: "Coordenação SIDIM", em: "2026-10-21T11:00:00.000Z", acao: "encerramento",
-          motivo: "Técnico esqueceu de fazer o check-out; saída confirmada por telefone.",
-          mudancas: [{ campo: "Saída", antes: "—", depois: "20/10/2026 12:10" }],
-        },
-      ],
-    }),
-    base({
-      id: "v7", tecnicoId: "u2", clienteId: "c2", contratoId: "ct4", unidadeId: "un3", setorId: "s6", tipo: "suporte_presencial", status: "cancelada",
-      entrada: "2026-10-21T13:00:00.000Z", checkin: coords(), fotoAmbiente: foto(1),
-      historico: [
-        {
-          id: "h2", autorId: "u1", autorNome: "Coordenação SIDIM", em: "2026-10-21T13:20:00.000Z", acao: "cancelamento",
-          motivo: "Check-in feito por engano no cliente errado.", mudancas: [{ campo: "Situação", antes: "Em andamento", depois: "Cancelada" }],
-        },
-      ],
-    }),
-    base({
-      id: "v8", tecnicoId: "u2", clienteId: "c1", contratoId: "ct1", unidadeId: "un1", setorId: "s3", tipo: "suporte_presencial", status: "encerrada",
-      entrada: "2026-09-15T12:30:00.000Z", saida: "2026-09-15T15:00:00.000Z", checkin: coords(), ...noLocal, checkout: coords(), fotoAmbiente: foto(4),
-      temaIds: ["t2", "t3"], observacoes: "Suporte na emissão de guias.", relatorioId: "r-2026-09-c1",
-    }),
-  ];
-}
-
-// Mantém os dados entre recargas do servidor de desenvolvimento.
-const g = globalThis as unknown as { __visitasV2?: Visita[] };
-const visitas = (g.__visitasV2 ??= seed());
-
-// ---------- Consultas ----------
 
 export type { VisitaDetalhada };
 
-async function detalhar(v: Visita, temas?: Tema[]): Promise<VisitaDetalhada> {
-  const [tecnico, cliente, contrato, unidade, setor, todos] = await Promise.all([
-    buscarUsuario(v.tecnicoId),
-    buscarCliente(v.clienteId),
-    buscarContrato(v.contratoId),
-    buscarUnidade(v.unidadeId),
-    v.setorId ? buscarSetor(v.setorId) : null,
-    temas ?? listarTemas(),
+const INCLUIR = {
+  temas: { select: { temaId: true } },
+  presencas: { orderBy: { ordem: "asc" } },
+  alteracoes: { orderBy: { em: "asc" } },
+  estabelecimento: { select: { nome: true } },
+  setor: { select: { nome: true } },
+  contrato: { select: { sistemaDoClienteId: true } },
+  relatorio: { select: { status: true } },
+} as const;
+
+type Linha = Prisma.VisitaGetPayload<{ include: typeof INCLUIR }>;
+
+/** Json? do Prisma: null precisa ser DbNull. */
+const json = (v: unknown) => (v === null || v === undefined ? Prisma.DbNull : (v as Prisma.InputJsonValue));
+
+const paraPresenca = (p: Linha["presencas"][number]): PresencaVisita => ({
+  participanteId: idTexto(p.participanteId),
+  estado: p.estado as EstadoParticipante,
+  nome: p.nome,
+  cbo: p.cboCodigo ? { codigo: p.cboCodigo, titulo: p.cboTitulo ?? "" } : null,
+  setor: p.setor,
+  cpf: p.cpf,
+  confirmacao: p.confirmacao as PresencaVisita["confirmacao"],
+  assinatura: p.assinatura,
+});
+
+const paraAlteracao = (a: Linha["alteracoes"][number]): AlteracaoVisita => ({
+  id: a.id,
+  autorId: idTexto(a.autorId),
+  autorNome: a.autorNome,
+  em: a.em.toISOString(),
+  acao: a.acao as AlteracaoVisita["acao"],
+  motivo: a.motivo,
+  mudancas: a.mudancas as unknown as MudancaCampo[],
+});
+
+const paraVisita = (v: Linha): Visita => ({
+  id: v.id,
+  tecnicoId: idTexto(v.tecnicoId),
+  clienteId: idTexto(v.clienteId),
+  contratoId: v.contratoId,
+  unidadeId: v.estabelecimentoId,
+  setorId: v.setorId,
+  setorOutro: v.setorOutro,
+  tipo: v.tipo as TipoVisita,
+  status: v.status as StatusVisita,
+  entrada: v.entrada.toISOString(),
+  saida: v.saida?.toISOString() ?? null,
+  checkin: v.checkin as unknown as LocalVisita | null,
+  checkout: v.checkout as unknown as LocalVisita | null,
+  meio: v.meio as MeioRegistro,
+  distanciaCheckinM: v.distanciaCheckinM,
+  raioCheckinM: v.raioCheckinM,
+  fotoAmbiente: v.fotoAmbiente as unknown as Foto | null,
+  printTela: v.printTela as unknown as Foto | null,
+  linkReuniao: v.linkReuniao,
+  temaIds: v.temas.map((t) => t.temaId),
+  temaAdicional: v.temaAdicional,
+  fotosExtras: (v.fotosExtras as unknown as Foto[]) ?? [],
+  presencas: v.presencas.map(paraPresenca),
+  observacoes: v.observacoes,
+  pendencias: v.pendencias,
+  proximosPassos: v.proximosPassos,
+  encerradaPelaAdministracao: v.encerradaPelaAdministracao,
+  relatorioId: v.relatorioId,
+  historico: v.alteracoes.map(paraAlteracao),
+});
+
+/** Resolve os nomes de várias visitas com uma consulta por cadastro. */
+async function detalharTodas(linhas: Linha[]): Promise<VisitaDetalhada[]> {
+  if (!linhas.length) return [];
+  const [tecnicos, clientes, sistemas, nomeDoSistema, temas] = await Promise.all([
+    nomesDosUsuarios(linhas.map((v) => idTexto(v.tecnicoId))),
+    nomesDosClientes(linhas.map((v) => idTexto(v.clienteId))),
+    plataforma.clients.findMany({ where: { id: { in: [...new Set(linhas.map((v) => v.contrato.sistemaDoClienteId))] } }, select: { id: true, sistema: true } }),
+    nomesDosSistemas(),
+    buscarTemasPorIds([...new Set(linhas.flatMap((v) => v.temas.map((t) => t.temaId)))]),
   ]);
-  return {
-    ...v,
-    tecnicoNome: tecnico?.nome ?? "—",
-    clienteNome: cliente?.nome ?? "—",
-    sistema: contrato?.sistema ?? "",
-    sistemaNome: contrato?.sistemaNome ?? "—",
-    unidadeNome: unidade?.nome ?? "—",
-    setorNome: setor?.nome ?? v.setorOutro ?? "—",
-    temas: todos.filter((t) => v.temaIds.includes(t.id)),
-    travada: relatorioAprovado(v.relatorioId),
-  };
+  const sistemaDe = new Map(sistemas.map((s) => [s.id, s.sistema]));
+  return linhas.map((linha) => {
+    const v = paraVisita(linha);
+    const sistema = sistemaDe.get(linha.contrato.sistemaDoClienteId) ?? "";
+    return {
+      ...v,
+      tecnicoNome: tecnicos.get(v.tecnicoId) ?? "—",
+      clienteNome: clientes.get(v.clienteId) ?? "—",
+      sistema,
+      sistemaNome: sistema ? nomeDoSistema(sistema) : "—",
+      unidadeNome: linha.estabelecimento.nome,
+      setorNome: linha.setor?.nome ?? v.setorOutro ?? "—",
+      temas: temas.filter((t) => v.temaIds.includes(t.id)),
+      travada: linha.relatorio?.status === "aprovado",
+    };
+  });
 }
 
-async function detalharTodas(lista: Visita[]) {
-  const temas = await listarTemas();
-  return Promise.all(lista.map((v) => detalhar(v, temas)));
+async function detalhar(linha: Linha | null): Promise<VisitaDetalhada | null> {
+  return linha ? (await detalharTodas([linha]))[0] : null;
 }
+
+// ---------- Consultas ----------
 
 /** Em andamento, da mais antiga para a mais recente (as esquecidas aparecem primeiro). */
 export async function listarEmAndamento(): Promise<VisitaDetalhada[]> {
-  return detalharTodas(visitas.filter((v) => v.status === "em_andamento").sort((a, b) => a.entrada.localeCompare(b.entrada)));
+  return detalharTodas(await reports.visita.findMany({ where: { status: "em_andamento" }, include: INCLUIR, orderBy: { entrada: "asc" } }));
 }
 
 export interface FiltroVisitas {
@@ -153,46 +136,75 @@ export interface FiltroVisitas {
   incluirCanceladas?: boolean;
 }
 
+const periodo = (de?: string, ate?: string) => (de || ate ? { entrada: { ...(de ? { gte: new Date(de) } : {}), ...(ate ? { lte: new Date(ate) } : {}) } } : {});
+
+/** Filtro por id da plataforma: id que não é número não acha nada. */
+const porIdPlataforma = (id: string) => idPlataforma(id) ?? BigInt(-1);
+
 /** Encerradas (e, opcionalmente, canceladas), da mais recente para a mais antiga. */
 export async function listarEncerradas(f: FiltroVisitas = {}): Promise<VisitaDetalhada[]> {
   return detalharTodas(
-    visitas
-      .filter((v) => v.status === "encerrada" || (f.incluirCanceladas && v.status === "cancelada"))
-      .filter((v) => !f.clienteId || v.clienteId === f.clienteId)
-      .filter((v) => !f.tecnicoId || v.tecnicoId === f.tecnicoId)
-      .filter((v) => !f.de || v.entrada >= f.de)
-      .filter((v) => !f.ate || v.entrada <= f.ate)
-      .sort((a, b) => b.entrada.localeCompare(a.entrada)),
+    await reports.visita.findMany({
+      where: {
+        status: { in: f.incluirCanceladas ? ["encerrada", "cancelada"] : ["encerrada"] },
+        ...(f.clienteId ? { clienteId: porIdPlataforma(f.clienteId) } : {}),
+        ...(f.tecnicoId ? { tecnicoId: porIdPlataforma(f.tecnicoId) } : {}),
+        ...periodo(f.de, f.ate),
+      },
+      include: INCLUIR,
+      orderBy: { entrada: "desc" },
+    }),
   );
 }
 
 export async function buscarVisita(id: string): Promise<VisitaDetalhada | null> {
-  const v = visitas.find((x) => x.id === id);
-  return v ? detalhar(v) : null;
+  return detalhar(await reports.visita.findUnique({ where: { id }, include: INCLUIR }));
 }
 
 // ---------- Alterações pela administração ----------
 
-function registrar(v: Visita, autor: UsuarioPublico, acao: AlteracaoVisita["acao"], motivo: string, mudancas: MudancaCampo[]) {
-  v.historico.push({ id: crypto.randomUUID(), autorId: autor.id, autorNome: autor.nome, em: new Date().toISOString(), acao, motivo, mudancas });
+function registro(visitaId: string, autor: UsuarioPublico, acao: AlteracaoVisita["acao"], motivo: string, mudancas: MudancaCampo[]) {
+  return {
+    id: crypto.randomUUID(),
+    visitaId,
+    autorId: idPlataforma(autor.id)!,
+    autorNome: autor.nome,
+    em: new Date(),
+    acao,
+    motivo,
+    mudancas: mudancas as unknown as Prisma.InputJsonValue,
+  };
+}
+
+/** Muda a situação só se a visita ainda está em andamento (duas pessoas na mesma tela: vale a primeira). */
+async function sairDeEmAndamento(
+  id: string,
+  dados: Prisma.VisitaUpdateManyMutationInput,
+  alteracao: ReturnType<typeof registro>,
+) {
+  await reports.$transaction(async (tx) => {
+    const { count } = await tx.visita.updateMany({ where: { id, status: "em_andamento" }, data: dados });
+    if (!count) throw new Error("Visita não está em andamento");
+    await tx.alteracaoVisita.create({ data: alteracao });
+  });
 }
 
 /** Encerra uma visita esquecida aberta, com o horário de saída informado pela administração. */
 export async function encerrarPelaAdministracao(id: string, saida: string, autor: UsuarioPublico, justificativa: string) {
-  const v = visitas.find((x) => x.id === id);
-  if (!v || v.status !== "em_andamento") throw new Error("Visita não está em andamento");
-  v.status = "encerrada";
-  v.saida = saida;
-  v.encerradaPelaAdministracao = true;
-  registrar(v, autor, "encerramento", justificativa, [{ campo: "Saída", antes: "—", depois: formatarDataHora(saida) }]);
+  await sairDeEmAndamento(
+    id,
+    { status: "encerrada", saida: new Date(saida), encerradaPelaAdministracao: true },
+    registro(id, autor, "encerramento", justificativa, [{ campo: "Saída", antes: "—", depois: formatarDataHora(saida) }]),
+  );
 }
 
 /** Cancela um check-in feito por engano. A visita não entra em relatório. */
 export async function cancelarPelaAdministracao(id: string, autor: UsuarioPublico, justificativa: string) {
-  const v = visitas.find((x) => x.id === id);
-  if (!v || v.status !== "em_andamento") throw new Error("Visita não está em andamento");
-  v.status = "cancelada";
-  registrar(v, autor, "cancelamento", justificativa, [{ campo: "Situação", antes: "Em andamento", depois: "Cancelada" }]);
+  await sairDeEmAndamento(
+    id,
+    { status: "cancelada" },
+    registro(id, autor, "cancelamento", justificativa, [{ campo: "Situação", antes: "Em andamento", depois: "Cancelada" }]),
+  );
 }
 
 export interface CorrecaoVisita {
@@ -215,14 +227,18 @@ export interface CorrecaoVisita {
 
 /** Aplica a correção e registra o histórico. Retorna as mudanças (vazio = nada mudou, nada é gravado). */
 export async function corrigirPelaAdministracao(id: string, c: CorrecaoVisita, autor: UsuarioPublico, motivo: string): Promise<MudancaCampo[]> {
-  const v = visitas.find((x) => x.id === id);
+  const v = await buscarVisita(id);
   if (!v || v.status !== "encerrada") throw new Error("Só visitas encerradas podem ser corrigidas");
-  if (relatorioAprovado(v.relatorioId)) throw new Error("Visita em relatório aprovado");
+  if (v.travada) throw new Error("Visita em relatório aprovado");
 
-  const temas = await listarTemas();
+  const [temas, unidades, setores] = await Promise.all([
+    buscarTemasPorIds([...new Set([...v.temaIds, ...c.temaIds])]),
+    reports.estabelecimento.findMany({ where: { id: { in: [v.unidadeId, c.unidadeId] } }, select: { id: true, nome: true } }),
+    reports.setor.findMany({ where: { id: { in: [v.setorId, c.setorId].filter((x): x is string => !!x) } }, select: { id: true, nome: true } }),
+  ]);
   const nomeTemas = (ids: string[]) => temas.filter((t) => ids.includes(t.id)).map((t) => t.nome).join(", ") || "—";
-  const nomeSetor = async (setorId: string | null, outro: string | null) => (setorId ? (await buscarSetor(setorId))?.nome : outro) ?? "—";
-  const nomeUnidade = async (uid: string) => (await buscarUnidade(uid))?.nome ?? "—";
+  const nomeSetor = (setorId: string | null, outro: string | null) => (setorId ? setores.find((s) => s.id === setorId)?.nome : outro) ?? "—";
+  const nomeUnidade = (uid: string) => unidades.find((u) => u.id === uid)?.nome ?? "—";
 
   const mudancas: MudancaCampo[] = [];
   const comparar = (campo: string, antes: string, depois: string) => {
@@ -232,8 +248,8 @@ export async function corrigirPelaAdministracao(id: string, c: CorrecaoVisita, a
   comparar("Entrada", formatarDataHora(v.entrada), formatarDataHora(c.entrada));
   comparar("Saída", v.saida ? formatarDataHora(v.saida) : "", formatarDataHora(c.saida));
   comparar("Tipo", rotuloTipo(v.tipo), rotuloTipo(c.tipo));
-  comparar("Estabelecimento", await nomeUnidade(v.unidadeId), await nomeUnidade(c.unidadeId));
-  comparar("Setor", await nomeSetor(v.setorId, v.setorOutro), await nomeSetor(c.setorId, c.setorOutro));
+  comparar("Estabelecimento", nomeUnidade(v.unidadeId), nomeUnidade(c.unidadeId));
+  comparar("Setor", nomeSetor(v.setorId, v.setorOutro), nomeSetor(c.setorId, c.setorOutro));
   comparar("Temas", nomeTemas(v.temaIds), nomeTemas(c.temaIds));
   comparar("Tema adicional", v.temaAdicional, c.temaAdicional);
   comparar("Observações", v.observacoes, c.observacoes);
@@ -251,22 +267,33 @@ export async function corrigirPelaAdministracao(id: string, c: CorrecaoVisita, a
 
   if (!mudancas.length) return [];
 
-  Object.assign(v, {
-    entrada: c.entrada,
-    saida: c.saida,
-    tipo: c.tipo,
-    unidadeId: c.unidadeId,
-    setorId: c.setorId,
-    setorOutro: c.setorOutro,
-    temaIds: c.temaIds,
-    temaAdicional: c.temaAdicional,
-    observacoes: c.observacoes,
-    pendencias: c.pendencias,
-    proximosPassos: c.proximosPassos,
-    presencas: v.presencas.filter((p) => !c.removerPresencas.includes(p.participanteId)),
-    fotosExtras: v.fotosExtras.filter((f) => !c.removerFotos.includes(f.id)),
+  const temaIds = [...new Set(c.temaIds)];
+  await reports.$transaction(async (tx) => {
+    // Só grava se a visita continua encerrada e fora de relatório aprovado.
+    const { count } = await tx.visita.updateMany({
+      where: { id, status: "encerrada", OR: [{ relatorioId: null }, { relatorio: { status: { not: "aprovado" } } }] },
+      data: {
+        entrada: new Date(c.entrada),
+        saida: new Date(c.saida),
+        tipo: c.tipo,
+        estabelecimentoId: c.unidadeId,
+        setorId: c.setorId,
+        setorOutro: c.setorOutro,
+        temaAdicional: c.temaAdicional,
+        observacoes: c.observacoes,
+        pendencias: c.pendencias,
+        proximosPassos: c.proximosPassos,
+        fotosExtras: v.fotosExtras.filter((f) => !c.removerFotos.includes(f.id)) as unknown as Prisma.InputJsonValue,
+      },
+    });
+    if (!count) throw new Error("A visita mudou enquanto era corrigida. Abra de novo e confira.");
+    await tx.visitaTema.deleteMany({ where: { visitaId: id } });
+    await tx.visitaTema.createMany({ data: temaIds.map((temaId) => ({ visitaId: id, temaId })) });
+    if (presencasRemovidas.length) {
+      await tx.presenca.deleteMany({ where: { visitaId: id, participanteId: { in: presencasRemovidas.map((p) => idPlataforma(p.participanteId)!) } } });
+    }
+    await tx.alteracaoVisita.create({ data: registro(id, autor, "correcao", motivo, mudancas) });
   });
-  registrar(v, autor, "correcao", motivo, mudancas);
   return mudancas;
 }
 
@@ -274,8 +301,7 @@ export async function corrigirPelaAdministracao(id: string, c: CorrecaoVisita, a
 
 /** A visita em andamento do técnico, se houver (só pode existir uma). */
 export async function visitaAbertaDoTecnico(tecnicoId: string): Promise<VisitaDetalhada | null> {
-  const v = visitas.find((x) => x.tecnicoId === tecnicoId && x.status === "em_andamento");
-  return v ? detalhar(v) : null;
+  return detalhar(await reports.visita.findFirst({ where: { tecnicoId: porIdPlataforma(tecnicoId), status: "em_andamento" }, include: INCLUIR }));
 }
 
 export type DadosCheckin = Pick<
@@ -284,50 +310,112 @@ export type DadosCheckin = Pick<
   | "fotoAmbiente" | "printTela" | "linkReuniao"
 >;
 
+const JA_TEM_ABERTA = "Técnico já tem uma visita em andamento";
+
 /** Abre a visita com a hora do servidor. Recusa se o técnico já tem uma visita aberta. */
 export async function abrirVisita(d: DadosCheckin): Promise<Visita> {
-  if (visitas.some((x) => x.tecnicoId === d.tecnicoId && x.status === "em_andamento")) {
-    throw new Error("Técnico já tem uma visita em andamento");
+  const tecnicoId = idPlataforma(d.tecnicoId);
+  const clienteId = idPlataforma(d.clienteId);
+  if (tecnicoId === null || clienteId === null) throw new Error("Técnico ou cliente inválido");
+  if (await reports.visita.count({ where: { tecnicoId, status: "em_andamento" } })) throw new Error(JA_TEM_ABERTA);
+  try {
+    const v = await reports.visita.create({
+      data: {
+        id: crypto.randomUUID(),
+        tecnicoId,
+        clienteId,
+        contratoId: d.contratoId,
+        estabelecimentoId: d.unidadeId,
+        setorId: d.setorId,
+        setorOutro: d.setorOutro,
+        tipo: d.tipo,
+        status: "em_andamento",
+        entrada: new Date(),
+        checkin: json(d.checkin),
+        meio: d.meio,
+        distanciaCheckinM: d.distanciaCheckinM,
+        raioCheckinM: d.raioCheckinM,
+        fotoAmbiente: json(d.fotoAmbiente),
+        printTela: json(d.printTela),
+        linkReuniao: d.linkReuniao,
+      },
+      include: INCLUIR,
+    });
+    return paraVisita(v);
+  } catch (e) {
+    // Dois check-ins ao mesmo tempo: o índice único parcial recusa o segundo.
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") throw new Error(JA_TEM_ABERTA);
+    throw e;
   }
-  const v = base({ ...d, id: crypto.randomUUID(), status: "em_andamento", entrada: new Date().toISOString() });
-  visitas.push(v);
-  return v;
 }
 
 /** Visita em andamento do próprio técnico (para alterações durante a visita). */
-function abertaDe(id: string, tecnicoId: string): Visita {
-  const v = visitas.find((x) => x.id === id);
-  if (!v || v.tecnicoId !== tecnicoId) throw new Error("Visita não encontrada");
+async function abertaDe(id: string, tecnicoId: string) {
+  const v = await reports.visita.findUnique({ where: { id }, select: { id: true, tecnicoId: true, status: true, fotosExtras: true } });
+  if (!v || idTexto(v.tecnicoId) !== tecnicoId) throw new Error("Visita não encontrada");
   if (v.status !== "em_andamento") throw new Error("A visita já foi encerrada");
   return v;
 }
 
 export async function definirTemas(id: string, tecnicoId: string, temaIds: string[]) {
-  abertaDe(id, tecnicoId).temaIds = [...new Set(temaIds)];
+  await abertaDe(id, tecnicoId);
+  await reports.$transaction([
+    reports.visitaTema.deleteMany({ where: { visitaId: id } }),
+    reports.visitaTema.createMany({ data: [...new Set(temaIds)].map((temaId) => ({ visitaId: id, temaId })) }),
+  ]);
 }
 
 export async function definirTemaAdicional(id: string, tecnicoId: string, texto: string) {
-  abertaDe(id, tecnicoId).temaAdicional = texto;
+  await abertaDe(id, tecnicoId);
+  await reports.visita.update({ where: { id }, data: { temaAdicional: texto } });
 }
 
 export async function adicionarFotoExtra(id: string, tecnicoId: string, foto: Foto) {
-  abertaDe(id, tecnicoId).fotosExtras.push(foto);
+  await abertaDe(id, tecnicoId);
+  // Acrescenta no próprio banco: dois envios ao mesmo tempo não se sobrescrevem.
+  await reports.$executeRaw`UPDATE visitas SET fotos_extras = fotos_extras || ${JSON.stringify([foto])}::jsonb WHERE id = ${id}`;
 }
 
 export async function removerFotoExtra(id: string, tecnicoId: string, fotoId: string) {
-  const v = abertaDe(id, tecnicoId);
-  v.fotosExtras = v.fotosExtras.filter((f) => f.id !== fotoId);
+  await abertaDe(id, tecnicoId);
+  await reports.$executeRaw`
+    UPDATE visitas
+    SET fotos_extras = COALESCE((SELECT jsonb_agg(f) FROM jsonb_array_elements(fotos_extras) f WHERE f->>'id' <> ${fotoId}), '[]'::jsonb)
+    WHERE id = ${id}`;
 }
 
 export async function adicionarPresenca(id: string, tecnicoId: string, p: PresencaVisita) {
-  const v = abertaDe(id, tecnicoId);
-  if (v.presencas.some((x) => x.participanteId === p.participanteId)) throw new Error("Participante já está na lista");
-  v.presencas.push(p);
+  await abertaDe(id, tecnicoId);
+  const participanteId = idPlataforma(p.participanteId);
+  if (participanteId === null) throw new Error("Participante inválido");
+  const ultima = await reports.presenca.aggregate({ where: { visitaId: id }, _max: { ordem: true } });
+  try {
+    await reports.presenca.create({
+      data: {
+        id: crypto.randomUUID(),
+        visitaId: id,
+        participanteId,
+        estado: p.estado,
+        nome: p.nome,
+        cboCodigo: p.cbo?.codigo ?? null,
+        cboTitulo: p.cbo?.titulo ?? null,
+        setor: p.setor,
+        cpf: p.cpf,
+        confirmacao: p.confirmacao,
+        assinatura: p.assinatura,
+        ordem: (ultima._max.ordem ?? -1) + 1,
+      },
+    });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") throw new Error("Participante já está na lista");
+    throw e;
+  }
 }
 
 export async function removerPresenca(id: string, tecnicoId: string, participanteId: string) {
-  const v = abertaDe(id, tecnicoId);
-  v.presencas = v.presencas.filter((p) => p.participanteId !== participanteId);
+  await abertaDe(id, tecnicoId);
+  const chave = idPlataforma(participanteId);
+  if (chave !== null) await reports.presenca.deleteMany({ where: { visitaId: id, participanteId: chave } });
 }
 
 export interface DadosCheckout {
@@ -339,9 +427,13 @@ export interface DadosCheckout {
 
 /** Check-out pelo técnico: saída com a hora do servidor; depois disso a visita não é mais editável por ele. */
 export async function encerrarPeloTecnico(id: string, tecnicoId: string, d: DadosCheckout): Promise<Visita> {
-  const v = abertaDe(id, tecnicoId);
-  Object.assign(v, d, { status: "encerrada", saida: new Date().toISOString() });
-  return v;
+  await abertaDe(id, tecnicoId);
+  const { count } = await reports.visita.updateMany({
+    where: { id, status: "em_andamento" },
+    data: { checkout: json(d.checkout), observacoes: d.observacoes, pendencias: d.pendencias, proximosPassos: d.proximosPassos, status: "encerrada", saida: new Date() },
+  });
+  if (!count) throw new Error("A visita já foi encerrada");
+  return paraVisita(await reports.visita.findUniqueOrThrow({ where: { id }, include: INCLUIR }));
 }
 
 /**
@@ -350,21 +442,34 @@ export async function encerrarPeloTecnico(id: string, tecnicoId: string, d: Dado
  * não entra no histórico de alterações e vale mesmo para visita encerrada ou travada.
  */
 export async function definirEndereco(id: string, momento: "checkin" | "checkout", endereco: EnderecoVisita) {
-  const local = visitas.find((x) => x.id === id)?.[momento];
-  if (local) local.endereco = endereco;
+  const valor = JSON.stringify(endereco);
+  if (momento === "checkin") {
+    await reports.$executeRaw`UPDATE visitas SET checkin = jsonb_set(checkin, '{endereco}', ${valor}::jsonb) WHERE id = ${id} AND checkin IS NOT NULL`;
+  } else {
+    await reports.$executeRaw`UPDATE visitas SET checkout = jsonb_set(checkout, '{endereco}', ${valor}::jsonb) WHERE id = ${id} AND checkout IS NOT NULL`;
+  }
+}
+
+/** Locais (check-in e check-out) ainda sem CEP definitivo, das visitas mais recentes para as mais antigas. */
+export async function locaisSemCep(limite: number): Promise<{ visitaId: string; momento: "checkin" | "checkout"; local: LocalVisita }[]> {
+  const linhas = await reports.$queryRaw<{ id: string; checkin: LocalVisita | null; checkout: LocalVisita | null }[]>`
+    SELECT id, checkin, checkout FROM visitas
+    WHERE (checkin IS NOT NULL AND COALESCE(checkin->'endereco'->>'status', 'pendente') IN ('pendente', 'falhou'))
+       OR (checkout IS NOT NULL AND COALESCE(checkout->'endereco'->>'status', 'pendente') IN ('pendente', 'falhou'))
+    ORDER BY entrada DESC
+    LIMIT ${limite}`;
+  const pendente = (l: LocalVisita | null): l is LocalVisita => !!l && (!l.endereco || l.endereco.status === "pendente" || l.endereco.status === "falhou");
+  return linhas.flatMap((v) =>
+    (["checkin", "checkout"] as const).flatMap((momento) => (pendente(v[momento]) ? [{ visitaId: v.id, momento, local: v[momento]! }] : [])),
+  );
 }
 
 /** Todas as visitas do técnico com entrada no período (ISO inclusive), da mais recente para a mais antiga. */
 export async function listarDoTecnico(tecnicoId: string, f: { de?: string; ate?: string } = {}): Promise<VisitaDetalhada[]> {
   return detalharTodas(
-    visitas
-      .filter((v) => v.tecnicoId === tecnicoId)
-      .filter((v) => !f.de || v.entrada >= f.de)
-      .filter((v) => !f.ate || v.entrada <= f.ate)
-      .sort((a, b) => b.entrada.localeCompare(a.entrada)),
+    await reports.visita.findMany({ where: { tecnicoId: porIdPlataforma(tecnicoId), ...periodo(f.de, f.ate) }, include: INCLUIR, orderBy: { entrada: "desc" } }),
   );
 }
-
 
 // ---------- Relatórios ----------
 
@@ -373,20 +478,26 @@ export async function listarDoTecnico(tecnicoId: string, f: { de?: string; ate?:
  * (ou já reservadas para `relatorioId`). Inclui as de períodos anteriores que ficaram de fora.
  */
 export async function elegiveisParaRelatorio(contratoId: string, ate: string, relatorioId?: string): Promise<Visita[]> {
-  return visitas
-    .filter((v) => v.contratoId === contratoId && v.status === "encerrada" && v.entrada <= ate)
-    .filter((v) => v.relatorioId === null || v.relatorioId === relatorioId)
-    .sort((a, b) => a.entrada.localeCompare(b.entrada));
+  const linhas = await reports.visita.findMany({
+    where: {
+      contratoId,
+      status: "encerrada",
+      entrada: { lte: new Date(ate) },
+      OR: [{ relatorioId: null }, ...(relatorioId ? [{ relatorioId }] : [])],
+    },
+    include: INCLUIR,
+    orderBy: { entrada: "asc" },
+  });
+  return linhas.map(paraVisita);
 }
 
-/** Reserva as visitas para o relatório (e libera as que saíram da lista). */
-export async function vincularAoRelatorio(relatorioId: string, ids: string[]) {
-  for (const v of visitas) {
-    if (ids.includes(v.id)) v.relatorioId = relatorioId;
-    else if (v.relatorioId === relatorioId) v.relatorioId = null;
-  }
+/** Reserva as visitas para o relatório (e libera as que saíram da lista). Recebe a transação de quem chama, se houver. */
+export async function vincularAoRelatorio(relatorioId: string, ids: string[], tx: Prisma.TransactionClient = reports) {
+  await tx.visita.updateMany({ where: { relatorioId, id: { notIn: ids } }, data: { relatorioId: null } });
+  if (ids.length) await tx.visita.updateMany({ where: { id: { in: ids } }, data: { relatorioId } });
 }
 
 export async function buscarVisitasDetalhadas(ids: string[]): Promise<VisitaDetalhada[]> {
-  return detalharTodas(visitas.filter((v) => ids.includes(v.id)).sort((a, b) => a.entrada.localeCompare(b.entrada)));
+  if (!ids.length) return [];
+  return detalharTodas(await reports.visita.findMany({ where: { id: { in: ids } }, include: INCLUIR, orderBy: { entrada: "asc" } }));
 }

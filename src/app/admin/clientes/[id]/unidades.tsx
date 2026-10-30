@@ -234,7 +234,13 @@ function LinhaSetor({ setor, podeEditar }: { setor: Setor; podeEditar: boolean }
           variant="ghost"
           aria-label={`Remover ${setor.nome}`}
           disabled={pending}
-          onClick={() => confirm(`Remover o setor "${setor.nome}"?`) && start(() => removerSetor(setor.id))}
+          onClick={() =>
+            confirm(`Remover o setor "${setor.nome}"?`) &&
+            start(async () => {
+              const erro = await removerSetor(setor.id);
+              if (erro) alert(erro);
+            })
+          }
         >
           {pending ? <Loader2 className="animate-spin" /> : <Trash2 />}
         </Button>
@@ -320,7 +326,11 @@ function CartaoUnidade({ unidade, inicialAberta, onEditar, podeEditar }: { unida
               aria-label={`Remover ${unidade.nome}`}
               disabled={pending}
               onClick={() =>
-                confirm(`Remover o estabelecimento "${unidade.nome}" e os seus ${n} setores?`) && start(() => removerUnidade(unidade.id))
+                confirm(`Remover o estabelecimento "${unidade.nome}" e os seus ${n} setores?`) &&
+                start(async () => {
+                  const erro = await removerUnidade(unidade.id);
+                  if (erro) alert(erro);
+                })
               }
             >
               {pending ? <Loader2 className="animate-spin" /> : <Trash2 />}

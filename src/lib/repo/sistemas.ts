@@ -1,41 +1,39 @@
 import "server-only";
+import { plataforma } from "@/lib/db";
 import type { Sistema } from "@/lib/types";
 
 /*
- * Repositório de sistemas — implementação MOCK em memória, só leitura.
+ * Repositório de sistemas — leitura da tabela `erp_systems` da plataforma.
  * O cadastro é mantido no Admin do SINC (RN-PL-04); o ReportS apenas lê.
- * Na fase de banco, só este arquivo muda (leitura da tabela da plataforma).
  */
 
-function seed(): Sistema[] {
-  const s = (ordem: number, codigo: string, nome: string, nomeFortics: string | null = null): Sistema => ({
-    codigo,
-    nome,
-    nomeClickUp: null,
-    nomeFortics,
-    ativo: true,
-    ordem,
-  });
-  return [s(1, "serp", "SERP"), s(2, "sca", "SCA"), s(3, "se", "SE"), s(4, "saude", "Saúde")];
-}
+type Linha = Awaited<ReturnType<typeof plataforma.erp_systems.findMany>>[number];
 
-// Mantém os dados entre recargas do servidor de desenvolvimento.
-const g = globalThis as unknown as { __sistemas?: Sistema[] };
-const sistemas = (g.__sistemas ??= seed());
-
-const porOrdem = (a: Sistema, b: Sistema) => a.ordem - b.ordem || a.nome.localeCompare(b.nome, "pt-BR");
+const paraSistema = (s: Linha): Sistema => ({
+  codigo: s.codigo,
+  nome: s.nome,
+  nomeClickUp: s.clickup_opcao_nome,
+  nomeFortics: s.fortics_nome,
+  ativo: s.ativo,
+  ordem: s.posicao,
+});
 
 /** Sistemas na ordem do cadastro. Desativados só entram com `incluirInativos`. */
 export async function listarSistemas(opcoes: { incluirInativos?: boolean } = {}): Promise<Sistema[]> {
-  return sistemas.filter((s) => opcoes.incluirInativos || s.ativo).sort(porOrdem);
+  const linhas = await plataforma.erp_systems.findMany({
+    where: opcoes.incluirInativos ? undefined : { ativo: true },
+    orderBy: [{ posicao: "asc" }, { nome: "asc" }],
+  });
+  return linhas.map(paraSistema);
 }
 
 export async function buscarSistema(codigo: string): Promise<Sistema | undefined> {
-  return sistemas.find((s) => s.codigo === codigo);
+  const s = await plataforma.erp_systems.findUnique({ where: { codigo } });
+  return s ? paraSistema(s) : undefined;
 }
 
 /** Código → nome, para telas e PDF. Código desconhecido aparece como veio. */
 export async function nomesDosSistemas(): Promise<(codigo: string) => string> {
-  const nomes = new Map(sistemas.map((s) => [s.codigo, s.nome]));
+  const nomes = new Map((await listarSistemas({ incluirInativos: true })).map((s) => [s.codigo, s.nome]));
   return (codigo) => nomes.get(codigo) ?? codigo;
 }

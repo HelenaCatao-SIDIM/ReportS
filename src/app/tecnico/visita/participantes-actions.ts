@@ -8,7 +8,7 @@ import { ehPresencial } from "@/lib/visitas";
 import { buscarContrato } from "@/lib/repo/contratos";
 import { buscarCbo } from "@/lib/repo/cbo";
 import { salvarImagem } from "@/lib/repo/arquivos";
-import { atualizarParticipante, buscarParticipante, buscarSemelhantes, criarProvisorio, listarParticipantes } from "@/lib/repo/participantes";
+import { buscarParticipante, buscarSemelhantes, criarProvisorio, definirCpfDoParticipante, listarParticipantes } from "@/lib/repo/participantes";
 import { adicionarPresenca, buscarVisita, removerPresenca } from "@/lib/repo/visitas";
 import type { Cbo, EstadoParticipante, Participante } from "@/lib/types";
 
@@ -28,7 +28,7 @@ export interface SugestaoParticipante {
   id: string;
   nome: string;
   estado: EstadoParticipante;
-  cbo: Cbo;
+  cbo: Cbo | null;
   setor: string;
   cpfMascarado: string;
 }
@@ -125,7 +125,7 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
       return { erros: { nome: "Já existe alguém com nome igual ou parecido. Confira se é a mesma pessoa." }, semelhantes: achados.nomesParecidos.map(sugestao) };
     }
 
-    participante = await criarProvisorio(sistemaDoClienteId, { nome, cbo: cbo!, setor, cpf: exigeCpf ? cpf : null }, "campo_reports");
+    participante = await criarProvisorio(sistemaDoClienteId, { nome, cbo: cbo!, setor, cpf: exigeCpf ? cpf : null }, "campo_reports", tecnico.id);
   } else if (Object.keys(erros).length) {
     return { erros };
   }
@@ -139,7 +139,7 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
 
   // Só depois de tudo conferido (assinatura incluída) o CPF informado vai para o cadastro do participante.
   if (cpfNovo && participante) {
-    await atualizarParticipante(participante.id, { nome: participante.nome, cbo: participante.cbo, setor: participante.setor, cpf: cpfNovo });
+    await definirCpfDoParticipante(participante.id, cpfNovo);
     participante = { ...participante, cpf: cpfNovo };
   }
 

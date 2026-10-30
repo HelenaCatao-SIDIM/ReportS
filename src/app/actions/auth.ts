@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { autenticar } from "@/lib/repo/usuarios";
 import { createSession, deleteSession } from "@/lib/session";
 import { destinoAposLogin } from "@/lib/permissoes";
+import { excedeuLimite } from "@/lib/limite-login";
 
 export interface LoginState {
   erro?: string;
@@ -15,6 +16,7 @@ export async function login(_: LoginState, formData: FormData): Promise<LoginSta
   const senha = String(formData.get("senha") ?? "");
 
   if (!email || !senha) return { erro: "Informe e-mail e senha.", email };
+  if (await excedeuLimite()) return { erro: "Muitas tentativas. Tente de novo em alguns minutos.", email };
 
   const usuario = await autenticar(email, senha);
   if (!usuario) return { erro: "E-mail ou senha inválidos.", email };
