@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ClipboardCheck, LayoutDashboard, LogOut, Smartphone } from "lucide-react";
+import { logout } from "@/app/actions/auth";
 import { getUsuarioAtual } from "@/lib/dal";
 import { acessoAdministracao, acessoTecnico } from "@/lib/permissoes";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,10 +49,13 @@ async function Conteudo() {
           <CardDescription>
             Seu usuário ({usuario.nome}) não tem nenhuma permissão do ReportS. Fale com a coordenação para liberar o acesso.
           </CardDescription>
-          <Link href="/sair" className="mt-2 inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
-            <LogOut className="size-4" />
-            Sair
-          </Link>
+          {/* Sair é uma ação, não um link: o Next.js pré-carrega os links visíveis, e um GET que apaga a sessão a derrubaria sozinho. */}
+          <form action={logout}>
+            <button type="submit" className="mt-2 inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
+              <LogOut className="size-4" />
+              Sair
+            </button>
+          </form>
         </CardHeader>
       </Card>
     );
@@ -82,12 +86,12 @@ async function Conteudo() {
           </CardHeader>
         </Card>
       </Link>
-      <div className="text-center">
-        <Link href="/sair" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+      <form action={logout} className="text-center">
+        <button type="submit" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
           <LogOut className="size-3.5" />
           Sair
-        </Link>
-      </div>
+        </button>
+      </form>
     </div>
   );
 }
