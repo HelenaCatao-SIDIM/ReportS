@@ -58,6 +58,8 @@ qualquer terminal, inclusive no PowerShell do Windows; depois acrescente as linh
 node -e "require('fs').writeFileSync('.env.local', 'SESSION_SECRET=' + require('crypto').randomBytes(32).toString('base64') + '\nAPP_URL=http://localhost:3000\n')"
 ```
 
+Outra opção: copiar o `.env.example` para `.env.local` e preencher os valores.
+
 ```bash
 REPORTS_DATABASE_URL=postgresql://reports:senha-dev@localhost:5432/reports_development
 PLATAFORMA_DATABASE_URL=postgresql://reports:senha-dev@localhost:5432/plataforma_development
@@ -184,6 +186,8 @@ nesse endereço — use um treinamento online para testar sem GPS.
 
 ## Estrutura
 
+- `docs/regras.md` — regras de negócio implementadas (o que o sistema exige e permite em cada etapa)
+- `AGENTS.md` — convenções do código, para quem for programar (pessoas ou agentes de IA)
 - `src/proxy.ts` — só confere se há sessão; a área certa (Administração ou App do Técnico) é decidida pelas permissões, na página `/inicio`
 - `src/lib/session.ts`, `src/lib/dal.ts`, `src/lib/permissoes.ts` — sessão (JWT em cookie httpOnly com só o id do usuário), verificação de permissão (uma para páginas, outra para ações; lida a cada requisição, sem cache) e catálogo de permissões
 - `src/lib/limite-login.ts` — até 10 tentativas de login em 3 minutos por IP (RN-PL-55)

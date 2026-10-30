@@ -292,7 +292,7 @@ Situação em 30/10/2026: banco, armazenamento, CBO e publicação com https est
 
 - [x] **Média** — Comando do `.env.local` no README corrigido para funcionar no PowerShell (o `>` gravava UTF-16 e quebrava o login) — 29/10/2026.
 
-- [ ] **Média** — Trazer para o repositório o "guia" de regras de negócio que o README cita. Ele não está no repositório hoje.
+- [x] **Média** — Regras de negócio no repositório: `docs/regras.md`, levantado do código e atualizado em 30/10/2026 para o sistema em produção (acesso por permissões, contratos por sistema, participantes confirmados e provisórios, raio, CEP, relatórios por contrato); convenções do código em `AGENTS.md`.
 
 ### Qualidade
 
