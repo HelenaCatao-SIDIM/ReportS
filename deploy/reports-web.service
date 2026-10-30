@@ -1,5 +1,5 @@
 # /etc/systemd/system/reports-web.service — o ReportS (Next.js) atrás do nginx.
-# Ajuste User e WorkingDirectory se o servidor usar outros (os mesmos do SINC).
+# Roda com o usuário próprio `reports` (sem sudo), em /var/www/reports, como o SINC roda com `sinc` em /var/www/sinc.
 # As variáveis ficam em .env.local, na pasta do projeto (fora do Git).
 [Unit]
 Description=ReportS (SIDIM Visitas)
@@ -7,9 +7,12 @@ After=network.target postgresql.service
 
 [Service]
 Type=simple
-User=ubuntu
-WorkingDirectory=/home/ubuntu/ReportS
+User=reports
+WorkingDirectory=/var/www/reports
 Environment=NODE_ENV=production
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+NoNewPrivileges=true
+PrivateTmp=true
 ExecStart=/usr/bin/env npx next start -H 127.0.0.1 -p 3100
 Restart=always
 RestartSec=5
