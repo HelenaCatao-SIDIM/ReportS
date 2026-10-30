@@ -17,3 +17,8 @@ Pré-requisitos: fluxo do n8n importado e ativo (`docs/n8n-resumo-chamados.md`) 
 8. n8n desligado ou URL errada: o relatório é emitido mesmo assim, com "Dados de suporte indisponíveis".
 9. `CHAMADOS_SUPORTE_PDF=true`: a capa do PDF ganha o resumo; com `false`, o PDF fica como antes.
 10. No navegador (aba Rede), a chave do n8n não aparece em nenhuma requisição.
+11. **Chamados por sistema** (com o fluxo do n8n atualizado: reimporte `docs/n8n-resumo-chamados.json`): o relatório é de um contrato (cliente e sistema) e conta só os chamados do sistema dele.
+    - O sistema precisa ter o **Nome no Fortics** preenchido em Configurações > Sistemas do SINC, igual ao valor que o Fortics grava no campo `sistema` (confira antes; veja `docs/n8n-resumo-chamados.md`).
+    - Com o nome: o bloco mostra "Só os chamados do sistema … no Fortics", e o total bate com a tabela `atendimentos` filtrada por cliente e sistema.
+    - Sem o nome: o bloco mostra o aviso "Todos os sistemas do cliente…" (para a administração; o aprovador não vê) e o total é o do cliente inteiro.
+    - Na versão de desenvolvimento em memória, os sistemas não têm Nome no Fortics (ele vem do SINC); para testar o filtro sem o SINC, use o fluxo do n8n direto com `curl` (tabela de casos no guia do fluxo).

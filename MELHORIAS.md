@@ -159,8 +159,8 @@ O ReportS adapta o protótipo **em memória** enquanto o SINC faz as Fases 0 a 3
 |---|---|---|
 | 0 | README e MELHORIAS atualizados; biblioteca de banco; inventário do que depende de perfil, cliente e participante | Docs e biblioteca de banco **decididos** em 29/10/2026 (ver abaixo); inventário pendente |
 | 1 | Cadastro de sistemas (SERP, SCA, SE, Saúde) só de leitura; tema escolhe o sistema numa lista; dados de exemplo sem sistemas fictícios | **Feito** em 29/10/2026 (`src/lib/repo/sistemas.ts`) |
-| 2 | Cliente em três (cliente, sistemas do cliente, contrato por sistema); aprovador próprio; check-in cliente → sistema → estabelecimento → setor; relatório por contrato; chamados por sistema | **Feito em 29/10/2026**, menos os chamados por sistema (depende do parâmetro de sistema no fluxo do n8n e dos valores que o Fortics grava) |
-| 3 | Perfil gestor/técnico sai; permissões; sessão só com o id; telas de usuários saem | **Feito em 29/10/2026**, menos o "esqueci minha senha" apontando para o SINC e o limite de tentativas do login (RN-PL-55) |
+| 2 | Cliente em três (cliente, sistemas do cliente, contrato por sistema); aprovador próprio; check-in cliente → sistema → estabelecimento → setor; relatório por contrato; chamados por sistema | **Feito em 29/10/2026**; os chamados por sistema, em **30/10/2026** (depende de reimportar o fluxo do n8n e de conferir os valores que o Fortics grava em `sistema`) |
+| 3 | Perfil gestor/técnico sai; permissões; sessão só com o id; telas de usuários saem | **Feito em 29/10/2026**, menos o "esqueci minha senha" apontando para o SINC e o limite de tentativas do login (RN-PL-55), que estão na PR 8 (aberta) |
 | 4 | Banco `reports`, leitura/escrita na plataforma, arquivos em disco, SMTP, deploy | Depende das Fases 1 a 3 do SINC em produção e da decisão de LGPD sobre guardar CPF |
 | 5 | Junção de participantes | Depende da Fase 4 |
 
@@ -172,7 +172,7 @@ O ReportS adapta o protótipo **em memória** enquanto o SINC faz as Fases 0 a 3
 - **Check-in**: cliente → sistema → estabelecimento → setor (sistema único já vem escolhido; o rascunho do aparelho guarda o contrato). A visita guarda o contrato; comprovação, assinatura e CPF seguem o contrato da visita. Os **temas** da visita (técnico e correção do gestor) são só do sistema do contrato.
 - **Relatório por contrato e período**: visitas elegíveis, sobreposição de períodos, capa, PDF, e-mail e página do aprovador mostram o sistema; só os aprovadores do contrato recebem. Cliente com dois sistemas tem dois relatórios por período.
 - Contrato inativo some do check-in, mas continua podendo gerar relatório das visitas antigas.
-- **Ficou fora** (não pedido nesta etapa): filtro dos chamados de suporte por sistema (parâmetro novo no fluxo do n8n); remover um sistema de um cliente; o inventário da Fase 0. *(Os participantes por sistema do cliente entraram depois: ver "Participantes: confirmado e provisório".)*
+- **Ficou fora** (não pedido nesta etapa): remover um sistema de um cliente; o inventário da Fase 0. *(O filtro dos chamados por sistema entrou em 30/10/2026: ver "Chamados por sistema".)* *(Os participantes por sistema do cliente entraram depois: ver "Participantes: confirmado e provisório".)*
 
 #### Fase 3 no ReportS: como ficou (29/10/2026)
 
@@ -183,7 +183,7 @@ O ReportS adapta o protótipo **em memória** enquanto o SINC faz as Fases 0 a 3
 - **Menu e atalhos** da Administração mostram só as telas que as permissões liberam; botões de editar somem sem a permissão (cliente e estabelecimentos exigem cadastrar cliente; contratos e aprovadores exigem gerenciar contratos).
 - **Telas de usuários removidas**: `/admin/usuarios` virou o aviso "Usuários e permissões são gerenciados no SINC", com o link (`SINC_URL`) e a lista das permissões do ReportS.
 - "Gestor" virou "administração" nos nomes e textos (`encerradaPelaAdministracao`, `encerrarPelaAdministracao`, `cancelarPelaAdministracao`, `corrigirPelaAdministracao`, "Encerrada pela administração"). Os e-mails de teste continuam os mesmos (`gestor@sidim.com.br` agora é a "Coordenação ReportS").
-- **Ficou fora**: "esqueci minha senha" apontando para o SINC e limite de 10 tentativas em 3 minutos por IP no login (RN-PL-55); o catálogo é registrado na plataforma só na Fase 4.
+- **Ficou fora**: "esqueci minha senha" apontando para o SINC e limite de 10 tentativas em 3 minutos por IP no login (RN-PL-55): não foram refeitos aqui porque a PR 8, ainda aberta, já traz os dois; o catálogo é registrado na plataforma só na Fase 4.
 
 #### Participantes: confirmado e provisório (29/10/2026)
 
@@ -193,7 +193,15 @@ O ReportS adapta o protótipo **em memória** enquanto o SINC faz as Fases 0 a 3
 - **Busca antes de criar (RN-PL-34):** ao criar um provisório (técnico em campo ou Administração), o ReportS procura, no mesmo sistema do cliente, quem já tem o **CPF** e quem tem **nome igual ou parecido** (sem acento; mesma semelhança do SINC: Levenshtein, a partir de 0,75). CPF igual **bloqueia** a criação e, no técnico, oferece "Usar esta pessoa". Nome parecido mostra **"É esta pessoa?"** com a lista e só cria depois de o usuário marcar que não é nenhuma delas.
 - **Selos** "Confirmado pelo ERP" e "Provisório" na lista de participantes, na escolha de presenças, no detalhe da visita (técnico e Administração) e no relatório da Administração. O aprovador e o PDF mostram só os nomes. A presença guarda o estado do dia.
 - **Temas com os 4 sistemas reais:** os temas escolhem o sistema entre SERP, SCA, SE e Saúde desde a Fase 1; agora os dados de exemplo têm temas para os quatro.
+- **CPF na presença (RN-PL-35, 30/10/2026):** quando o contrato exige CPF e o participante escolhido **já está cadastrado sem CPF** (é o caso dos confirmados, que vêm do ERP sem CPF), o técnico informa o CPF na própria presença e ele fica **no cadastro da pessoa**; nas visitas seguintes não é pedido de novo. CPF inválido ou vazio bloqueia; CPF que já é de **outra pessoa do mesmo sistema** bloqueia e oferece "Usar esta pessoa". O CPF só é gravado depois de a presença estar toda conferida (assinatura incluída). Quem já tem CPF não vê o campo, e a tela do técnico só mostra o CPF mascarado.
 - **Ficou fora (fase seguinte):** junção automática por CPF e pela revisão, desfazer junção, o estado "unido", a lista de revisão e a permissão `reports.participantes.revisar` em uso; a importação do ERP.
+
+#### Chamados por sistema (30/10/2026)
+
+- O relatório de um contrato conta só os chamados do **sistema do contrato**. O ReportS manda ao n8n o parâmetro opcional `sistema`, com o **"Nome no Fortics"** do sistema (`erp_systems.fortics_nome` no SINC); o fluxo filtra os atendimentos pelo campo `sistema`, sem diferença de maiúsculas, acentos e espaços (`docs/n8n-resumo-chamados.json`, `docs/n8n-resumo-chamados.md`).
+- Sistema **sem** "Nome no Fortics": o pedido não leva `sistema`, contam todos os sistemas do cliente, e a Administração (nunca o aprovador) vê o aviso. O resumo guarda o filtro usado (`sistemaFiltro`), então a versão emitida mostra o mesmo que o rascunho. O cache por cliente, período e sistema evita pedidos repetidos.
+- **Testado** em 30/10/2026 com um servidor que imita o n8n: o pedido leva ou não `sistema` conforme o sistema, o aviso é só da Administração, o aprovador não vê o aviso e o filtro do fluxo foi conferido num teste em Node (13 verificações). **Não testado** com o n8n real nem com os valores reais do Fortics.
+- **Em aberto:** (a) conferir, com o time do Fortics/n8n, se os "Nome no Fortics" do SINC são iguais aos valores gravados em `sistema` (um nome diferente zera o resumo); (b) o fluxo atualizado precisa ser reimportado no n8n; sem isso o parâmetro é ignorado e contam todos os sistemas; (c) se o cliente tem **mais de um tenant do mesmo sistema** (QA-043 do SINC), a granularidade do contrato e do relatório ainda não está decidida.
 
 Pontos para alinhar com a Helena que afetam o ReportS: o campo hoje chamado "Nome no SINC" (nomes do cliente nos chamados) é "Nomes no Fortics" no plano, e o plano também prevê "nome no Fortics" por sistema; um cliente pode ter dois tenants do mesmo sistema?; cargo do aprovador (um só, mesmo aprovando para vários clientes).
 
