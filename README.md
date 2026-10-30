@@ -24,6 +24,10 @@ Login com o e-mail e a senha do cadastro único (os mesmos do SINC); usuários, 
 Fotos, assinaturas e PDFs ficam no disco do servidor (`ARQUIVOS_DIR`). Os e-mails ficam registrados no banco e aparecem em
 **Administração → Caixa de saída**; o envio real é pelo SMTP da SIDIM. A tabela CBO oficial é carregada por script.
 
+**No ar desde 30/10/2026** em https://reports.sidim.com.br (servidor do SINC), com a tabela CBO oficial carregada (2.694 ocupações) e o login
+testado no celular, com https. O desenho do servidor está no ADR-036 do SINC; como ficou e o que se aprendeu, em `MELHORIAS.md`
+("Publicação no servidor: como ficou").
+
 ## Como rodar no seu computador
 
 Pré-requisitos: [Node.js](https://nodejs.org) 22 (o Prisma 7 pede 20.19 ou mais novo), PostgreSQL 16, [Git](https://git-scm.com)
@@ -280,13 +284,16 @@ suporte já são filtrados pelo sistema do contrato (Fase 2). A **Fase 5** (jun�
 
 ## Próximos passos
 
-1. Publicar no servidor (seção "Publicação"), importar a CBO oficial e testar no celular, com https.
-2. Backup do banco `reports` e da pasta de arquivos (QA-002 do SINC, em aberto).
+1. ~~Publicar no servidor, importar a CBO oficial e testar no celular~~ — feito em 30/10/2026.
+2. Cópia do backup fora do servidor: o banco `reports` e a pasta de arquivos já entram na rotina noturna do servidor (ADR-036 do SINC), mas
+   a cópia automática fora dele e o ensaio periódico de restauração seguem em aberto (QA-002 do SINC).
 3. Envio real de e-mail pelo SMTP da SIDIM: implementado e testado com o serviço real; falta o SPF/DKIM do remetente e tirar a trava
    `EMAIL_REDIRECIONAR_PARA` quando for enviar aos clientes.
 4. Chamados por sistema em produção: reimportar o fluxo do n8n atualizado (`docs/n8n-resumo-chamados.json`) e conferir se o "Nome no Fortics"
    de cada sistema no SINC é igual ao valor que o Fortics grava em `sistema`.
 5. Fase 5: junção de participantes (provisório com confirmado).
+6. Contrato e relatório quando o cliente tem dois tenants do mesmo sistema (QA-043 do SINC, decidida em 30/10/2026: pode): hoje cada contrato
+   mostra o mesmo número de chamados do cliente naquele sistema; falta decidir se o contrato é por cliente ou por tenant.
 
 ## Chamados de suporte no relatório (opcional)
 
