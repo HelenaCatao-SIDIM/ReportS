@@ -13,14 +13,30 @@ const atual = execFileSync("npx", ["prisma", "db", "pull", "--print", "--config"
 });
 
 // Compara só o que vira código: os comentários (inclusive as tabelas que o usuário do ReportS não pode ler, que
-// aparecem comentadas) mudam de lugar entre o arquivo e a saída do --print.
-const normalizar = (texto: string) =>
-  texto
+// aparecem comentadas) mudam de lugar entre o arquivo e a saída do --print. A ordem das colunas e dos índices dentro
+// de cada bloco também não conta: ela depende de como o banco foi criado (schema carregado de uma vez ou migrações
+// aplicadas uma a uma, como na produção) e não muda o código gerado.
+const normalizar = (texto: string) => {
+  const saida: string[] = [];
+  let bloco: string[] | null = null;
+  const linhas = texto
     .replace(/\r\n/g, "\n")
     .split("\n")
     .map((l) => l.trimEnd())
-    .filter((l) => l.trim() && !l.trim().startsWith("//"))
-    .join("\n");
+    .filter((l) => l.trim() && !l.trim().startsWith("//"));
+  for (const linha of linhas) {
+    if (bloco === null) {
+      saida.push(linha);
+      if (linha.endsWith("{")) bloco = [];
+    } else if (linha === "}") {
+      saida.push(...bloco.sort(), linha);
+      bloco = null;
+    } else {
+      bloco.push(linha.trim().replace(/\s+/g, " "));
+    }
+  }
+  return saida.join("\n");
+};
 
 if (normalizar(versionado) !== normalizar(atual)) {
   console.error(

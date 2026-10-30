@@ -201,7 +201,7 @@ nesse endereço — use um treinamento online para testar sem GPS.
 |---|---|
 | `npm run db:migrate` | Aplica as migrações do banco `reports` (`db:migrate:dev` cria uma nova em desenvolvimento) |
 | `npm run db:plataforma:ler` | Relê a estrutura da plataforma para `prisma/plataforma/schema.prisma` (depois de o SINC mudar uma tabela) |
-| `npm run db:plataforma:conferir` | Falha se a estrutura da plataforma mudou e o arquivo não foi relido (roda no deploy, antes do build) |
+| `npm run db:plataforma:conferir` | Falha se a estrutura da plataforma mudou e o arquivo não foi relido (roda no deploy, antes do build); a ordem das colunas não conta |
 | `npm run permissoes:registrar` | Grava o catálogo `reports.*` na plataforma: inclui, atualiza e inativa o que saiu do código (roda no deploy) |
 | `npm run cbo:importar -- "CBO2002 - Ocupacao.csv"` | Importa a tabela CBO oficial (arquivo do site da CBO, mtecbo.gov.br): inclui e atualiza, nunca apaga |
 | `npm run ceps:preencher` | Converte em CEP as coordenadas que ficaram pendentes (timer `reports-ceps` no servidor) |
@@ -238,8 +238,8 @@ Primeira instalação (uma vez, no servidor):
    sudo -u postgres createdb -O reports reports_production
    ```
 
-3. Clone o repositório na pasta de serviços (o modelo usa `/home/ubuntu/ReportS`, com o usuário `ubuntu`; ajuste os arquivos de
-   `deploy/` se o SINC usar outros) e crie o `.env.local` de produção:
+3. Crie o usuário de sistema `reports` (sem sudo, só para o ReportS; o SINC roda do mesmo jeito com o `sinc`), uma chave de deploy
+   **somente leitura** dele no repositório, clone em `/var/www/reports` e crie o `.env.local` de produção (dono `reports`, modo 600):
 
    ```bash
    SESSION_SECRET=<aleatório, 32 bytes ou mais>
@@ -253,11 +253,13 @@ Primeira instalação (uma vez, no servidor):
 
    Confira o nome do banco plataforma de produção no `config/database.yml` do SINC.
 
-4. Pasta dos arquivos: `sudo mkdir -p /var/lib/reports/arquivos && sudo chown ubuntu: /var/lib/reports/arquivos`.
+4. Pasta dos arquivos: `sudo mkdir -p /var/lib/reports/arquivos && sudo chown reports: /var/lib/reports/arquivos && sudo chmod 700 /var/lib/reports/arquivos`.
 5. Serviços e nginx: copie `deploy/reports-web.service`, `deploy/reports-ceps.service` e `deploy/reports-ceps.timer` para
    `/etc/systemd/system/`, `sudo systemctl daemon-reload && sudo systemctl enable reports-web reports-ceps.timer`; copie
    `deploy/nginx-reports.conf` para `/etc/nginx/sites-available/reports`, ligue o site e rode `sudo certbot --nginx -d reports.sidim.com.br`.
    O nginx precisa mandar o `X-Real-IP` (o modelo já manda): o limite de tentativas de login depende dele.
+   O `bin/deploy` reinicia o serviço com sudo: dê ao usuário `reports` só isso, em `/etc/sudoers.d/reports-deploy` (confira com `visudo -cf`):
+   `reports ALL=(root) NOPASSWD: /usr/bin/systemctl restart reports-web, /usr/bin/systemctl status reports-web*`.
 6. `bin/deploy`, e depois `npm run cbo:importar -- "<arquivo oficial>"` uma vez.
 7. Backup: o banco `reports_production` e a pasta `ARQUIVOS_DIR` precisam entrar no backup do servidor, junto com os bancos do SINC
    (em aberto com a Helena: QA-002 do SINC).

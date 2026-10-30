@@ -6,7 +6,10 @@ After=network.target postgresql.service
 
 [Service]
 Type=oneshot
-User=ubuntu
-WorkingDirectory=/home/ubuntu/ReportS
+User=reports
+WorkingDirectory=/var/www/reports
 Environment=NODE_ENV=production
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+NoNewPrivileges=true
+PrivateTmp=true
 ExecStart=/usr/bin/env npm run -s ceps:preencher

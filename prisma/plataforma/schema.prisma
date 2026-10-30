@@ -58,7 +58,6 @@ model clients {
   other_clients      clients[]      @relation("clientsToclients")
 
   @@unique([sistema, tenant_id], map: "index_clients_on_sistema_and_tenant_id", where: raw("(tenant_id IS NOT NULL)"))
-  @@unique([customer_id, sistema], map: "index_clients_um_por_sistema_do_customer", where: raw("((customer_id IS NOT NULL) AND ((estado)::text <> 'unido'::text))"))
   @@index([customer_id], map: "index_clients_on_customer_id")
   @@index([estado], map: "index_clients_on_estado")
   @@index([unido_a_id], map: "index_clients_on_unido_a_id")
