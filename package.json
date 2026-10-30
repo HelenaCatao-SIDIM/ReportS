@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "postinstall": "npm run db:generate",
-    "db:generate": "prisma generate --config prisma.reports.config.ts && prisma generate --config prisma.plataforma.config.ts",
+    "db:generate": "node scripts/gerar-clientes-prisma.mjs",
     "db:migrate": "prisma migrate deploy --config prisma.reports.config.ts",
     "db:migrate:dev": "prisma migrate dev --config prisma.reports.config.ts",
     "db:plataforma:ler": "prisma db pull --config prisma.plataforma.config.ts",
