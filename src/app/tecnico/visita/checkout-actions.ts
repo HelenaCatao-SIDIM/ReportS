@@ -2,10 +2,13 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { exigirTecnicoAcao } from "@/lib/dal";
+import { exigirPermissaoAcao } from "@/lib/dal";
+import { PERMISSOES } from "@/lib/permissoes";
 import { ehPresencial } from "@/lib/visitas";
 import { exigeParticipantes } from "@/lib/regras-visita";
 import { buscarVisita, encerrarPeloTecnico } from "@/lib/repo/visitas";
+import { lerLocal } from "@/lib/ler-local";
+import { agendarCepPendente, converterDepois } from "@/lib/cep-visitas";
 
 export interface CheckoutState {
   erros?: Partial<Record<"gps" | "participantes" | "geral", string>>;
@@ -14,7 +17,7 @@ export interface CheckoutState {
 const TAMANHO_TEXTO = 4000;
 
 export async function fazerCheckout(visitaId: string, _: CheckoutState, fd: FormData): Promise<CheckoutState> {
-  const tecnico = await exigirTecnicoAcao();
+  const tecnico = await exigirPermissaoAcao(PERMISSOES.tecnico);
   const v = await buscarVisita(visitaId);
   if (!v || v.tecnicoId !== tecnico.id) throw new Error("Visita não encontrada");
   if (v.status !== "em_andamento") return { erros: { geral: "Esta visita já foi encerrada." } };
@@ -24,13 +27,8 @@ export async function fazerCheckout(visitaId: string, _: CheckoutState, fd: Form
     erros.participantes = "Em treinamento, registre ao menos um participante antes do check-out.";
   }
 
-  let checkout = null;
-  if (ehPresencial(v.tipo)) {
-    const lat = Number(fd.get("latitude"));
-    const lng = Number(fd.get("longitude"));
-    if (fd.get("latitude") && fd.get("longitude") && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) checkout = { latitude: lat, longitude: lng };
-    else erros.gps = "É preciso a localização do celular para o check-out presencial.";
-  }
+  const checkout = ehPresencial(v.tipo) ? lerLocal(fd, `check-out da visita ${visitaId}`) : null;
+  if (ehPresencial(v.tipo) && !checkout) erros.gps = "É preciso a localização do aparelho para o check-out presencial.";
   if (Object.keys(erros).length) return { erros };
 
   const texto = (nome: string) => String(fd.get(nome) ?? "").trim().slice(0, TAMANHO_TEXTO);
@@ -40,6 +38,9 @@ export async function fazerCheckout(visitaId: string, _: CheckoutState, fd: Form
     pendencias: texto("pendencias"),
     proximosPassos: texto("proximosPassos"),
   });
+  // Com a prévia já resolvida, o CEP é gravado na hora; senão, é calculado depois da resposta. Aproveita para tentar de novo o do check-in, se ficou sem.
+  await converterDepois(visitaId, "checkout", checkout);
+  agendarCepPendente(v, Date.now());
 
   revalidatePath("/tecnico", "layout");
   revalidatePath("/admin/visitas", "layout");

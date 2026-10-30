@@ -83,7 +83,7 @@ export function Decisao({ token, aprovadorNome, horas }: { token: string; aprova
                   name="motivo"
                   rows={4}
                   aria-label="Motivo do ajuste"
-                  placeholder="Ex.: a visita de 09/10 foi às 14h, não às 13h; faltou a participante Sandra na lista."
+                  placeholder="Ex.: a visita de 09/10 foi às 14h, não às 13h; faltou um participante na lista."
                   aria-invalid={!!state.erroMotivo}
                   className="text-base"
                 />

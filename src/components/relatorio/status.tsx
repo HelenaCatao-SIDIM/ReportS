@@ -10,7 +10,7 @@ const CORES: Record<StatusRelatorio, string> = {
   aprovado: "bg-emerald-100 text-emerald-800",
 };
 
-/** Status do relatório; "aprovado" aparece como "Liberado para faturar". */
+/** Status do relatório, com o rótulo de ROTULO_STATUS_RELATORIO. */
 export function StatusRelatorioBadge({ status, className }: { status: StatusRelatorio; className?: string }) {
   return (
     <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", CORES[status], className)}>

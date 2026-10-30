@@ -5,13 +5,16 @@ import { ArrowLeft, CheckCircle2, History, Lock, Pencil } from "lucide-react";
 import { buscarVisita } from "@/lib/repo/visitas";
 import { formatarData, formatarDataHora } from "@/lib/datas";
 import { DetalheVisita } from "@/components/visita/detalhe-visita";
+import { agendarCepPendente, cepEmAndamento } from "@/lib/cep-visitas";
+import { AtualizarEnquantoPendente } from "@/components/visita/atualizar-enquanto-pendente";
+import { horaDoServidor } from "@/lib/agora";
 import { SelosVisita } from "@/components/visita/selos";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AcoesAndamento } from "../acoes-andamento";
 
-const ACAO = { encerramento: "Encerrada pelo gestor", cancelamento: "Check-in cancelado", correcao: "Correção" } as const;
+const ACAO = { encerramento: "Encerrada pela administração", cancelamento: "Check-in cancelado", correcao: "Correção" } as const;
 
 export default function VisitaPage({ params, searchParams }: PageProps<"/admin/visitas/[id]">) {
   return (
@@ -31,16 +34,21 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/visitas
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const v = await buscarVisita(id);
   if (!v) notFound();
+  agendarCepPendente(v, await horaDoServidor());
   const podeCorrigir = v.status === "encerrada" && !v.travada;
 
   return (
     <div className="space-y-6">
+      <AtualizarEnquantoPendente pendente={cepEmAndamento(v)} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{v.clienteNome}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {v.clienteNome}
+            <span className="font-normal text-muted-foreground"> · {v.sistemaNome}</span>
+          </h1>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             {formatarData(v.entrada)} · {v.tecnicoNome}
-            <SelosVisita visita={v} />
+            <SelosVisita visita={v} alertaRaio />
           </p>
         </div>
         <div className="flex gap-2">
@@ -71,7 +79,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/visitas
         </Alert>
       )}
 
-      <DetalheVisita visita={v} cpf="completo" />
+      <DetalheVisita visita={v} cpf="completo" controle selos />
 
       <Card>
         <CardHeader>

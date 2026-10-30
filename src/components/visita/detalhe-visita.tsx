@@ -1,10 +1,15 @@
 /* eslint-disable @next/next/no-img-element -- fotos do storage; otimização de imagem fica para a fase de banco */
-import { ExternalLink, MapPin, PenLine } from "lucide-react";
+import { ExternalLink, MapPin, MapPinCheck, MapPinOff, PenLine } from "lucide-react";
 import type { VisitaDetalhada } from "@/lib/repo/visitas";
 import type { Foto } from "@/lib/types";
 import { formatarData, formatarDuracao, formatarHora } from "@/lib/datas";
+import { foraDoRaio, formatarDistancia } from "@/lib/distancia";
 import { formatarCbo, formatarCpf, mascararCpf } from "@/lib/format";
+import { ROTULO_MEIO } from "@/lib/meio";
 import { ehPresencial, rotuloTipo } from "@/lib/visitas";
+import { localizacaoPorCep } from "@/lib/config";
+import { LocalVisita } from "@/components/visita/local-visita";
+import { SeloParticipante } from "@/components/participante/selo-participante";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -24,6 +29,25 @@ function Coordenada({ c }: { c: VisitaDetalhada["checkin"] }) {
     <span className="inline-flex items-center gap-1 font-mono text-xs">
       <MapPin className="size-3" />
       {c.latitude.toFixed(5)}, {c.longitude.toFixed(5)}
+    </span>
+  );
+}
+
+/** Distância medida entre o check-in e o estabelecimento, com o alerta quando passa do raio. */
+function DistanciaCheckin({ v }: { v: Pick<VisitaDetalhada, "distanciaCheckinM" | "raioCheckinM"> }) {
+  if (v.distanciaCheckinM === null || v.raioCheckinM === null) return <span className="text-muted-foreground">Não medida</span>;
+  if (foraDoRaio(v)) {
+    return (
+      <span className="inline-flex items-center gap-1 font-medium text-amber-700">
+        <MapPinOff className="size-3.5" />
+        {formatarDistancia(v.distanciaCheckinM)} — fora do raio de {formatarDistancia(v.raioCheckinM)}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 font-medium text-emerald-700">
+      <MapPinCheck className="size-3.5" />
+      {formatarDistancia(v.distanciaCheckinM)} — dentro do raio de {formatarDistancia(v.raioCheckinM)}
     </span>
   );
 }
@@ -55,10 +79,24 @@ function Texto({ rotulo, valor }: { rotulo: string; valor: string }) {
 
 /**
  * Conteúdo completo de uma visita, em modo leitura.
- * `cpf`: "completo" só para o gestor dentro do sistema; nos demais lugares, "mascarado".
+ * `cpf`: "completo" só para a administração dentro do sistema; nos demais lugares, "mascarado".
+ * `controle`: só na Administração; mostra a distância do check-in ao estabelecimento (não aparece para técnico nem aprovador).
+ * `selos`: mostra o estado do participante (confirmado ou provisório); só na Administração e no App do Técnico, nunca para o aprovador.
  */
-export function DetalheVisita({ visita: v, cpf = "mascarado" }: { visita: VisitaDetalhada; cpf?: "completo" | "mascarado" }) {
+export function DetalheVisita({
+  visita: v,
+  cpf = "mascarado",
+  controle = false,
+  selos = false,
+}: {
+  visita: VisitaDetalhada;
+  cpf?: "completo" | "mascarado";
+  controle?: boolean;
+  selos?: boolean;
+}) {
   const presencial = ehPresencial(v.tipo);
+  // Com a localização por CEP ligada, a coordenada nunca aparece (nem para o aprovador do cliente).
+  const porCep = localizacaoPorCep();
 
   return (
     <div className="space-y-4">
@@ -70,7 +108,7 @@ export function DetalheVisita({ visita: v, cpf = "mascarado" }: { visita: Visita
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Item rotulo="Data">{formatarData(v.entrada)}</Item>
             <Item rotulo="Tipo">{rotuloTipo(v.tipo)}</Item>
-            <Item rotulo="Unidade">{v.unidadeNome}</Item>
+            <Item rotulo="Estabelecimento">{v.unidadeNome}</Item>
             <Item rotulo="Setor">
               {v.setorNome}
               {v.setorOutro && <span className="ml-1 text-xs text-muted-foreground">(outro)</span>}
@@ -79,14 +117,16 @@ export function DetalheVisita({ visita: v, cpf = "mascarado" }: { visita: Visita
             <Item rotulo="Saída">{v.saida ? formatarHora(v.saida) : "—"}</Item>
             <Item rotulo="Duração">{v.saida ? formatarDuracao(v.entrada, v.saida) : "—"}</Item>
             <Item rotulo="Técnico">{v.tecnicoNome}</Item>
+            <Item rotulo="Registrado por">{ROTULO_MEIO[v.meio]}</Item>
             {presencial ? (
               <>
-                <Item rotulo="Local do check-in">
-                  <Coordenada c={v.checkin} />
-                </Item>
-                <Item rotulo="Local do check-out">
-                  <Coordenada c={v.checkout} />
-                </Item>
+                <Item rotulo="Local do check-in">{porCep ? <LocalVisita local={v.checkin} /> : <Coordenada c={v.checkin} />}</Item>
+                <Item rotulo="Local do check-out">{porCep ? <LocalVisita local={v.checkout} /> : <Coordenada c={v.checkout} />}</Item>
+                {controle && (
+                  <Item rotulo="Distância do estabelecimento">
+                    <DistanciaCheckin v={v} />
+                  </Item>
+                )}
               </>
             ) : (
               <div className="sm:col-span-2">
@@ -118,7 +158,7 @@ export function DetalheVisita({ visita: v, cpf = "mascarado" }: { visita: Visita
                   <li key={t.id} className="text-sm">
                     {t.nome}
                     <span className="ml-1 text-xs text-muted-foreground">
-                      · {t.sistema} / {t.modulo}
+                      · {t.sistemaNome} / {t.modulo}
                     </span>
                   </li>
                 ))}
@@ -154,7 +194,6 @@ export function DetalheVisita({ visita: v, cpf = "mascarado" }: { visita: Visita
               <TableHeader>
                 <TableRow>
                   <TableHead className="pl-4">Nome</TableHead>
-                  <TableHead>Cargo</TableHead>
                   <TableHead>CBO</TableHead>
                   <TableHead>Setor</TableHead>
                   <TableHead>CPF</TableHead>
@@ -164,12 +203,20 @@ export function DetalheVisita({ visita: v, cpf = "mascarado" }: { visita: Visita
               <TableBody>
                 {v.presencas.map((p) => (
                   <TableRow key={p.participanteId}>
-                    <TableCell className="pl-4 font-medium">{p.nome}</TableCell>
-                    <TableCell>{p.cargo}</TableCell>
-                    <TableCell className="text-xs">
-                      <span className="font-mono text-muted-foreground">{formatarCbo(p.cbo.codigo)}</span> {p.cbo.titulo}
+                    <TableCell className="pl-4 font-medium">
+                      {p.nome}
+                      {selos && <SeloParticipante estado={p.estado} className="ml-2" />}
                     </TableCell>
-                    <TableCell>{p.setor}</TableCell>
+                    <TableCell className="text-xs">
+                      {p.cbo ? (
+                        <>
+                          <span className="font-mono text-muted-foreground">{formatarCbo(p.cbo.codigo)}</span> {p.cbo.titulo}
+                        </>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell>{p.setor || "—"}</TableCell>
                     <TableCell className="font-mono text-xs">{p.cpf ? (cpf === "completo" ? formatarCpf(p.cpf) : mascararCpf(p.cpf)) : "—"}</TableCell>
                     <TableCell className="pr-4">
                       {p.confirmacao === "assinatura" && p.assinatura ? (

@@ -2,81 +2,42 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
-import { AlertCircle, Loader2, Plus, Trash2 } from "lucide-react";
-import type { AprovadorForm, ClienteFormState } from "./actions";
-import type { Cliente, NivelComprovacao } from "@/lib/types";
+import { AlertCircle, Loader2 } from "lucide-react";
+import type { ClienteFormState } from "./actions";
+import type { Cliente, EstadoSistemaCliente, Sistema } from "@/lib/types";
+import { ROTULO_ESTADO } from "@/lib/contratos";
 import { formatarCnpj } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import { Campo } from "@/components/form/campo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 type Acao = (state: ClienteFormState, formData: FormData) => Promise<ClienteFormState>;
 
-const NIVEIS: { valor: NivelComprovacao; titulo: string; descricao: string }[] = [
-  { valor: "nominal", titulo: "Nominal", descricao: "Basta a lista de participantes com nome, cargo, CBO e setor." },
-  { valor: "assinado", titulo: "Assinado", descricao: "Cada participante assina com o dedo na tela do celular do técnico." },
-];
-
-const vazio = (): AprovadorForm => ({ nome: "", cargo: "", email: "" });
-
-/** Bloco de aprovadores: linhas editáveis, enviadas ao servidor como JSON. */
-function Aprovadores({ inicial, erro, errosLinha }: { inicial: AprovadorForm[]; erro?: string; errosLinha: Record<number, string> }) {
-  const [linhas, setLinhas] = useState<AprovadorForm[]>(inicial.length ? inicial : [vazio()]);
-  const alterar = (i: number, campo: keyof AprovadorForm, valor: string) =>
-    setLinhas((ls) => ls.map((l, j) => (j === i ? { ...l, [campo]: valor } : l)));
-
-  return (
-    <div className="space-y-3">
-      <input type="hidden" name="aprovadores" value={JSON.stringify(linhas)} />
-      <div className="hidden grid-cols-[1fr_1fr_1.2fr_2rem] gap-2 px-1 text-xs font-medium text-muted-foreground sm:grid">
-        <span>Nome</span>
-        <span>Cargo</span>
-        <span>E-mail</span>
-      </div>
-      {linhas.map((l, i) => (
-        <div key={i} className="space-y-1">
-          <div className="grid gap-2 rounded-lg border p-2 sm:grid-cols-[1fr_1fr_1.2fr_2rem] sm:border-0 sm:p-0">
-            <Input aria-label="Nome do aprovador" placeholder="Nome" value={l.nome} onChange={(e) => alterar(i, "nome", e.target.value)} className="h-9" />
-            <Input aria-label="Cargo do aprovador" placeholder="Cargo" value={l.cargo} onChange={(e) => alterar(i, "cargo", e.target.value)} className="h-9" />
-            <Input aria-label="E-mail do aprovador" type="email" placeholder="email@cliente.com.br" value={l.email} onChange={(e) => alterar(i, "email", e.target.value)} className="h-9" aria-invalid={!!errosLinha[i]} />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Remover aprovador"
-              onClick={() => setLinhas((ls) => (ls.length > 1 ? ls.filter((_, j) => j !== i) : [vazio()]))}
-              className="justify-self-end"
-            >
-              <Trash2 />
-            </Button>
-          </div>
-          {errosLinha[i] && <p className="px-1 text-xs text-destructive">{errosLinha[i]}</p>}
-        </div>
-      ))}
-      {erro && <p className="text-xs text-destructive">{erro}</p>}
-      <Button type="button" variant="outline" size="sm" onClick={() => setLinhas((ls) => [...ls, vazio()])}>
-        <Plus />
-        Adicionar aprovador
-      </Button>
-    </div>
-  );
+interface Props {
+  acao: Acao;
+  cliente?: Cliente;
+  chamadosAtivos?: boolean;
+  /** Sistemas que o cliente ainda não tem (na criação, todos os ativos). */
+  sistemasDisponiveis: Sistema[];
+  /** Só na edição: sistemas que o cliente já tem. */
+  sistemasAtuais?: { id: string; sistemaNome: string; estado: EstadoSistemaCliente; tenantId: string | null }[];
 }
 
-export function ClienteForm({ acao, cliente }: { acao: Acao; cliente?: Cliente }) {
+export function ClienteForm({ acao, cliente, chamadosAtivos = false, sistemasDisponiveis, sistemasAtuais = [] }: Props) {
   const [state, action, pending] = useActionState(acao, {});
   const v = state.valores ?? cliente;
   const e = state.erros ?? {};
   const edicao = !!cliente;
   const [cnpj, setCnpj] = useState(formatarCnpj(v?.cnpj ?? ""));
-  const [nivel, setNivel] = useState<NivelComprovacao>(v?.nivel ?? "nominal");
+  const escolhidos = state.valores?.sistemas ?? [];
 
   return (
     <form action={action} noValidate className="space-y-6">
-      {Object.keys(e).length + Object.keys(state.errosAprovadores ?? {}).length > 0 && (
+      {Object.keys(e).length > 0 && (
         <Alert variant="destructive">
           <AlertCircle />
           <AlertDescription>Revise os campos destacados.</AlertDescription>
@@ -86,12 +47,23 @@ export function ClienteForm({ acao, cliente }: { acao: Acao; cliente?: Cliente }
       <Card key={`dados-${JSON.stringify(state.valores ?? null)}`}>
         <CardHeader>
           <CardTitle>Dados do cliente</CardTitle>
+          <CardDescription>Um cadastro por cliente, identificado pelo CNPJ. O contrato, a comprovação e os aprovadores ficam em cada sistema.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-5 sm:grid-cols-2">
-          <Campo id="nome" label="Nome" erro={e.nome}>
-            <Input id="nome" name="nome" defaultValue={v?.nome} aria-invalid={!!e.nome} className="h-9" />
+          <Campo
+            id="nome"
+            label="Nome"
+            erro={e.nome}
+            dica={cliente?.nomeDoClickUp ? "Cliente vinculado ao ClickUp: o nome é o da opção no ClickUp e muda por lá." : undefined}
+          >
+            <Input id="nome" name="nome" defaultValue={v?.nome} readOnly={cliente?.nomeDoClickUp} aria-invalid={!!e.nome} className="h-9" />
           </Campo>
-          <Campo id="cnpj" label="CNPJ" erro={e.cnpj}>
+          <Campo
+            id="cnpj"
+            label="CNPJ"
+            erro={e.cnpj}
+            dica={cliente?.origem === "sinc" ? "Cliente que veio do SINC: pode ficar pendente, mas é exigido para emitir relatório." : undefined}
+          >
             <Input
               id="cnpj"
               name="cnpj"
@@ -103,14 +75,9 @@ export function ClienteForm({ acao, cliente }: { acao: Acao; cliente?: Cliente }
               className="h-9"
             />
           </Campo>
-          <div className="sm:col-span-2">
-            <Campo id="contrato" label="Contrato" erro={e.contrato} dica="Aparece na capa do relatório enviado ao cliente.">
-              <Textarea id="contrato" name="contrato" rows={2} defaultValue={v?.contrato} aria-invalid={!!e.contrato} />
-            </Campo>
-          </div>
           {edicao && (
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="ativo" defaultChecked={v?.ativo} className="size-4 accent-primary" />
+              <input type="checkbox" name="ativo" defaultChecked={cliente?.ativo} className="size-4 accent-primary" />
               Cliente ativo
               <span className="text-muted-foreground">(inativo não aparece para o técnico no check-in)</span>
             </label>
@@ -118,64 +85,70 @@ export function ClienteForm({ acao, cliente }: { acao: Acao; cliente?: Cliente }
         </CardContent>
       </Card>
 
-      <Card key={`comprovacao-${JSON.stringify(state.valores ?? null)}`}>
+      <Card key={`sistemas-${JSON.stringify(state.valores ?? null)}`}>
         <CardHeader>
-          <CardTitle>Comprovação de presença</CardTitle>
-          <CardDescription>Como este cliente exige a lista de participantes dos treinamentos.</CardDescription>
+          <CardTitle>Sistemas do cliente</CardTitle>
+          <CardDescription>
+            {edicao
+              ? "Os sistemas que o cliente usa. O vínculo com o tenant é feito no SINC; aqui o sistema entra “em implantação”."
+              : "Escolha os sistemas que o cliente vai usar. Cada um entra “em implantação” e ganha o seu contrato na tela do cliente."}
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {NIVEIS.map((n) => (
-              <label
-                key={n.valor}
-                className={cn(
-                  "flex cursor-pointer gap-3 rounded-lg border p-3 transition-colors",
-                  nivel === n.valor ? "border-primary bg-primary/5" : "hover:bg-muted/50",
-                )}
-              >
-                <input
-                  type="radio"
-                  name="nivel"
-                  value={n.valor}
-                  checked={nivel === n.valor}
-                  onChange={() => setNivel(n.valor)}
-                  className="mt-0.5 size-4 accent-primary"
-                />
-                <span>
-                  <span className="block text-sm font-medium">{n.titulo}</span>
-                  <span className="block text-xs text-muted-foreground">{n.descricao}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-          <label className="flex items-start gap-2 text-sm">
-            <input type="checkbox" name="exigeCpf" defaultChecked={v?.exigeCpf} className="mt-0.5 size-4 accent-primary" />
-            <span>
-              Exige CPF dos participantes
-              <span className="block text-xs text-muted-foreground">
-                O campo de CPF só aparece para o técnico quando marcado. No relatório, o CPF sai sempre mascarado.
-              </span>
-            </span>
-          </label>
+        <CardContent className="space-y-3">
+          {sistemasAtuais.length > 0 && (
+            <ul className="space-y-1.5">
+              {sistemasAtuais.map((x) => (
+                <li key={x.id} className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="font-medium">{x.sistemaNome}</span>
+                  <Badge variant={x.estado === "vinculado" ? "default" : "secondary"}>{ROTULO_ESTADO[x.estado]}</Badge>
+                  {x.tenantId && <span className="text-xs text-muted-foreground">tenant {x.tenantId}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+          {sistemasDisponiveis.length > 0 ? (
+            <div className={sistemasAtuais.length ? "border-t pt-3" : ""}>
+              {edicao && <p className="mb-2 text-xs text-muted-foreground">Acrescentar sistema:</p>}
+              <div className="grid gap-2 sm:grid-cols-2">
+                {sistemasDisponiveis.map((s) => (
+                  <label key={s.codigo} className="flex items-center gap-2 rounded-lg border p-2.5 text-sm hover:bg-muted/50">
+                    <input type="checkbox" name="sistemas" value={s.codigo} defaultChecked={escolhidos.includes(s.codigo)} className="size-4 accent-primary" />
+                    {s.nome}
+                  </label>
+                ))}
+              </div>
+            </div>
+          ) : (
+            edicao && <p className="text-xs text-muted-foreground">O cliente já tem todos os sistemas cadastrados.</p>
+          )}
+          {e.sistemas && <p className="text-xs text-destructive">{e.sistemas}</p>}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Aprovadores</CardTitle>
-          <CardDescription>
-            Pessoas do cliente que recebem o relatório por e-mail e aprovam pelo link, sem senha. Basta um deles aprovar.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Aprovadores
-            key={JSON.stringify(state.valores?.aprovadores ?? null)}
-            inicial={v?.aprovadores ?? []}
-            erro={e.aprovadores}
-            errosLinha={state.errosAprovadores ?? {}}
-          />
-        </CardContent>
-      </Card>
+      {chamadosAtivos && (
+        <Card key={`sinc-${JSON.stringify(state.valores ?? null)}`}>
+          <CardHeader>
+            <CardTitle>Chamados de suporte</CardTitle>
+            <CardDescription>Liga este cliente aos atendimentos do suporte, para o relatório mostrar os chamados abertos e fechados no período.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Campo
+              id="nomesFortics"
+              label="Nome no SINC"
+              erro={e.nomesFortics}
+              dica="O nome do cliente no SINC, o mesmo que aparece no campo Cliente / Município dos atendimentos (ex.: Prefeitura de Vale Verde / Vale Verde). Um por linha; pode ter mais de um."
+            >
+              <Textarea
+                id="nomesFortics"
+                name="nomesFortics"
+                rows={3}
+                defaultValue={(v?.nomesFortics ?? []).join("\n")}
+                aria-invalid={!!e.nomesFortics}
+              />
+            </Campo>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex justify-end gap-2">
         <Button variant="outline" nativeButton={false} render={<Link href={edicao ? `/admin/clientes/${cliente.id}` : "/admin/clientes"} />}>

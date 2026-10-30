@@ -1,61 +1,119 @@
 import "server-only";
+import { idPlataforma, idTexto, plataforma } from "@/lib/db";
 import { normalizar } from "@/lib/format";
-import type { Participante } from "@/lib/types";
+import { nomesParecidos } from "@/lib/similaridade";
+import type { EstadoParticipante, OrigemParticipante, Participante } from "@/lib/types";
 
 /*
- * Repositório de participantes — implementação MOCK em memória.
- * Na fase de banco, só este arquivo muda (Prisma/Postgres).
+ * Participantes — tabela `client_users` da plataforma, comum com o SINC.
+ * O confirmado nasce da captura do painel do SINC (com o id do usuário no ERP); o provisório nasce no ReportS.
+ * Os unidos (Fase 5) ficam de fora. O ReportS grava só nome (do provisório), CPF, CBO e setor (ADR-035 do SINC);
+ * a inclusão é em SQL direto para não mandar as colunas com valor padrão, que ele não pode gravar.
  */
 
-function seed(): Participante[] {
-  const p = (id: string, clienteId: string, nome: string, cargo: string, cbo: [string, string], setor: string, cpf: string | null, criadoEmCampo = false): Participante => ({
-    id, clienteId, nome, cargo, cbo: { codigo: cbo[0], titulo: cbo[1] }, setor, cpf, criadoEmCampo,
+const VISIVEL = { estado: { in: ["confirmado", "provisorio"] } };
+
+type Linha = Awaited<ReturnType<typeof plataforma.client_users.findFirstOrThrow>>;
+
+const paraParticipante = (p: Linha): Participante => ({
+  id: idTexto(p.id),
+  sistemaDoClienteId: idTexto(p.client_id),
+  idErp: p.external_user_id,
+  estado: p.estado as EstadoParticipante,
+  origem: p.origem as OrigemParticipante,
+  // O confirmado sem nome no ERP aparece pelo id do ERP.
+  nome: p.nome ?? (p.external_user_id ? `Usuário ${p.external_user_id} do ERP` : ""),
+  // Os confirmados chegam do SINC sem ocupação; ela é preenchida no ReportS.
+  cbo: p.cbo_codigo ? { codigo: p.cbo_codigo, titulo: p.cbo_titulo ?? "" } : null,
+  setor: p.setor ?? "",
+  cpf: p.cpf,
+});
+
+const porNome = (a: Participante, b: Participante) => a.nome.localeCompare(b.nome, "pt-BR");
+
+async function doSistemaDoCliente(sistemaDoClienteId: string, excetoId?: string): Promise<Participante[]> {
+  const chave = idPlataforma(sistemaDoClienteId);
+  if (chave === null) return [];
+  const linhas = await plataforma.client_users.findMany({
+    where: { client_id: chave, ...VISIVEL, NOT: { id: idPlataforma(excetoId) ?? BigInt(-1) } },
   });
-  return [
-    p("p1", "c1", "Luciana Ferraz", "Assistente administrativa", ["411010", "Assistente administrativo"], "Protocolo", "12345678909"),
-    p("p2", "c1", "Rogério Batista", "Fiscal de tributos", ["411010", "Assistente administrativo"], "Tributação", "98765432100"),
-    p("p3", "c1", "Patrícia Gomes", "Analista de RH", ["252405", "Analista de recursos humanos"], "Recursos Humanos", "11144477735"),
-    p("p4", "c1", "Sandra Moura", "Enfermeira", ["223505", "Enfermeiro"], "Recepção", "52998224725", true),
-    p("p5", "c2", "Fábio Nunes", "Faturista", ["411005", "Auxiliar de escritório"], "Faturamento", null),
-    p("p6", "c2", "Cíntia Alves", "Recepcionista", ["422105", "Recepcionista, em geral"], "Recepção", null, true),
-  ];
+  return linhas.map(paraParticipante);
 }
 
-// Mantém os dados entre recargas do servidor de desenvolvimento.
-const g = globalThis as unknown as { __participantes?: Participante[] };
-const participantes = (g.__participantes ??= seed());
-
-/** Participantes de um cliente, com busca por nome, cargo ou setor. */
-export async function listarParticipantes(clienteId: string, busca = ""): Promise<Participante[]> {
+/** Participantes de um sistema do cliente, com busca por nome, ocupação (CBO) ou setor. */
+export async function listarParticipantes(sistemaDoClienteId: string, busca = ""): Promise<Participante[]> {
   const b = normalizar(busca);
-  return participantes
-    .filter((p) => p.clienteId === clienteId)
-    .filter((p) => !b || [p.nome, p.cargo, p.setor].some((c) => normalizar(c).includes(b)))
-    .sort((a, b2) => a.nome.localeCompare(b2.nome, "pt-BR"));
+  return (await doSistemaDoCliente(sistemaDoClienteId))
+    .filter((p) => !b || [p.nome, p.cbo?.titulo ?? "", p.setor].some((c) => normalizar(c).includes(b)))
+    .sort(porNome);
 }
 
 export async function buscarParticipante(id: string): Promise<Participante | null> {
-  return participantes.find((p) => p.id === id) ?? null;
+  const chave = idPlataforma(id);
+  if (chave === null) return null;
+  const p = await plataforma.client_users.findFirst({ where: { id: chave, ...VISIVEL } });
+  return p ? paraParticipante(p) : null;
 }
 
-export async function homonimo(clienteId: string, nome: string, excetoId?: string) {
-  const n = normalizar(nome);
-  return participantes.some((p) => p.clienteId === clienteId && p.id !== excetoId && normalizar(p.nome) === n);
+/** CPF é único por sistema do cliente entre os não unidos (o banco também garante). */
+export async function cpfEmUso(sistemaDoClienteId: string, cpf: string, excetoId?: string) {
+  return (await doSistemaDoCliente(sistemaDoClienteId, excetoId)).some((p) => p.cpf === cpf);
 }
 
-export async function cpfEmUso(clienteId: string, cpf: string, excetoId?: string) {
-  return participantes.some((p) => p.clienteId === clienteId && p.id !== excetoId && p.cpf === cpf);
+export interface Semelhantes {
+  /** Quem já tem este CPF no sistema do cliente (bloqueia a criação). */
+  mesmoCpf: Participante | null;
+  /** Nomes iguais ou parecidos (sem acento; semelhança de pelo menos 0,75, como no SINC). */
+  nomesParecidos: Participante[];
 }
 
-export type DadosParticipante = Omit<Participante, "id" | "clienteId" | "criadoEmCampo">;
-
-export async function criarParticipante(clienteId: string, d: DadosParticipante, criadoEmCampo = false): Promise<Participante> {
-  const p: Participante = { ...d, id: crypto.randomUUID(), clienteId, criadoEmCampo };
-  participantes.push(p);
-  return p;
+/**
+ * Busca antes de criar (RN-PL-34): procura, entre os participantes do mesmo sistema do cliente, quem já tem o CPF
+ * e quem tem nome igual ou parecido.
+ */
+export async function buscarSemelhantes(sistemaDoClienteId: string, d: { nome: string; cpf?: string | null }, excetoId?: string): Promise<Semelhantes> {
+  const doSistema = await doSistemaDoCliente(sistemaDoClienteId, excetoId);
+  return {
+    mesmoCpf: d.cpf ? (doSistema.find((p) => p.cpf === d.cpf) ?? null) : null,
+    nomesParecidos: doSistema.filter((p) => nomesParecidos(p.nome, d.nome)).sort(porNome),
+  };
 }
 
+export type DadosParticipante = { nome: string; cbo: NonNullable<Participante["cbo"]>; setor: string; cpf: string | null };
+
+/** Cria um participante provisório (sem id do ERP): pelo técnico em campo ou pela Administração. */
+export async function criarProvisorio(
+  sistemaDoClienteId: string,
+  d: DadosParticipante,
+  origem: Exclude<OrigemParticipante, "painel_sinc">,
+  criadoPor: string,
+): Promise<Participante> {
+  const [{ id }] = await plataforma.$queryRaw<{ id: bigint }[]>`
+    INSERT INTO client_users (client_id, nome, estado, origem, cpf, cbo_codigo, cbo_titulo, setor, criado_por_user_id)
+    VALUES (${idPlataforma(sistemaDoClienteId)}, ${d.nome}, 'provisorio', ${origem}, ${d.cpf}, ${d.cbo.codigo}, ${d.cbo.titulo},
+            ${d.setor || null}, ${idPlataforma(criadoPor)})
+    RETURNING id`;
+  return (await buscarParticipante(idTexto(id)))!;
+}
+
+/** Grava só o CPF, informado na presença (RN-PL-35). Não mexe em nome, CBO nem setor, que o confirmado pode ter vazios. */
+export async function definirCpfDoParticipante(id: string, cpf: string): Promise<void> {
+  await plataforma.client_users.update({ where: { id: idPlataforma(id)! }, data: { cpf, updated_at: new Date() } });
+}
+
+/** Atualiza CBO, setor e CPF. O nome só muda no provisório: o do confirmado vem do ERP (RN-PL-42). */
 export async function atualizarParticipante(id: string, d: DadosParticipante): Promise<void> {
-  const p = participantes.find((x) => x.id === id);
-  if (p) Object.assign(p, d);
+  const atual = await buscarParticipante(id);
+  if (!atual) return;
+  await plataforma.client_users.update({
+    where: { id: idPlataforma(id)! },
+    data: {
+      ...(atual.estado === "provisorio" ? { nome: d.nome } : {}),
+      cpf: d.cpf,
+      cbo_codigo: d.cbo.codigo,
+      cbo_titulo: d.cbo.titulo,
+      setor: d.setor || null,
+      updated_at: new Date(),
+    },
+  });
 }

@@ -1,9 +1,10 @@
 /* eslint-disable jsx-a11y/alt-text -- Image do react-pdf não tem atributo alt */
 import "server-only";
 import { Document, Font, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
-import type { ConteudoCongelado, VisitaDetalhada } from "@/lib/types";
+import type { ContagemSuporte, ConteudoCongelado, ResumoSuporte, VisitaDetalhada } from "@/lib/types";
 import { formatarData, formatarDataHora, formatarDuracao, formatarHora } from "@/lib/datas";
 import { formatarCbo, formatarCnpj, mascararCpf } from "@/lib/format";
+import { ROTULO_MEIO } from "@/lib/meio";
 import { ehPresencial, formatarDataCurta, formatarMinutos, rotuloTipo } from "@/lib/visitas";
 
 // Sem hifenização automática: em colunas estreitas o padrão quebrava palavras ("Recursos Hu-manos").
@@ -53,7 +54,7 @@ function Rodape({ conteudo, versao }: { conteudo: ConteudoCongelado; versao: num
   return (
     <View style={s.rodape} fixed>
       <Text>
-        {conteudo.cliente.nome} · {formatarDataCurta(conteudo.de)} a {formatarDataCurta(conteudo.ate)} · v{versao}
+        {conteudo.cliente.nome} · {conteudo.sistema.nome} · {formatarDataCurta(conteudo.de)} a {formatarDataCurta(conteudo.ate)} · v{versao}
       </Text>
       <Text render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`} />
     </View>
@@ -71,7 +72,7 @@ function Texto({ rotulo, valor }: { rotulo: string; valor: string }) {
 
 function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao }: { v: VisitaDetalhada; outroPeriodo: boolean; imagens: ImagensPdf; conteudo: ConteudoCongelado; versao: number }) {
   const fotos = [v.fotoAmbiente, v.printTela, ...v.fotosExtras].filter((f): f is NonNullable<typeof f> => !!f && imagens.has(f.url));
-  const temas = [...v.temas.map((t) => `${t.nome} (${t.sistema} / ${t.modulo})`), ...(v.temaAdicional ? [`${v.temaAdicional} (adicional)`] : [])];
+  const temas = [...v.temas.map((t) => `${t.nome} (${t.sistemaNome} / ${t.modulo})`), ...(v.temaAdicional ? [`${v.temaAdicional} (adicional)`] : [])];
 
   return (
     <Page size="A4" style={s.pagina}>
@@ -85,9 +86,10 @@ function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao }: { v: Visit
 
       <View style={s.caixa}>
         <View style={s.grade}>
-          <Campo rotulo="Unidade" valor={v.unidadeNome} />
+          <Campo rotulo="Estabelecimento" valor={v.unidadeNome} />
           <Campo rotulo="Setor" valor={v.setorNome} />
           <Campo rotulo="Técnico" valor={v.tecnicoNome} />
+          <Campo rotulo="Registrado por" valor={ROTULO_MEIO[v.meio]} />
           <Campo rotulo="Entrada" valor={formatarHora(v.entrada)} />
           <Campo rotulo="Saída" valor={v.saida ? formatarHora(v.saida) : ""} />
           <Campo rotulo="Duração" valor={v.saida ? formatarDuracao(v.entrada, v.saida) : ""} />
@@ -108,24 +110,22 @@ function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao }: { v: Visit
       {v.presencas.length ? (
         <View style={s.tabela}>
           <View style={[s.linha, s.cabecalho]}>
-            <Text style={{ width: "22%" }}>Nome</Text>
-            <Text style={{ width: "16%" }}>Cargo</Text>
-            <Text style={{ width: "20%" }}>CBO</Text>
-            <Text style={{ width: "13%" }}>Setor</Text>
-            <Text style={{ width: "13%" }}>CPF</Text>
+            <Text style={{ width: "26%" }}>Nome</Text>
+            <Text style={{ width: "28%" }}>CBO</Text>
+            <Text style={{ width: "15%" }}>Setor</Text>
+            <Text style={{ width: "15%" }}>CPF</Text>
             <Text style={{ width: "16%" }}>Confirmação</Text>
           </View>
           {v.presencas.map((p) => {
             const assinatura = p.assinatura ? imagens.get(p.assinatura) : undefined;
             return (
               <View key={p.participanteId} style={s.linha} wrap={false}>
-                <Text style={{ width: "22%" }}>{p.nome}</Text>
-                <Text style={{ width: "16%" }}>{p.cargo}</Text>
-                <Text style={{ width: "20%", fontSize: 8 }}>
-                  {formatarCbo(p.cbo.codigo)} {p.cbo.titulo}
+                <Text style={{ width: "26%" }}>{p.nome}</Text>
+                <Text style={{ width: "28%", fontSize: 8 }}>
+                  {p.cbo ? `${formatarCbo(p.cbo.codigo)} ${p.cbo.titulo}` : "—"}
                 </Text>
-                <Text style={{ width: "13%" }}>{p.setor}</Text>
-                <Text style={{ width: "13%" }}>{p.cpf ? mascararCpf(p.cpf) : "—"}</Text>
+                <Text style={{ width: "15%" }}>{p.setor || "—"}</Text>
+                <Text style={{ width: "15%" }}>{p.cpf ? mascararCpf(p.cpf) : "—"}</Text>
                 <View style={{ width: "16%" }}>
                   {p.confirmacao === "assinatura" && assinatura ? <Image src={assinatura} style={{ height: 20, objectFit: "contain" }} /> : <Text>Nominal</Text>}
                 </View>
@@ -154,10 +154,84 @@ function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao }: { v: Visit
   );
 }
 
-export function RelatorioPdf({ conteudo, versao, emitidoEm, imagens }: { conteudo: ConteudoCongelado; versao: number; emitidoEm: string; imagens: ImagensPdf }) {
+/** Top 5 + "Outros" (mesma regra da tela). */
+function top5(lista: ContagemSuporte[]): ContagemSuporte[] {
+  if (lista.length <= 5) return lista;
+  return [...lista.slice(0, 5), { nome: "Outros", quantidade: lista.slice(5).reduce((s, x) => s + x.quantidade, 0) }];
+}
+
+/** Resumo dos chamados de suporte na capa: só totais e contagens (sem lista de chamados e sem atendentes). */
+function ChamadosSuportePdf({ r }: { r: ResumoSuporte }) {
+  if (r.situacao === "sem_vinculo") return null;
+  const colunas: { titulo: string; itens: ContagemSuporte[] }[] = [
+    { titulo: "Por sistema", itens: top5(r.porSistema) },
+    { titulo: "Por assunto", itens: top5(r.porTopico) },
+    { titulo: "Por motivo de encerramento", itens: top5(r.porMotivoEncerramento) },
+  ];
+  return (
+    <View wrap={false}>
+      <Text style={s.secao}>Chamados de suporte</Text>
+      <View style={s.caixa}>
+        {r.situacao === "indisponivel" ? (
+          <Text style={s.vazio}>Dados de suporte indisponíveis no momento da emissão.</Text>
+        ) : r.totalAbertosEFechados === 0 ? (
+          <Text style={s.vazio}>Nenhum chamado no período.</Text>
+        ) : (
+          <>
+            <View style={{ flexDirection: "row", marginBottom: 8 }}>
+              <View style={{ width: "50%" }}>
+                <Text style={s.rotulo}>Chamados abertos e fechados</Text>
+                <Text style={[s.destaque, { fontSize: 16 }]}>{r.totalAbertosEFechados}</Text>
+              </View>
+              {r.tempoMedioEsperaMin !== null && (
+                <View style={{ width: "50%" }}>
+                  <Text style={s.rotulo}>Espera média pelo atendente</Text>
+                  <Text style={s.valor}>{r.tempoMedioEsperaMin.toLocaleString("pt-BR")} min</Text>
+                </View>
+              )}
+            </View>
+            <View style={{ flexDirection: "row" }}>
+              {colunas.map((col) => (
+                <View key={col.titulo} style={{ width: "33.33%", paddingRight: 8 }}>
+                  <Text style={s.rotulo}>{col.titulo}</Text>
+                  {col.itens.length ? (
+                    col.itens.map((x) => (
+                      <View key={x.nome} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 1.5 }}>
+                        <Text style={{ fontSize: 8.5, width: "80%" }}>{x.nome}</Text>
+                        <Text style={{ fontSize: 8.5 }}>{x.quantidade}</Text>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={s.vazio}>—</Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+        {r.situacao === "ok" && <Text style={[s.vazio, { fontSize: 7.5, marginTop: 6 }]}>Fonte: atendimentos do suporte (Fortics), consultados em {formatarDataHora(r.consultadoEm)}.</Text>}
+      </View>
+    </View>
+  );
+}
+
+export function RelatorioPdf({
+  conteudo,
+  versao,
+  emitidoEm,
+  imagens,
+  mostrarSuporte = false,
+}: {
+  conteudo: ConteudoCongelado;
+  versao: number;
+  emitidoEm: string;
+  imagens: ImagensPdf;
+  /** Bloco de chamados de suporte na capa (CHAMADOS_SUPORTE_PDF). */
+  mostrarSuporte?: boolean;
+}) {
   const c = conteudo;
   return (
-    <Document title={`Relatório ${c.cliente.nome} ${formatarDataCurta(c.de)} a ${formatarDataCurta(c.ate)} v${versao}`} author="SIDIM" language="pt-BR">
+    <Document title={`Relatório ${c.cliente.nome} ${c.sistema.nome} ${formatarDataCurta(c.de)} a ${formatarDataCurta(c.ate)} v${versao}`} author="SIDIM" language="pt-BR">
       <Page size="A4" style={s.pagina}>
         <Text style={s.marca}>SIDIM · Registro de visitas e treinamentos</Text>
         <Text style={s.titulo}>Relatório de atendimento</Text>
@@ -169,7 +243,8 @@ export function RelatorioPdf({ conteudo, versao, emitidoEm, imagens }: { conteud
           <View style={s.grade}>
             <Campo rotulo="Cliente" valor={c.cliente.nome} largura="66.66%" />
             <Campo rotulo="CNPJ" valor={formatarCnpj(c.cliente.cnpj)} />
-            <Campo rotulo="Contrato" valor={c.cliente.contrato} largura="100%" />
+            <Campo rotulo="Sistema" valor={c.sistema.nome} />
+            <Campo rotulo="Contrato" valor={c.cliente.contrato} largura="66.66%" />
             <Campo rotulo="Período" valor={`${formatarDataCurta(c.de)} a ${formatarDataCurta(c.ate)}`} />
             <Campo rotulo="Emitido em" valor={formatarDataHora(emitidoEm)} />
             <Campo rotulo="Visitas" valor={String(c.visitas.length)} />
@@ -189,12 +264,14 @@ export function RelatorioPdf({ conteudo, versao, emitidoEm, imagens }: { conteud
           )}
         </View>
 
+        {mostrarSuporte && c.suporte && <ChamadosSuportePdf r={c.suporte} />}
+
         <Text style={s.secao}>Visitas do período</Text>
         <View style={s.tabela}>
           <View style={[s.linha, s.cabecalho]}>
             <Text style={{ width: "14%" }}>Data</Text>
             <Text style={{ width: "22%" }}>Tipo</Text>
-            <Text style={{ width: "30%" }}>Unidade / setor</Text>
+            <Text style={{ width: "30%" }}>Estabelecimento / setor</Text>
             <Text style={{ width: "20%" }}>Horário</Text>
             <Text style={{ width: "14%" }}>Duração</Text>
           </View>

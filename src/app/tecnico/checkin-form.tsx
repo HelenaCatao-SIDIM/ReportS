@@ -1,16 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import { AlertCircle, Check, Clock, Loader2, LocateFixed, MapPin } from "lucide-react";
-import type { ClienteCheckin } from "@/lib/repo/clientes";
-import type { TipoVisita } from "@/lib/types";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { AlertCircle, Check, Clock, Loader2, LocateFixed, MapPin, Monitor } from "lucide-react";
+import type { ClienteCheckin } from "@/lib/repo/contratos";
+import type { MeioRegistro, TipoVisita } from "@/lib/types";
+import { detectarMeio } from "@/lib/meio";
+import { chaveRascunhoCheckin } from "@/lib/regras-visita";
 import { ehPresencial, TIPOS_VISITA } from "@/lib/visitas";
 import { cn } from "@/lib/utils";
 import { fazerCheckin, type CheckinState } from "./actions";
 import { useAcao } from "@/components/form/use-acao";
 import { selectClass } from "@/components/form/campo";
 import { FotoCampo } from "@/components/tecnico/foto-campo";
+import { guardarRascunho, lerRascunho } from "@/components/tecnico/rascunho";
 import { useGps } from "@/components/tecnico/use-gps";
+import { usePreviaCep } from "@/components/tecnico/use-previa-cep";
+import { TextoLocal } from "@/components/tecnico/texto-local";
+import { formatarCep } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +24,23 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 
 const select = cn(selectClass, "h-11 bg-background text-base");
+
+// O aparelho só é conhecido no navegador; no servidor fica vazio e o valor entra após a hidratação.
+const semAssinatura = () => () => {};
+const meioNoNavegador = (): MeioRegistro | null => detectarMeio();
+const meioNoServidor = (): MeioRegistro | null => null;
+
+/** O que o técnico já tinha escolhido no check-in. A foto e a localização não são guardadas: são pedidas de novo. */
+interface RascunhoCheckin {
+  clienteId: string;
+  /** Contrato (sistema). Rascunhos antigos não têm. */
+  contratoId?: string;
+  unidadeId: string;
+  setor: string;
+  setorOutro: string;
+  tipo: TipoVisita | "";
+  link: string;
+}
 
 function Erro({ msg }: { msg?: string }) {
   return msg ? <p className="mt-1.5 text-xs text-destructive">{msg}</p> : null;
@@ -37,11 +60,19 @@ function Secao({ numero, titulo, children }: { numero: number; titulo: string; c
   );
 }
 
-export function CheckinForm({ clientes }: { clientes: ClienteCheckin[] }) {
+/** Linhas escritas no rodapé da foto do ambiente (nunca coordenadas). */
+function linhasCarimbo(cep: string | null, cidade: string | null, uf: string | null) {
+  const quando = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }).format(new Date());
+  const local = cep ? `CEP ${formatarCep(cep)} (aprox.)${cidade ? ` · ${[cidade, uf].filter(Boolean).join("/")}` : ""}` : "CEP não identificado";
+  return [quando, local];
+}
+
+export function CheckinForm({ clientes, porCep = false, carimbo = false }: { clientes: ClienteCheckin[]; porCep?: boolean; carimbo?: boolean }) {
   const [state, onSubmit, pending] = useAcao<CheckinState>(fazerCheckin, {});
   const e = state.erros ?? {};
 
   const [clienteId, setClienteId] = useState("");
+  const [contratoId, setContratoId] = useState("");
   const [unidadeId, setUnidadeId] = useState("");
   const [setor, setSetor] = useState("");
   const [setorOutro, setSetorOutro] = useState("");
@@ -49,12 +80,50 @@ export function CheckinForm({ clientes }: { clientes: ClienteCheckin[] }) {
   const [temFoto, setTemFoto] = useState(false);
   const [link, setLink] = useState("");
   const { estado: gps, capturar } = useGps();
+  const meio = useSyncExternalStore(semAssinatura, meioNoNavegador, meioNoServidor);
+  const restaurado = useRef(false);
+
+  // Ao reabrir a tela (aba fechada, celular travado), devolve o que já tinha sido escolhido.
+  useEffect(() => {
+    if (restaurado.current) return;
+    const t = setTimeout(() => {
+      const r = lerRascunho<RascunhoCheckin>(chaveRascunhoCheckin);
+      const c = clientes.find((x) => x.id === r?.clienteId);
+      if (r && c) {
+        const u = c.unidades.find((x) => x.id === r.unidadeId);
+        // Sistema com um só contrato já vem escolhido.
+        const ct = c.contratos.find((x) => x.id === r.contratoId) ?? (c.contratos.length === 1 ? c.contratos[0] : undefined);
+        const s = u && (r.setor === "outro" || u.setores.some((x) => x.id === r.setor)) ? r.setor : "";
+        const tipoValido = TIPOS_VISITA.find((x) => x.valor === r.tipo);
+        setClienteId(c.id);
+        setContratoId(ct?.id ?? "");
+        setUnidadeId(u?.id ?? "");
+        setSetor(s);
+        setSetorOutro(s === "outro" ? r.setorOutro : "");
+        if (tipoValido) {
+          setTipo(tipoValido.valor);
+          if (tipoValido.presencial) capturar();
+          else setLink(r.link);
+        }
+      }
+      restaurado.current = true;
+    }, 0);
+    return () => clearTimeout(t);
+  }, [clientes, capturar]);
+
+  // Guarda as escolhas a cada mudança, só depois da recuperação (senão apagaria o rascunho ao abrir).
+  useEffect(() => {
+    if (!restaurado.current) return;
+    guardarRascunho(chaveRascunhoCheckin, { clienteId, contratoId, unidadeId, setor, setorOutro, tipo, link } satisfies RascunhoCheckin);
+  }, [clienteId, contratoId, unidadeId, setor, setorOutro, tipo, link]);
+  const previa = usePreviaCep(gps, porCep);
+  const p = previa.fase === "pronto" ? previa.previa : null;
 
   const cliente = clientes.find((c) => c.id === clienteId);
   const unidade = cliente?.unidades.find((u) => u.id === unidadeId);
   const presencial = tipo ? ehPresencial(tipo) : null;
 
-  const localOk = !!clienteId && !!unidadeId && (setor === "outro" ? !!setorOutro.trim() : !!setor);
+  const localOk = !!clienteId && !!contratoId && !!unidadeId && (setor === "outro" ? !!setorOutro.trim() : !!setor);
   const comprovacaoOk = presencial === null ? false : presencial ? gps.fase === "ok" && temFoto : temFoto && !!link.trim();
   const pronto = localOk && comprovacaoOk;
 
@@ -76,6 +145,7 @@ export function CheckinForm({ clientes }: { clientes: ClienteCheckin[] }) {
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4">
+      <input type="hidden" name="meio" value={meio ?? ""} />
       {e.geral && (
         <Alert variant="destructive">
           <AlertCircle />
@@ -95,7 +165,8 @@ export function CheckinForm({ clientes }: { clientes: ClienteCheckin[] }) {
             onChange={(ev) => {
               setClienteId(ev.target.value);
               const c = clientes.find((x) => x.id === ev.target.value);
-              // Unidade única já vem escolhida.
+              // Sistema e estabelecimento únicos já vêm escolhidos.
+              setContratoId(c?.contratos.length === 1 ? c.contratos[0].id : "");
               setUnidadeId(c?.unidades.length === 1 ? c.unidades[0].id : "");
               setSetor("");
             }}
@@ -111,8 +182,22 @@ export function CheckinForm({ clientes }: { clientes: ClienteCheckin[] }) {
           <Erro msg={e.cliente} />
         </div>
         <div>
+          <Label htmlFor="contratoId" className="mb-1.5">
+            Sistema
+          </Label>
+          <select id="contratoId" name="contratoId" value={contratoId} disabled={!cliente} onChange={(ev) => setContratoId(ev.target.value)} className={select}>
+            <option value="">{cliente ? "Escolha o sistema" : "Escolha o cliente primeiro"}</option>
+            {cliente?.contratos.map((k) => (
+              <option key={k.id} value={k.id}>
+                {k.sistemaNome}
+              </option>
+            ))}
+          </select>
+          <Erro msg={e.contrato} />
+        </div>
+        <div>
           <Label htmlFor="unidadeId" className="mb-1.5">
-            Unidade
+            Estabelecimento
           </Label>
           <select
             id="unidadeId"
@@ -125,7 +210,7 @@ export function CheckinForm({ clientes }: { clientes: ClienteCheckin[] }) {
             }}
             className={select}
           >
-            <option value="">{cliente ? "Escolha a unidade" : "Escolha o cliente primeiro"}</option>
+            <option value="">{cliente ? "Escolha o estabelecimento" : "Escolha o cliente primeiro"}</option>
             {cliente?.unidades.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.nome}
@@ -145,7 +230,7 @@ export function CheckinForm({ clientes }: { clientes: ClienteCheckin[] }) {
             Setor
           </Label>
           <select id="setorId" name="setorId" value={setor} disabled={!unidade} onChange={(ev) => setSetor(ev.target.value)} className={select}>
-            <option value="">{unidade ? "Escolha o setor" : "Escolha a unidade primeiro"}</option>
+            <option value="">{unidade ? "Escolha o setor" : "Escolha o estabelecimento primeiro"}</option>
             {unidade?.setores.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.nome}
@@ -185,11 +270,23 @@ export function CheckinForm({ clientes }: { clientes: ClienteCheckin[] }) {
         <Erro msg={e.tipo} />
       </Secao>
 
+      {presencial === true && meio === "computador" && (
+        <Alert>
+          <Monitor />
+          <AlertDescription>
+            Você está no computador. Em visita presencial, o ideal é fazer o check-in pelo celular: a localização do computador costuma ser pouco precisa. Você
+            pode continuar; o relatório mostrará que o registro foi feito pelo computador.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {presencial === true && (
         <Secao numero={3} titulo="Comprovação no local">
           <div className="rounded-lg border p-3">
             <input type="hidden" name="latitude" value={gps.fase === "ok" ? gps.latitude : ""} />
             <input type="hidden" name="longitude" value={gps.fase === "ok" ? gps.longitude : ""} />
+            <input type="hidden" name="precisao" value={gps.fase === "ok" ? gps.precisao : ""} />
+            <input type="hidden" name="capturadoEm" value={gps.fase === "ok" ? gps.capturadoEm : ""} />
             <div className="flex items-start gap-3">
               <div
                 className={cn(
@@ -203,11 +300,7 @@ export function CheckinForm({ clientes }: { clientes: ClienteCheckin[] }) {
                 <div className="font-medium">Localização</div>
                 {gps.fase === "parado" && <p className="text-xs text-muted-foreground">Registrada só agora e no check-out.</p>}
                 {gps.fase === "buscando" && <p className="text-xs text-muted-foreground">Obtendo a localização…</p>}
-                {gps.fase === "ok" && (
-                  <p className="font-mono text-xs text-muted-foreground">
-                    {gps.latitude.toFixed(5)}, {gps.longitude.toFixed(5)} · ±{Math.round(gps.precisao)} m
-                  </p>
-                )}
+                {gps.fase === "ok" && <TextoLocal gps={gps} porCep={porCep} previa={previa} />}
                 {gps.fase === "erro" && <p className="text-xs text-destructive">{gps.mensagem}</p>}
               </div>
               {(gps.fase === "parado" || gps.fase === "erro") && (
@@ -220,7 +313,14 @@ export function CheckinForm({ clientes }: { clientes: ClienteCheckin[] }) {
           </div>
           <div>
             <div className="mb-1.5 text-sm font-medium">Foto do ambiente</div>
-            <FotoCampo key={`foto-${tipo}`} name="fotoAmbiente" rotulo="Foto do ambiente" invalido={!!e.foto} onMudar={setTemFoto} />
+            <FotoCampo
+              key={`foto-${tipo}`}
+              name="fotoAmbiente"
+              rotulo="Foto do ambiente"
+              invalido={!!e.foto}
+              onMudar={setTemFoto}
+              carimbo={carimbo ? () => linhasCarimbo(p?.status === "ok" ? p.cep : null, p?.cidade ?? null, p?.uf ?? null) : undefined}
+            />
             <Erro msg={e.foto} />
           </div>
         </Secao>

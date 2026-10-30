@@ -19,7 +19,7 @@ export default function RelatoriosPage({ searchParams }: PageProps<"/admin/relat
   return (
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <PageHeader titulo="Relatórios" descricao="Relatórios por cliente e período. Aprovado pelo cliente = liberado para faturar." />
+        <PageHeader titulo="Relatórios" descricao="Relatórios por contrato (cliente e sistema) e período." />
         <Button nativeButton={false} render={<Link href="/admin/relatorios/novo" />} className="h-9">
           <Plus />
           Novo relatório
@@ -79,6 +79,7 @@ async function Lista({ searchParams }: Pick<PageProps<"/admin/relatorios">, "sea
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-4">Cliente</TableHead>
+                <TableHead>Sistema</TableHead>
                 <TableHead>Período</TableHead>
                 <TableHead className="text-center">Versão</TableHead>
                 <TableHead className="text-center">Visitas</TableHead>
@@ -90,7 +91,7 @@ async function Lista({ searchParams }: Pick<PageProps<"/admin/relatorios">, "sea
             <TableBody>
               {relatorios.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                     Nenhum relatório encontrado.
                   </TableCell>
                 </TableRow>
@@ -98,6 +99,7 @@ async function Lista({ searchParams }: Pick<PageProps<"/admin/relatorios">, "sea
               {relatorios.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="pl-4 font-medium">{r.clienteNome}</TableCell>
+                  <TableCell>{r.sistemaNome}</TableCell>
                   <TableCell className="whitespace-nowrap">
                     {formatarDataCurta(r.de)} a {formatarDataCurta(r.ate)}
                   </TableCell>
@@ -119,7 +121,7 @@ async function Lista({ searchParams }: Pick<PageProps<"/admin/relatorios">, "sea
         </div>
       </Card>
       <p className="mt-3 text-xs text-muted-foreground">
-        {relatorios.length} {relatorios.length === 1 ? "relatório" : "relatórios"}. O status muda sozinho para &quot;Liberado para faturar&quot; quando o cliente aprova.
+        {relatorios.length} {relatorios.length === 1 ? "relatório" : "relatórios"}. O status muda sozinho para &quot;Aprovado&quot; quando o cliente aprova.
       </p>
     </>
   );

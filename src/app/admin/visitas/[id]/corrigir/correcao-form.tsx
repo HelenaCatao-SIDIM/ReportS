@@ -26,9 +26,9 @@ export function CorrecaoForm({ visita: v, unidades, temas }: { visita: VisitaDet
   const [setor, setSetor] = useState(v.setorId ?? "outro");
   const setores = unidades.find((u) => u.id === unidadeId)?.setores ?? [];
 
-  // Temas agrupados por sistema; inativos só aparecem se já estavam marcados.
-  const visiveis = temas.filter((t) => t.ativo || v.temaIds.includes(t.id));
-  const sistemas = [...new Set(visiveis.map((t) => t.sistema))];
+  // Só temas do sistema do contrato da visita, agrupados; inativos só aparecem se já estavam marcados.
+  const visiveis = temas.filter((t) => t.sistema === v.sistema && (t.ativo || v.temaIds.includes(t.id)));
+  const sistemas = [...new Map(visiveis.map((t) => [t.sistema, t.sistemaNome])).entries()];
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4">
@@ -60,7 +60,7 @@ export function CorrecaoForm({ visita: v, unidades, temas }: { visita: VisitaDet
               ))}
             </select>
           </Campo>
-          <Campo id="unidadeId" label="Unidade" erro={e.unidade}>
+          <Campo id="unidadeId" label="Estabelecimento" erro={e.unidade}>
             <select
               id="unidadeId"
               name="unidadeId"
@@ -104,12 +104,12 @@ export function CorrecaoForm({ visita: v, unidades, temas }: { visita: VisitaDet
           <CardTitle>Temas</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {sistemas.map((s) => (
-            <fieldset key={s}>
-              <legend className="mb-1.5 text-xs font-medium text-muted-foreground">{s}</legend>
+          {sistemas.map(([codigo, nome]) => (
+            <fieldset key={codigo}>
+              <legend className="mb-1.5 text-xs font-medium text-muted-foreground">{nome}</legend>
               <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
                 {visiveis
-                  .filter((t) => t.sistema === s)
+                  .filter((t) => t.sistema === codigo)
                   .map((t) => (
                     <label key={t.id} className="flex items-start gap-2 text-sm">
                       <input type="checkbox" name="temaIds" value={t.id} defaultChecked={v.temaIds.includes(t.id)} className="mt-0.5 size-4 accent-primary" />
@@ -166,7 +166,7 @@ export function CorrecaoForm({ visita: v, unidades, temas }: { visita: VisitaDet
                         {p.nome}
                         <span className="text-xs text-muted-foreground">
                           {" "}
-                          · {p.cargo} · {p.confirmacao === "assinatura" ? "assinou" : "nominal"}
+                          · {p.cbo?.titulo ?? "—"} · {p.confirmacao === "assinatura" ? "assinou" : "nominal"}
                         </span>
                       </span>
                       <span className="text-xs text-muted-foreground">remover</span>

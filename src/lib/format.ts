@@ -42,6 +42,23 @@ export function formatarCpf(valor: string) {
     .replace(/\.(\d{3})(\d)/, ".$1-$2");
 }
 
+/** 19999990000 → (19) 99999-0000; fixo de 10 dígitos → (19) 3333-0000. Aceita parcial, para máscara de digitação. */
+export function formatarTelefone(valor: string) {
+  const d = soDigitos(valor).slice(0, 11);
+  if (!d) return "";
+  if (d.length < 3) return `(${d}`;
+  const resto = d.slice(2);
+  const corte = d.length > 10 ? 5 : 4;
+  return resto.length > corte ? `(${d.slice(0, 2)}) ${resto.slice(0, corte)}-${resto.slice(corte)}` : `(${d.slice(0, 2)}) ${resto}`;
+}
+
+/** Telefone brasileiro com DDD: 10 dígitos (fixo) ou 11 (celular, que começa com 9 depois do DDD). */
+export function telefoneValido(valor: string) {
+  const d = soDigitos(valor);
+  if (!/^[1-9][1-9]/.test(d)) return false;
+  return d.length === 10 || (d.length === 11 && d[2] === "9");
+}
+
 /** CPF mascarado para relatório e página do aprovador: ***.456.789-** */
 export function mascararCpf(valor: string) {
   const d = soDigitos(valor);
@@ -63,3 +80,15 @@ export function cpfValido(valor: string) {
 
 /** Código CBO 411010 → 4110-10 */
 export const formatarCbo = (codigo: string) => codigo.replace(/^(\d{4})(\d{2})$/, "$1-$2");
+
+/** 87020000 → 87020-000 */
+export const formatarCep = (cep: string) => soDigitos(cep).replace(/^(\d{5})(\d{3})$/, "$1-$2");
+
+/** Precisão do GPS no estilo "aprox. 15 m": a localização nunca é apresentada como exata. */
+export const textoPrecisao = (metros: number) => `aprox. ${Math.round(metros)} m`;
+
+/** Partes do endereço em uma linha: "Rua X, Bairro, Cidade/UF" (só o que existir). */
+export function textoEndereco(e: { logradouro: string | null; bairro: string | null; cidade: string | null; uf: string | null }) {
+  const cidade = [e.cidade, e.uf].filter(Boolean).join("/");
+  return [e.logradouro, e.bairro, cidade].filter(Boolean).join(", ");
+}

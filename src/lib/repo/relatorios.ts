@@ -1,23 +1,73 @@
 import "server-only";
+import { Prisma } from "@/generated/reports/client";
+import { idPlataforma, idTexto, reports } from "@/lib/db";
 import { fimDoDia, inicioDoDia } from "@/lib/datas";
 import { ehPresencial } from "@/lib/visitas";
-import type { Cliente, ConteudoCongelado, Relatorio, TokenAprovacao, VersaoRelatorio } from "@/lib/types";
-import { buscarCliente, listarClientes } from "./clientes";
+import type { Cliente, ConteudoCongelado, DecisaoRelatorio, Relatorio, StatusRelatorio, TokenAprovacao, VersaoRelatorio } from "@/lib/types";
+import { buscarCliente } from "./clientes";
+import { aprovadoresAtivosDoContrato, buscarContrato, listarContratos, type ContratoDetalhado } from "./contratos";
 import { buscarVisitasDetalhadas, elegiveisParaRelatorio, vincularAoRelatorio, type VisitaDetalhada } from "./visitas";
-import { relatorios, tokens } from "./relatorios-dados";
 
 /*
- * Repositório de relatórios — implementação MOCK em memória.
- * Na fase de banco, só este arquivo (e relatorios-dados.ts) muda.
+ * Relatórios, versões emitidas e links de aprovação — banco do ReportS.
+ * As visitas do relatório são as que apontam para ele (visitas.relatorio_id); cada versão guarda as suas e o
+ * conteúdo congelado na emissão. O período é guardado como data (AAAA-MM-DD, horário de Brasília).
  */
+
+const INCLUIR = {
+  versoes: { orderBy: { numero: "asc" } },
+  visitas: { select: { id: true }, orderBy: { entrada: "asc" } },
+} as const;
+
+type Linha = Prisma.RelatorioGetPayload<{ include: typeof INCLUIR }>;
+
+const data = (d: string) => new Date(`${d}T00:00:00.000Z`);
+const dia = (d: Date) => d.toISOString().slice(0, 10);
+
+const paraVersao = (v: Linha["versoes"][number]): VersaoRelatorio => ({
+  numero: v.numero,
+  emitidoEm: v.emitidoEm.toISOString(),
+  visitaIds: v.visitaIds as string[],
+  pdfUrl: v.pdfUrl,
+  pdfTamanho: v.pdfTamanho,
+  enviadoPara: v.enviadoPara as VersaoRelatorio["enviadoPara"],
+  conteudo: v.conteudo as unknown as ConteudoCongelado | null,
+  decisao: v.decisao as unknown as DecisaoRelatorio | null,
+});
+
+const paraRelatorio = (r: Linha): Relatorio => ({
+  id: r.id,
+  clienteId: idTexto(r.clienteId),
+  contratoId: r.contratoId,
+  de: dia(r.de),
+  ate: dia(r.ate),
+  status: r.status as StatusRelatorio,
+  visitaIds: r.visitas.map((v) => v.id),
+  versoes: r.versoes.map(paraVersao),
+  criadoEm: r.criadoEm.toISOString(),
+  atualizadoEm: r.atualizadoEm.toISOString(),
+});
+
+const paraLink = (t: { token: string; relatorioId: string; versao: number; aprovadorNome: string; aprovadorCargo: string; aprovadorEmail: string; criadoEm: Date; invalidadoEm: Date | null }): TokenAprovacao => ({
+  token: t.token,
+  relatorioId: t.relatorioId,
+  versao: t.versao,
+  aprovadorNome: t.aprovadorNome,
+  aprovadorCargo: t.aprovadorCargo,
+  aprovadorEmail: t.aprovadorEmail,
+  criadoEm: t.criadoEm.toISOString(),
+  invalidadoEm: t.invalidadoEm?.toISOString() ?? null,
+});
 
 export interface RelatorioResumo extends Relatorio {
   clienteNome: string;
+  sistemaNome: string;
   versaoAtual: number;
 }
 
 export interface FiltroRelatorios {
   clienteId?: string;
+  contratoId?: string;
   /** AAAA-MM-DD: relatórios cujo período cruza o intervalo. */
   de?: string;
   ate?: string;
@@ -25,60 +75,84 @@ export interface FiltroRelatorios {
 
 /** Painel: mais recentes (última movimentação) primeiro. */
 export async function listarRelatorios(f: FiltroRelatorios = {}): Promise<RelatorioResumo[]> {
-  const clientes = await listarClientes();
-  return relatorios
-    .filter((r) => !f.clienteId || r.clienteId === f.clienteId)
-    .filter((r) => !f.de || r.ate >= f.de)
-    .filter((r) => !f.ate || r.de <= f.ate)
-    .sort((a, b) => b.atualizadoEm.localeCompare(a.atualizadoEm))
-    .map((r) => ({ ...r, clienteNome: clientes.find((c) => c.id === r.clienteId)?.nome ?? "—", versaoAtual: r.versoes.length }));
+  const [linhas, contratos] = await Promise.all([
+    reports.relatorio.findMany({
+      where: {
+        ...(f.clienteId ? { clienteId: idPlataforma(f.clienteId) ?? BigInt(-1) } : {}),
+        ...(f.contratoId ? { contratoId: f.contratoId } : {}),
+        ...(f.de ? { ate: { gte: data(f.de) } } : {}),
+        ...(f.ate ? { de: { lte: data(f.ate) } } : {}),
+      },
+      include: INCLUIR,
+      orderBy: { atualizadoEm: "desc" },
+    }),
+    listarContratos(),
+  ]);
+  const contratoDe = new Map(contratos.map((c) => [c.id, c]));
+  return linhas.map((linha) => {
+    const r = paraRelatorio(linha);
+    const contrato = contratoDe.get(r.contratoId);
+    return { ...r, clienteNome: contrato?.clienteNome ?? "—", sistemaNome: contrato?.sistemaNome ?? "—", versaoAtual: r.versoes.length };
+  });
 }
 
 export async function buscarRelatorio(id: string): Promise<Relatorio | null> {
-  return relatorios.find((r) => r.id === id) ?? null;
+  const r = await reports.relatorio.findUnique({ where: { id }, include: INCLUIR });
+  return r ? paraRelatorio(r) : null;
 }
 
-/** Outro relatório do mesmo cliente cujo período cruza [de, ate]. */
-export async function periodoSobreposto(clienteId: string, de: string, ate: string, excetoId?: string): Promise<Relatorio | null> {
-  return relatorios.find((r) => r.clienteId === clienteId && r.id !== excetoId && r.de <= ate && r.ate >= de) ?? null;
+/** Outro relatório do mesmo contrato cujo período cruza [de, ate]. */
+export async function periodoSobreposto(contratoId: string, de: string, ate: string, excetoId?: string): Promise<Relatorio | null> {
+  const r = await reports.relatorio.findFirst({
+    where: { contratoId, de: { lte: data(ate) }, ate: { gte: data(de) }, ...(excetoId ? { NOT: { id: excetoId } } : {}) },
+    include: INCLUIR,
+  });
+  return r ? paraRelatorio(r) : null;
 }
 
-const idsElegiveis = async (r: Pick<Relatorio, "clienteId" | "ate" | "id">) =>
-  (await elegiveisParaRelatorio(r.clienteId, fimDoDia(r.ate), r.id)).map((v) => v.id);
+const idsElegiveis = async (r: Pick<Relatorio, "contratoId" | "ate" | "id">) =>
+  (await elegiveisParaRelatorio(r.contratoId, fimDoDia(r.ate), r.id)).map((v) => v.id);
 
 /** Cria o rascunho e reserva as visitas. Recusa sobreposição e período sem visitas. */
-export async function criarRascunho(clienteId: string, de: string, ate: string): Promise<{ relatorio: Relatorio } | { erro: string }> {
-  const conflito = await periodoSobreposto(clienteId, de, ate);
-  if (conflito) return { erro: `Já existe um relatório deste cliente de ${conflito.de.split("-").reverse().join("/")} a ${conflito.ate.split("-").reverse().join("/")}, que cruza este período.` };
+export async function criarRascunho(contratoId: string, de: string, ate: string): Promise<{ relatorio: Relatorio } | { erro: string }> {
+  const contrato = await buscarContrato(contratoId);
+  if (!contrato) return { erro: "Contrato não encontrado." };
+  const conflito = await periodoSobreposto(contratoId, de, ate);
+  if (conflito) return { erro: `Já existe um relatório deste contrato (${contrato.sistemaNome}) de ${conflito.de.split("-").reverse().join("/")} a ${conflito.ate.split("-").reverse().join("/")}, que cruza este período.` };
 
   const id = crypto.randomUUID();
-  const ids = await idsElegiveis({ clienteId, ate, id });
-  if (!ids.length) return { erro: "Nenhuma visita encerrada deste cliente até o fim do período (fora de outros relatórios)." };
+  const ids = await idsElegiveis({ contratoId, ate, id });
+  if (!ids.length) return { erro: `Nenhuma visita encerrada deste contrato (${contrato.sistemaNome}) até o fim do período (fora de outros relatórios).` };
 
-  const agora = new Date().toISOString();
-  const r: Relatorio = { id, clienteId, de, ate, status: "rascunho", visitaIds: ids, versoes: [], criadoEm: agora, atualizadoEm: agora };
-  relatorios.push(r);
-  await vincularAoRelatorio(id, ids);
-  return { relatorio: r };
+  await reports.$transaction(async (tx) => {
+    await tx.relatorio.create({ data: { id, clienteId: idPlataforma(contrato.clienteId)!, contratoId, de: data(de), ate: data(ate), status: "rascunho" } });
+    // Só reserva as que continuam livres (outra pessoa pode ter criado um relatório ao mesmo tempo).
+    await tx.visita.updateMany({ where: { id: { in: ids }, relatorioId: null }, data: { relatorioId: id } });
+  });
+  return { relatorio: (await buscarRelatorio(id))! };
 }
 
 /** Recalcula as visitas do rascunho (ex.: uma visita esquecida foi encerrada depois). */
 export async function atualizarVisitasDoRascunho(id: string): Promise<{ antes: number; depois: number }> {
-  const r = relatorios.find((x) => x.id === id);
+  const r = await buscarRelatorio(id);
   if (!r || r.status === "aprovado" || r.status === "enviado") throw new Error("Só rascunhos (ou relatórios em ajuste) podem ser recalculados");
   const antes = r.visitaIds.length;
-  r.visitaIds = await idsElegiveis(r);
-  r.atualizadoEm = new Date().toISOString();
-  await vincularAoRelatorio(r.id, r.visitaIds);
-  return { antes, depois: r.visitaIds.length };
+  const ids = await idsElegiveis(r);
+  await reports.$transaction(async (tx) => {
+    await vincularAoRelatorio(r.id, ids, tx);
+    await tx.relatorio.update({ where: { id }, data: { atualizadoEm: new Date() } });
+  });
+  return { antes, depois: ids.length };
 }
 
 /** Exclui um rascunho que nunca foi emitido e libera as visitas. */
 export async function excluirRascunho(id: string) {
-  const i = relatorios.findIndex((x) => x.id === id);
-  if (i < 0 || relatorios[i].status !== "rascunho" || relatorios[i].versoes.length) throw new Error("Só rascunhos nunca emitidos podem ser excluídos");
-  await vincularAoRelatorio(id, []);
-  relatorios.splice(i, 1);
+  await reports.$transaction(async (tx) => {
+    const r = await tx.relatorio.findUnique({ where: { id }, select: { status: true, _count: { select: { versoes: true } } } });
+    if (!r || r.status !== "rascunho" || r._count.versoes) throw new Error("Só rascunhos nunca emitidos podem ser excluídos");
+    await vincularAoRelatorio(id, [], tx);
+    await tx.relatorio.delete({ where: { id } });
+  });
 }
 
 // ---------- Conteúdo ----------
@@ -86,6 +160,7 @@ export async function excluirRascunho(id: string) {
 export interface ConteudoRelatorio {
   relatorio: Relatorio;
   cliente: Cliente;
+  contrato: ContratoDetalhado;
   visitas: VisitaDetalhada[];
   /** Visitas com data anterior ao início do período (ficaram de fora do relatório anterior). */
   deOutroPeriodo: Set<string>;
@@ -98,13 +173,17 @@ const minutos = (v: VisitaDetalhada) => (v.saida ? Math.round((new Date(v.saida)
 export async function montarConteudo(id: string): Promise<ConteudoRelatorio | null> {
   const relatorio = await buscarRelatorio(id);
   if (!relatorio) return null;
-  const cliente = await buscarCliente(relatorio.clienteId);
-  if (!cliente) return null;
-  const visitas = await buscarVisitasDetalhadas(relatorio.visitaIds);
+  const [cliente, contrato, visitas] = await Promise.all([
+    buscarCliente(relatorio.clienteId),
+    buscarContrato(relatorio.contratoId),
+    buscarVisitasDetalhadas(relatorio.visitaIds),
+  ]);
+  if (!cliente || !contrato) return null;
   const inicio = inicioDoDia(relatorio.de);
   return {
     relatorio,
     cliente,
+    contrato,
     visitas,
     deOutroPeriodo: new Set(visitas.filter((v) => v.entrada < inicio).map((v) => v.id)),
     minutosPresenciais: visitas.filter((v) => ehPresencial(v.tipo)).reduce((s, v) => s + minutos(v), 0),
@@ -117,7 +196,8 @@ export async function montarConteudo(id: string): Promise<ConteudoRelatorio | nu
 /** Congela o conteúdo atual (cópia serializável) para a versão que será emitida. */
 export function congelar(c: ConteudoRelatorio): ConteudoCongelado {
   return structuredClone({
-    cliente: { nome: c.cliente.nome, cnpj: c.cliente.cnpj, contrato: c.cliente.contrato },
+    cliente: { nome: c.cliente.nome, cnpj: c.cliente.cnpj, contrato: c.contrato.texto },
+    sistema: { codigo: c.contrato.sistema, nome: c.contrato.sistemaNome },
     de: c.relatorio.de,
     ate: c.relatorio.ate,
     visitas: c.visitas,
@@ -127,47 +207,69 @@ export function congelar(c: ConteudoRelatorio): ConteudoCongelado {
   });
 }
 
+/** Token do link de aprovação: 64 caracteres aleatórios. */
+const novoToken = () => crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+
 /**
  * Registra a nova versão (v1, v2…), muda o status para "enviado", invalida os links da versão anterior
- * e cria um link por aprovador. Devolve a versão e os links criados.
+ * e cria um link por aprovador, numa transação. Devolve a versão e os links criados.
  */
 export async function registrarEmissao(
   id: string,
   dados: { conteudo: ConteudoCongelado; pdfUrl: string; pdfTamanho: number; emitidoEm: string },
 ): Promise<{ versao: VersaoRelatorio; links: TokenAprovacao[] }> {
-  const r = relatorios.find((x) => x.id === id);
+  const r = await buscarRelatorio(id);
   if (!r || (r.status !== "rascunho" && r.status !== "ajuste_solicitado")) throw new Error("Este relatório não pode ser emitido agora");
-  const cliente = await buscarCliente(r.clienteId);
-  if (!cliente) throw new Error("Cliente não encontrado");
+  const aprovadores = await aprovadoresAtivosDoContrato(r.contratoId);
+  if (!aprovadores.length) throw new Error("O contrato não tem aprovadores ativos");
 
-  const numero = r.versoes.length + 1;
+  const emitidoEm = new Date(dados.emitidoEm);
   const versao: VersaoRelatorio = {
-    numero,
+    numero: r.versoes.length + 1,
     emitidoEm: dados.emitidoEm,
     visitaIds: [...r.visitaIds],
     pdfUrl: dados.pdfUrl,
     pdfTamanho: dados.pdfTamanho,
-    enviadoPara: cliente.aprovadores.map((a) => ({ nome: a.nome, email: a.email })),
+    enviadoPara: aprovadores.map((a) => ({ nome: a.nome, email: a.email })),
     conteudo: dados.conteudo,
     decisao: null,
   };
-  r.versoes.push(versao);
-  r.status = "enviado";
-  r.atualizadoEm = dados.emitidoEm;
-
-  for (const t of tokens) if (t.relatorioId === id && !t.invalidadoEm) t.invalidadoEm = dados.emitidoEm;
-  const links = cliente.aprovadores.map<TokenAprovacao>((a) => ({
-    token: crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, ""),
+  const links = aprovadores.map((a) => ({
+    token: novoToken(),
     relatorioId: id,
-    versao: numero,
+    versao: versao.numero,
+    aprovadorId: a.id,
     aprovadorNome: a.nome,
     aprovadorCargo: a.cargo,
     aprovadorEmail: a.email,
-    criadoEm: dados.emitidoEm,
+    criadoEm: emitidoEm,
     invalidadoEm: null,
   }));
-  tokens.push(...links);
-  return { versao, links };
+
+  await reports.$transaction(async (tx) => {
+    // Duas emissões ao mesmo tempo: só a primeira muda o status; a segunda para aqui.
+    const { count } = await tx.relatorio.updateMany({
+      where: { id, status: { in: ["rascunho", "ajuste_solicitado"] } },
+      data: { status: "enviado", atualizadoEm: emitidoEm },
+    });
+    if (!count) throw new Error("Este relatório não pode ser emitido agora");
+    await tx.versaoRelatorio.create({
+      data: {
+        id: crypto.randomUUID(),
+        relatorioId: id,
+        numero: versao.numero,
+        emitidoEm,
+        visitaIds: versao.visitaIds,
+        pdfUrl: versao.pdfUrl,
+        pdfTamanho: versao.pdfTamanho,
+        enviadoPara: versao.enviadoPara,
+        conteudo: dados.conteudo as unknown as Prisma.InputJsonValue,
+      },
+    });
+    await tx.linkAprovacao.updateMany({ where: { relatorioId: id, invalidadoEm: null }, data: { invalidadoEm: emitidoEm } });
+    await tx.linkAprovacao.createMany({ data: links });
+  });
+  return { versao, links: links.map(paraLink) };
 }
 
 // ---------- Aprovação pelo link ----------
@@ -183,14 +285,14 @@ export interface AcessoPorLink {
 }
 
 export async function buscarPorLink(token: string): Promise<AcessoPorLink | null> {
-  const link = tokens.find((t) => t.token === token);
+  const link = await reports.linkAprovacao.findUnique({ where: { token } });
   if (!link) return null;
-  const relatorio = relatorios.find((r) => r.id === link.relatorioId);
+  const relatorio = await buscarRelatorio(link.relatorioId);
   const versao = relatorio?.versoes.find((v) => v.numero === link.versao);
   if (!relatorio || !versao) return null;
   const ultimaVersao = relatorio.versoes.length;
   const podeDecidir = !link.invalidadoEm && link.versao === ultimaVersao && !versao.decisao && relatorio.status === "enviado";
-  return { link, relatorio, versao, ultimaVersao, podeDecidir };
+  return { link: paraLink(link), relatorio, versao, ultimaVersao, podeDecidir };
 }
 
 /** Endereços de arquivos que fazem parte da versão (PDF, fotos, prints e assinaturas). */
@@ -206,7 +308,7 @@ export function arquivosDaVersao(v: VersaoRelatorio): Set<string> {
 
 /**
  * Registra a decisão do aprovador. Vale a primeira: invalida os links de todos os aprovadores
- * desta versão. Aprovado → "liberado para faturar" (as visitas ficam travadas).
+ * desta versão. Aprovado → as visitas ficam travadas.
  */
 export async function registrarDecisao(
   token: string,
@@ -215,15 +317,30 @@ export async function registrarDecisao(
 ): Promise<{ ok: true; acesso: AcessoPorLink; outros: TokenAprovacao[] } | { ok: false; erro: string }> {
   const acesso = await buscarPorLink(token);
   if (!acesso) return { ok: false, erro: "Link inválido." };
-  if (!acesso.podeDecidir) return { ok: false, erro: "Este relatório já teve uma decisão ou foi substituído por uma versão mais nova." };
+  const jaDecidido = { ok: false as const, erro: "Este relatório já teve uma decisão ou foi substituído por uma versão mais nova." };
+  if (!acesso.podeDecidir) return jaDecidido;
 
-  const agora = new Date().toISOString();
+  const agora = new Date();
   const { link, relatorio, versao } = acesso;
-  versao.decisao = { tipo, aprovadorNome: link.aprovadorNome, aprovadorEmail: link.aprovadorEmail, motivo, em: agora };
-  relatorio.status = tipo === "aprovado" ? "aprovado" : "ajuste_solicitado";
-  relatorio.atualizadoEm = agora;
+  const decisao: DecisaoRelatorio = { tipo, aprovadorNome: link.aprovadorNome, aprovadorEmail: link.aprovadorEmail, motivo, em: agora.toISOString() };
 
-  const daVersao = tokens.filter((t) => t.relatorioId === relatorio.id && t.versao === versao.numero);
-  for (const t of daVersao) t.invalidadoEm ??= agora;
-  return { ok: true, acesso: { ...acesso, podeDecidir: false }, outros: daVersao.filter((t) => t.token !== token) };
+  const valeu = await reports.$transaction(async (tx) => {
+    // Dois aprovadores ao mesmo tempo: só o primeiro tira o relatório de "enviado".
+    const { count } = await tx.relatorio.updateMany({
+      where: { id: relatorio.id, status: "enviado" },
+      data: { status: tipo === "aprovado" ? "aprovado" : "ajuste_solicitado", atualizadoEm: agora },
+    });
+    if (!count) return false;
+    await tx.versaoRelatorio.updateMany({ where: { relatorioId: relatorio.id, numero: versao.numero }, data: { decisao: decisao as unknown as Prisma.InputJsonValue } });
+    await tx.linkAprovacao.updateMany({ where: { relatorioId: relatorio.id, versao: versao.numero, invalidadoEm: null }, data: { invalidadoEm: agora } });
+    return true;
+  });
+  if (!valeu) return jaDecidido;
+
+  const daVersao = await reports.linkAprovacao.findMany({ where: { relatorioId: relatorio.id, versao: versao.numero, NOT: { token } } });
+  return {
+    ok: true,
+    acesso: { ...acesso, relatorio: { ...relatorio, status: tipo === "aprovado" ? "aprovado" : "ajuste_solicitado" }, versao: { ...versao, decisao }, podeDecidir: false },
+    outros: daVersao.map(paraLink),
+  };
 }

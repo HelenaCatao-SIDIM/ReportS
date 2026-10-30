@@ -1,0 +1,11 @@
+# /etc/systemd/system/reports-ceps.timer — a cada 30 minutos.
+[Unit]
+Description=ReportS: CEPs pendentes das visitas, a cada 30 minutos
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

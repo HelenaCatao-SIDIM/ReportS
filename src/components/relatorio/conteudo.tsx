@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronDown, ExternalLink, History } from "lucide-react";
-import type { VisitaDetalhada } from "@/lib/types";
+import type { ResumoSuporte, VisitaDetalhada } from "@/lib/types";
+import { ChamadosSuporte } from "@/components/relatorio/chamados-suporte";
 import { formatarData, formatarDuracao, formatarHora } from "@/lib/datas";
 import { formatarCnpj } from "@/lib/format";
 import { formatarDataCurta, formatarMinutos, rotuloTipo } from "@/lib/visitas";
@@ -10,12 +11,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export interface DadosConteudo {
   cliente: { nome: string; cnpj: string; contrato: string };
+  sistema: { codigo: string; nome: string };
   de: string;
   ate: string;
   visitas: VisitaDetalhada[];
   deOutroPeriodo: string[];
   minutosPresenciais: number;
   minutosOnline: number;
+  suporte?: ResumoSuporte | null;
 }
 
 /** Capa, resumo de horas e visitas (expansíveis) de um relatório — rascunho atual ou versão congelada. */
@@ -36,6 +39,10 @@ export function ConteudoRelatorio({ c, tituloVisitas, linkVisitas }: { c: DadosC
               <div>
                 <dt className="text-xs text-muted-foreground">CNPJ</dt>
                 <dd className="text-sm">{formatarCnpj(c.cliente.cnpj)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Sistema</dt>
+                <dd className="text-sm">{c.sistema.nome}</dd>
               </div>
               <div className="sm:col-span-2">
                 <dt className="text-xs text-muted-foreground">Contrato</dt>
@@ -72,6 +79,8 @@ export function ConteudoRelatorio({ c, tituloVisitas, linkVisitas }: { c: DadosC
         </Card>
       </div>
 
+      {c.suporte && <ChamadosSuporte resumo={c.suporte} publico="administracao" />}
+
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">{tituloVisitas}</h2>
         {c.visitas.length === 0 && (
@@ -104,7 +113,7 @@ export function ConteudoRelatorio({ c, tituloVisitas, linkVisitas }: { c: DadosC
               )}
             </summary>
             <div className="border-t p-4">
-              <DetalheVisita visita={v} cpf="mascarado" />
+              <DetalheVisita visita={v} cpf="mascarado" selos />
             </div>
           </details>
         ))}

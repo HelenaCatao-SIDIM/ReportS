@@ -1,11 +1,13 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, MapPinCheck, MapPinOff } from "lucide-react";
 import { listarEmAndamento, listarEncerradas, type VisitaDetalhada } from "@/lib/repo/visitas";
 import { listarClientes } from "@/lib/repo/clientes";
-import { listarUsuarios } from "@/lib/repo/usuarios";
+import { listarComPermissao } from "@/lib/repo/usuarios";
+import { PERMISSOES } from "@/lib/permissoes";
 import { fimDoDia, formatarData, formatarDataHora, formatarDuracao, formatarHora, inicioDoDia } from "@/lib/datas";
 import { horaDoServidor } from "@/lib/agora";
+import { dentroDoRaio, foraDoRaio, formatarDistancia } from "@/lib/distancia";
 import { rotuloTipo } from "@/lib/visitas";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/shell/placeholder";
@@ -74,7 +76,7 @@ function EmAndamento({ visitas, agora }: { visitas: VisitaDetalhada[]; agora: nu
           <TableHeader>
             <TableRow>
               <TableHead className="pl-4">Técnico</TableHead>
-              <TableHead>Cliente / unidade</TableHead>
+              <TableHead>Cliente / estabelecimento</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead>Entrada</TableHead>
               <TableHead>Aberta há</TableHead>
@@ -97,7 +99,19 @@ function EmAndamento({ visitas, agora }: { visitas: VisitaDetalhada[]; agora: nu
                   <TableCell className="pl-4 font-medium">{v.tecnicoNome}</TableCell>
                   <TableCell>
                     {v.clienteNome}
-                    <span className="block text-xs text-muted-foreground">{v.unidadeNome}</span>
+                    <span className="block text-xs text-muted-foreground">{v.sistemaNome} · {v.unidadeNome}</span>
+                    {dentroDoRaio(v) && (
+                      <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-emerald-700">
+                        <MapPinCheck className="size-3" />
+                        Check-in dentro do raio ({formatarDistancia(v.distanciaCheckinM!)}; limite {formatarDistancia(v.raioCheckinM!)})
+                      </span>
+                    )}
+                    {foraDoRaio(v) && (
+                      <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-amber-700">
+                        <MapPinOff className="size-3" />
+                        Check-in fora do raio ({formatarDistancia(v.distanciaCheckinM!)}; limite {formatarDistancia(v.raioCheckinM!)})
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell>{rotuloTipo(v.tipo)}</TableCell>
                   <TableCell className="whitespace-nowrap">{formatarDataHora(v.entrada)}</TableCell>
@@ -137,7 +151,7 @@ async function Encerradas({ sp }: { sp: Record<string, string | string[] | undef
       incluirCanceladas: f.canceladas,
     }),
     listarClientes(),
-    listarUsuarios({ perfil: "tecnico" }),
+    listarComPermissao(PERMISSOES.tecnico),
   ]);
 
   return (
@@ -183,7 +197,7 @@ async function Encerradas({ sp }: { sp: Record<string, string | string[] | undef
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-4">Data</TableHead>
-                <TableHead>Cliente / unidade</TableHead>
+                <TableHead>Cliente / estabelecimento</TableHead>
                 <TableHead>Técnico</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Horário</TableHead>
@@ -204,7 +218,7 @@ async function Encerradas({ sp }: { sp: Record<string, string | string[] | undef
                   <TableCell className="pl-4 whitespace-nowrap">{formatarData(v.entrada)}</TableCell>
                   <TableCell>
                     {v.clienteNome}
-                    <span className="block text-xs text-muted-foreground">{v.unidadeNome}</span>
+                    <span className="block text-xs text-muted-foreground">{v.sistemaNome} · {v.unidadeNome}</span>
                   </TableCell>
                   <TableCell>{v.tecnicoNome}</TableCell>
                   <TableCell>{rotuloTipo(v.tipo)}</TableCell>
@@ -219,7 +233,7 @@ async function Encerradas({ sp }: { sp: Record<string, string | string[] | undef
                     )}
                   </TableCell>
                   <TableCell>
-                    <SelosVisita visita={v} />
+                    <SelosVisita visita={v} alertaRaio />
                   </TableCell>
                   <TableCell className="pr-4 text-right">
                     <Button variant="ghost" size="sm" nativeButton={false} render={<Link href={`/admin/visitas/${v.id}`} />}>

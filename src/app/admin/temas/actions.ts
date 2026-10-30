@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { exigirGestorAcao } from "@/lib/dal";
-import { atualizarTema, criarTema, definirTemaAtivo, grafiaCanonica, temaDuplicado } from "@/lib/repo/temas";
+import { exigirPermissaoAcao } from "@/lib/dal";
+import { PERMISSOES } from "@/lib/permissoes";
+import { atualizarTema, criarTema, definirTemaAtivo, grafiaCanonica, sistemaValido, temaDuplicado } from "@/lib/repo/temas";
 
 export interface TemaFormState {
   ok?: boolean;
@@ -12,7 +13,7 @@ export interface TemaFormState {
 
 /** Cria (temaId null) ou edita um tema. */
 export async function salvarTema(temaId: string | null, _: TemaFormState, fd: FormData): Promise<TemaFormState> {
-  await exigirGestorAcao();
+  await exigirPermissaoAcao(PERMISSOES.temasGerenciar);
   const d = {
     nome: String(fd.get("nome") ?? "").trim(),
     sistema: String(fd.get("sistema") ?? "").trim(),
@@ -21,7 +22,8 @@ export async function salvarTema(temaId: string | null, _: TemaFormState, fd: Fo
 
   const erros: NonNullable<TemaFormState["erros"]> = {};
   if (!d.nome) erros.nome = "Informe o nome do tema.";
-  if (!d.sistema) erros.sistema = "Informe o sistema.";
+  if (!d.sistema) erros.sistema = "Escolha o sistema.";
+  else if (!(await sistemaValido(d.sistema, temaId ?? undefined))) erros.sistema = "Escolha um dos sistemas da lista.";
   if (!d.modulo) erros.modulo = "Informe o módulo.";
   if (!Object.keys(erros).length && (await temaDuplicado(d, temaId ?? undefined))) {
     erros.geral = "Já existe um tema com este nome, sistema e módulo.";
@@ -36,7 +38,7 @@ export async function salvarTema(temaId: string | null, _: TemaFormState, fd: Fo
 }
 
 export async function alternarTema(id: string, ativo: boolean) {
-  await exigirGestorAcao();
+  await exigirPermissaoAcao(PERMISSOES.temasGerenciar);
   await definirTemaAtivo(id, ativo);
   revalidatePath("/admin/temas");
 }

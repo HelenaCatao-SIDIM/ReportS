@@ -6,10 +6,23 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "npm run db:generate",
+    "db:generate": "node scripts/gerar-clientes-prisma.mjs",
+    "db:migrate": "prisma migrate deploy --config prisma.reports.config.ts",
+    "db:migrate:dev": "prisma migrate dev --config prisma.reports.config.ts",
+    "db:plataforma:ler": "prisma db pull --config prisma.plataforma.config.ts",
+    "db:plataforma:conferir": "tsx scripts/conferir-plataforma.ts",
+    "db:exemplo": "tsx scripts/dados-de-exemplo.ts",
+    "cbo:importar": "tsx scripts/importar-cbo.ts",
+    "permissoes:registrar": "tsx scripts/registrar-permissoes.ts",
+    "ceps:preencher": "tsx --conditions=react-server scripts/preencher-ceps.ts",
+    "test": "tsx --conditions=react-server --test tests/*.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
     "@react-pdf/renderer": "^4.9.0",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
@@ -17,6 +30,9 @@
     "jose": "^6.2.13",
     "lucide-react": "^1.61.0",
     "next": "16.4.3",
+    "nodemailer": "^6.10.1",
+    "pg": "8.23.1",
+    "prisma": "7.10.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "server-only": "^0.0.1",
@@ -26,11 +42,14 @@
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
+    "@types/nodemailer": "^6.4.24",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
     "tailwindcss": "^4",
+    "tsx": "4.23.15",
     "typescript": "^5"
   }
 }

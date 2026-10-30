@@ -3,12 +3,15 @@
 /* eslint-disable @next/next/no-img-element -- imagem da assinatura */
 import { useEffect, useRef, useState, useTransition } from "react";
 import { AlertCircle, Info, Loader2, PenLine, Plus, Search, ShieldCheck, Trash2, UserPlus, X } from "lucide-react";
-import type { PresencaVisita } from "@/lib/types";
+import type { Cbo, PresencaVisita } from "@/lib/types";
 import { formatarCbo, formatarCpf, mascararCpf } from "@/lib/format";
+import { chaveRascunhoParticipante } from "@/lib/regras-visita";
 import { registrarPresenca, retirarPresenca, sugerirParticipantes, type PresencaState, type SugestaoParticipante } from "../participantes-actions";
 import { useAcao } from "@/components/form/use-acao";
+import { SeloParticipante } from "@/components/participante/selo-participante";
 import { CboCampo } from "@/components/form/cbo-campo";
 import { AssinaturaCampo } from "@/components/tecnico/assinatura-campo";
+import { apagarRascunho, guardarRascunho, lerRascunho } from "@/components/tecnico/rascunho";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,10 +26,12 @@ interface Config {
   exigeAssinatura: boolean;
   exigeCpf: boolean;
   setores: string[];
+  /** Setor da visita; já vem preenchido no cadastro de novo participante. */
+  setorVisita: string;
 }
 
 function AvisoLgpd({ clienteNome, exigeCpf, exigeAssinatura }: Pick<Config, "clienteNome" | "exigeCpf" | "exigeAssinatura">) {
-  const dados = ["nome", "cargo", "ocupação (CBO)", "setor", ...(exigeCpf ? ["CPF"] : []), ...(exigeAssinatura ? ["assinatura"] : [])];
+  const dados = ["nome", "ocupação (CBO)", "setor", ...(exigeCpf ? ["CPF"] : []), ...(exigeAssinatura ? ["assinatura"] : [])];
   return (
     <div className="flex gap-2 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
       <ShieldCheck className="mt-0.5 size-4 shrink-0" />
@@ -40,22 +45,48 @@ function AvisoLgpd({ clienteNome, exigeCpf, exigeAssinatura }: Pick<Config, "cli
 
 const Erro = ({ msg }: { msg?: string }) => (msg ? <p className="mt-1 text-xs text-destructive">{msg}</p> : null);
 
-function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setores, onFeito }: Config & { onFeito: () => void }) {
+/** O que o técnico já tinha digitado no cadastro de novo participante. */
+interface RascunhoParticipante {
+  nome: string;
+  cbo: Cbo | null;
+  setor: string;
+  cpf: string;
+}
+
+/** Junta os textos preenchidos com " · " (o setor é opcional). */
+const juntar = (...partes: string[]) => partes.filter(Boolean).join(" · ");
+
+function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setores, setorVisita, onFeito }: Config & { onFeito: () => void }) {
   const [state, onSubmit, pending] = useAcao<PresencaState>(registrarPresenca.bind(null, visitaId), {});
   const e = state.erros ?? {};
-  const [modo, setModo] = useState<"busca" | "existente" | "novo">("busca");
+  // Este formulário só existe depois que o técnico abre a janela (nunca no servidor), então ler o aparelho aqui é seguro.
+  const chaveRascunho = chaveRascunhoParticipante(visitaId);
+  const [rascunho] = useState(() => lerRascunho<RascunhoParticipante>(chaveRascunho));
+  const [recuperado, setRecuperado] = useState(!!rascunho);
+  const [modo, setModo] = useState<"busca" | "existente" | "novo">(rascunho ? "novo" : "busca");
+  const [nome, setNome] = useState(rascunho?.nome ?? "");
+  const [cbo, setCbo] = useState<Cbo | null>(rascunho?.cbo ?? null);
+  const [setor, setSetor] = useState(rascunho?.setor ?? setorVisita);
   const [termo, setTermo] = useState("");
   const [sugestoes, setSugestoes] = useState<SugestaoParticipante[]>([]);
   const [buscando, setBuscando] = useState(false);
   const [escolhido, setEscolhido] = useState<SugestaoParticipante | null>(null);
-  const [cpf, setCpf] = useState("");
+  const [cpf, setCpf] = useState(rascunho?.cpf ?? "");
   const [assinado, setAssinado] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const seq = useRef(0);
 
   useEffect(() => {
-    if (state.ok) onFeito();
-  }, [state, onFeito]);
+    if (state.ok) {
+      apagarRascunho(chaveRascunho);
+      onFeito();
+    }
+  }, [state, onFeito, chaveRascunho]);
+
+  // Guarda o que está sendo digitado a cada mudança, até a presença ser confirmada.
+  useEffect(() => {
+    if (modo === "novo") guardarRascunho(chaveRascunho, { nome, cbo, setor, cpf } satisfies RascunhoParticipante);
+  }, [modo, nome, cbo, setor, cpf, chaveRascunho]);
 
   function buscar(novo: string) {
     setTermo(novo);
@@ -111,19 +142,33 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
                     type="button"
                     onClick={() => {
                       setEscolhido(s);
+                      setCpf("");
                       setModo("existente");
                     }}
                     className="w-full px-3 py-2.5 text-left"
                   >
-                    <span className="block text-sm font-medium">{s.nome}</span>
+                    <span className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
+                      {s.nome}
+                      <SeloParticipante estado={s.estado} />
+                    </span>
                     <span className="block text-xs text-muted-foreground">
-                      {s.cargo} · {s.setor}
+                      {juntar(s.cbo?.titulo ?? "", s.setor)}
                     </span>
                   </button>
                 </li>
               ))}
               <li>
-                <button type="button" onClick={() => setModo("novo")} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-primary">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNome(termo.trim());
+                    setCbo(null);
+                    setSetor(setorVisita);
+                    setCpf("");
+                    setModo("novo");
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-primary"
+                >
                   <UserPlus className="size-4" />
                   Cadastrar novo participante: “{termo.trim()}”
                 </button>
@@ -138,13 +183,21 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
           <input type="hidden" name="participanteId" value={escolhido.id} />
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 text-sm">
-              <div className="font-medium">{escolhido.nome}</div>
-              <div className="text-muted-foreground">
-                {escolhido.cargo} · {escolhido.setor}
+              <div className="flex flex-wrap items-center gap-1.5 font-medium">
+                {escolhido.nome}
+                <SeloParticipante estado={escolhido.estado} />
               </div>
-              <div className="text-xs text-muted-foreground">
-                <span className="font-mono">{formatarCbo(escolhido.cbo.codigo)}</span> {escolhido.cbo.titulo}
-              </div>
+              {(escolhido.setor || setorVisita) && (
+                <div className="text-muted-foreground">
+                  {escolhido.setor || setorVisita}
+                  {!escolhido.setor && <span className="ml-1 text-xs">(setor da visita)</span>}
+                </div>
+              )}
+              {escolhido.cbo && (
+                <div className="text-xs text-muted-foreground">
+                  <span className="font-mono">{formatarCbo(escolhido.cbo.codigo)}</span> {escolhido.cbo.titulo}
+                </div>
+              )}
               {escolhido.cpfMascarado && <div className="font-mono text-xs text-muted-foreground">CPF {escolhido.cpfMascarado}</div>}
             </div>
             <Button
@@ -163,51 +216,129 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
         </div>
       )}
 
+      {modo === "existente" && escolhido && exigeCpf && !escolhido.cpfMascarado && (
+        <div>
+          <Label htmlFor="e-cpf" className="mb-1.5">
+            CPF
+          </Label>
+          <Input
+            id="e-cpf"
+            name="cpf"
+            inputMode="numeric"
+            placeholder="000.000.000-00"
+            value={cpf}
+            onChange={(ev) => setCpf(formatarCpf(ev.target.value))}
+            className="h-11 text-base"
+            aria-invalid={!!e.cpf}
+          />
+          <p className="mt-1 text-xs text-muted-foreground">O contrato exige CPF e esta pessoa ainda não tem. O CPF fica no cadastro dela.</p>
+          <Erro msg={e.cpf} />
+          {state.existente && state.existente.id !== escolhido.id && (
+            <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+              <div className="min-w-0 text-sm">
+                <div className="flex flex-wrap items-center gap-1.5 font-medium">
+                  {state.existente.nome}
+                  <SeloParticipante estado={state.existente.estado} />
+                </div>
+                <div className="truncate text-xs text-muted-foreground">{juntar(state.existente.cbo?.titulo ?? "", state.existente.setor)}</div>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  if (!state.existente) return;
+                  setEscolhido(state.existente);
+                  setCpf("");
+                }}
+              >
+                Usar esta pessoa
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
       {modo === "novo" && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Novo participante</span>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setModo("busca")}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                apagarRascunho(chaveRascunho);
+                setRecuperado(false);
+                setModo("busca");
+              }}
+            >
               Voltar à busca
             </Button>
           </div>
+          {recuperado && (
+            <p className="rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
+              Recuperamos o que você tinha digitado.
+              {exigeAssinatura && " A assinatura não é guardada: peça para a pessoa assinar de novo."}
+            </p>
+          )}
           <div>
             <Label htmlFor="n-nome" className="mb-1.5">
               Nome completo
             </Label>
-            <Input id="n-nome" name="nome" defaultValue={termo.trim()} className="h-11 text-base" aria-invalid={!!e.nome} />
+            <Input id="n-nome" name="nome" value={nome} onChange={(ev) => setNome(ev.target.value)} className="h-11 text-base" aria-invalid={!!e.nome} />
             <Erro msg={e.nome} />
-            {state.pedirHomonimo && (
-              <label className="mt-2 flex items-center gap-2 text-sm">
-                <input type="checkbox" name="homonimo" className="size-4 accent-primary" />É outra pessoa com o mesmo nome
+          </div>
+          {state.semelhantes && state.semelhantes.length > 0 && (
+            <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+              <p className="text-sm font-medium text-amber-900">É esta pessoa?</p>
+              <ul className="divide-y divide-amber-200">
+                {state.semelhantes.map((s) => (
+                  <li key={s.id} className="flex items-center justify-between gap-2 py-2">
+                    <div className="min-w-0 text-sm">
+                      <div className="flex flex-wrap items-center gap-1.5 font-medium">
+                        {s.nome}
+                        <SeloParticipante estado={s.estado} />
+                      </div>
+                      <div className="truncate text-xs text-muted-foreground">{juntar(s.cbo?.titulo ?? "", s.setor)}</div>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        apagarRascunho(chaveRascunho);
+                        setEscolhido(s);
+                        setModo("existente");
+                      }}
+                    >
+                      Usar esta pessoa
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+              <label className="flex items-center gap-2 text-sm text-amber-900">
+                <input type="checkbox" name="homonimo" className="size-4 accent-primary" />
+                Não é nenhuma destas pessoas — cadastrar como nova
               </label>
-            )}
-          </div>
-          <div>
-            <Label htmlFor="n-cargo" className="mb-1.5">
-              Cargo
-            </Label>
-            <Input id="n-cargo" name="cargo" className="h-11 text-base" aria-invalid={!!e.cargo} />
-            <Erro msg={e.cargo} />
-          </div>
+            </div>
+          )}
           <div>
             <Label htmlFor="n-cbo" className="mb-1.5">
               Ocupação (CBO)
             </Label>
-            <CboCampo id="n-cbo" name="cbo" inicial={null} invalido={!!e.cbo} />
+            <CboCampo id="n-cbo" name="cbo" inicial={cbo} onMudar={setCbo} invalido={!!e.cbo} />
             <Erro msg={e.cbo} />
           </div>
           <div>
             <Label htmlFor="n-setor" className="mb-1.5">
-              Setor
+              Setor (opcional)
             </Label>
-            <Input id="n-setor" name="setor" list="setores-cliente" className="h-11 text-base" aria-invalid={!!e.setor} />
+            <Input id="n-setor" name="setor" list="setores-cliente" value={setor} onChange={(ev) => setSetor(ev.target.value)} className="h-11 text-base" />
             <datalist id="setores-cliente">
               {setores.map((s) => (
                 <option key={s} value={s} />
               ))}
             </datalist>
-            <Erro msg={e.setor} />
           </div>
           {exigeCpf && (
             <div>
@@ -225,6 +356,29 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
                 aria-invalid={!!e.cpf}
               />
               <Erro msg={e.cpf} />
+              {state.existente && (
+                <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                  <div className="min-w-0 text-sm">
+                    <div className="flex flex-wrap items-center gap-1.5 font-medium">
+                      {state.existente.nome}
+                      <SeloParticipante estado={state.existente.estado} />
+                    </div>
+                    <div className="truncate text-xs text-muted-foreground">{juntar(state.existente.cbo?.titulo ?? "", state.existente.setor)}</div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      if (!state.existente) return;
+                      apagarRascunho(chaveRascunho);
+                      setEscolhido(state.existente);
+                      setModo("existente");
+                    }}
+                  >
+                    Usar esta pessoa
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -253,9 +407,12 @@ function LinhaPresenca({ visitaId, p }: { visitaId: string; p: PresencaVisita })
   return (
     <li className="flex items-center gap-3 py-2.5">
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">{p.nome}</div>
+        <div className="flex items-center gap-1.5 text-sm font-medium">
+          <span className="truncate">{p.nome}</span>
+          <SeloParticipante estado={p.estado} className="shrink-0" />
+        </div>
         <div className="truncate text-xs text-muted-foreground">
-          {p.cargo} · {p.setor}
+          {juntar(p.cbo?.titulo ?? "", p.setor)}
           {p.cpf && ` · ${mascararCpf(p.cpf)}`}
         </div>
       </div>

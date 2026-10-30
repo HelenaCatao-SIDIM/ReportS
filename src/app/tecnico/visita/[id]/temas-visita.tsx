@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Check, CloudCheck, Loader2, Search, X } from "lucide-react";
 import type { Tema } from "@/lib/types";
 import { normalizar } from "@/lib/format";
+import { chaveRascunhoTema } from "@/lib/regras-visita";
 import { cn } from "@/lib/utils";
 import { salvarTemaAdicional, salvarTemas } from "../actions";
+import { apagarRascunho, guardarRascunho, lerRascunho } from "@/components/tecnico/rascunho";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -48,6 +50,26 @@ export function TemasVisita({
   const [situacao, setSituacao] = useState<Situacao>("parado");
   const [, start] = useTransition();
 
+  // O que foi digitado e não chegou a ser salvo (aba fechada, celular travado) volta ao abrir e é salvo na hora.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const chave = chaveRascunhoTema(visitaId);
+      const recuperado = lerRascunho<string>(chave);
+      if (typeof recuperado !== "string" || recuperado.trim() === adicionalInicial.trim()) {
+        apagarRascunho(chave);
+        return;
+      }
+      setAdicional(recuperado);
+      setSituacao("salvando");
+      start(async () => {
+        const erro = await salvarTemaAdicional(visitaId, recuperado);
+        if (!erro) apagarRascunho(chave);
+        setSituacao(erro ? { erro } : "salvo");
+      });
+    }, 0);
+    return () => clearTimeout(t);
+  }, [visitaId, adicionalInicial]);
+
   function salvar(acao: () => Promise<string | null>) {
     setSituacao("salvando");
     start(async () => {
@@ -63,7 +85,7 @@ export function TemasVisita({
   }
 
   const b = normalizar(busca);
-  const filtrados = temas.filter((t) => !b || [t.nome, t.sistema, t.modulo].some((c) => normalizar(c).includes(b)));
+  const filtrados = temas.filter((t) => !b || [t.nome, t.sistemaNome, t.modulo].some((c) => normalizar(c).includes(b)));
   const marcados = temas.filter((t) => selecionados.includes(t.id));
 
   return (
@@ -127,7 +149,7 @@ export function TemasVisita({
                   <span className="min-w-0">
                     <span className="block text-sm">{t.nome}</span>
                     <span className="block text-xs text-muted-foreground">
-                      {t.sistema} · {t.modulo}
+                      {t.sistemaNome} · {t.modulo}
                     </span>
                   </span>
                 </button>
@@ -143,8 +165,18 @@ export function TemasVisita({
           <Input
             id="tema-adicional"
             value={adicional}
-            onChange={(e) => setAdicional(e.target.value)}
-            onBlur={() => adicional.trim() !== adicionalInicial.trim() && salvar(() => salvarTemaAdicional(visitaId, adicional))}
+            onChange={(e) => {
+              setAdicional(e.target.value);
+              guardarRascunho(chaveRascunhoTema(visitaId), e.target.value);
+            }}
+            onBlur={() =>
+              adicional.trim() !== adicionalInicial.trim() &&
+              salvar(async () => {
+                const erro = await salvarTemaAdicional(visitaId, adicional);
+                if (!erro) apagarRascunho(chaveRascunhoTema(visitaId));
+                return erro;
+              })
+            }
             placeholder="Descreva o tema"
             className="h-11 text-base"
           />

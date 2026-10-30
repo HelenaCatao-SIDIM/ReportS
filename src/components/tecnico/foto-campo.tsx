@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 /**
  * Captura uma foto (câmera traseira, ou galeria quando `origem="galeria"`), comprime para ~500 KB
  * e coloca o arquivo comprimido no campo oculto `name`, que segue no FormData do formulário.
+ * `carimbo`: linhas escritas no rodapé da imagem, calculadas no momento da foto.
  */
 export function FotoCampo({
   name,
@@ -17,12 +18,14 @@ export function FotoCampo({
   rotulo,
   invalido,
   onMudar,
+  carimbo,
 }: {
   name: string;
   origem?: "camera" | "galeria";
   rotulo: string;
   invalido?: boolean;
   onMudar?: (temFoto: boolean) => void;
+  carimbo?: () => string[];
 }) {
   const seletor = useRef<HTMLInputElement>(null);
   const oculto = useRef<HTMLInputElement>(null);
@@ -40,7 +43,7 @@ export function FotoCampo({
     setProcessando(true);
     setErro(null);
     try {
-      const comprimido = await comprimirImagem(original);
+      const comprimido = await comprimirImagem(original, carimbo?.());
       const dt = new DataTransfer();
       dt.items.add(comprimido);
       oculto.current!.files = dt.files;

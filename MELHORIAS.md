@@ -1,0 +1,318 @@
+# Melhorias e sugestões — SIDIM Visitas
+
+Registro de alterações futuras e sugestões. O `README.md` continua sendo a referência de como rodar o sistema e da situação atual; aqui fica o que ainda **vamos fazer** ou **queremos avaliar**.
+
+## Como usar
+
+- Um item por linha: `- [ ]` pendente, `- [x]` feito.
+- Informe a prioridade (**Alta**, **Média** ou **Baixa**) e, quando souber, a origem da sugestão.
+- Ao concluir, marque o item e mova para **Concluído** com a data e o commit.
+- Decisões que mudam regra de negócio devem ser anotadas no próprio item, para não se perderem.
+
+## Definições da próxima versão
+
+Registradas em 26/10/2026. Legenda: ✅ definido · ⚠ ponto de atenção · *Evolutiva* = entra numa versão seguinte · *Fora desta versão* = só entra quando a função existir. Onde aparece **Hoje no código**, é o que foi conferido no repositório no momento do registro.
+
+**Situação em 28/10/2026:** feitos **1, 2, 3, 5, 6, 10, 11 e 12** (o 2 só para o participante; o 5 é o botão de busca de coordenadas, desligado por padrão e testado com o serviço real em 28/10/2026) · parcial **9** (campo de telefone feito; falta o envio) · sem código por definição **4, 7 e 8**. Além dos pontos, entraram na `main` as duas entregas externas (**chamados de suporte** e **localização por CEP**): ver "Entregas externas integradas", mais abaixo. Os motivos, as evidências e o que destrava cada um estão em **"Pontos bloqueados e decisões em aberto"**, mais abaixo.
+
+- **1. Sistema da operação, não de uma pessoa.** O sistema tem três papéis — Gestor, Técnico e Aprovador — e qualquer pessoa pode ocupar qualquer um deles. *(Substituído em 29/10/2026 pela decisão D-06 do plano da plataforma: não existe mais perfil "gestor"; o que a pessoa faz vem das permissões, e os usuários são gerenciados no SINC. Os detalhes abaixo sobre o cadastro de usuários e a troca de papel são histórico.)* Pode existir mais de um gestor, e a coordenação pode mudar de mão sem que nada quebre: nenhum cadastro, relatório ou fluxo tem nome de pessoa escrito dentro. O mesmo vale para o que é configurável (clientes, estabelecimentos, setores, temas): fica em cadastro, não no código. **Auditado e ajustado em 27/10/2026 (`c4c4c81`).**
+   - **Nomes de pessoa:** só aparecem nos dados de exemplo (`src/lib/repo/*`), que o banco real substitui. O único nome fora disso, um exemplo no campo de ajuste da página do aprovador, virou texto genérico.
+   - **Vários gestores:** o cadastro de usuários já permite. O gestor não consegue inativar a própria conta nem mudar o próprio perfil, então sempre sobra um gestor ativo. O histórico guarda o nome de quem agiu e as visitas antigas continuam mostrando técnicos já inativos, então trocar de pessoa não apaga nada.
+   - **Corrigido:** mudar o papel de alguém (ou inativá-lo) enquanto ele estava logado fazia o navegador entrar num laço de redirecionamentos, com tela em branco (37 redirecionamentos em 5 segundos). Agora a pessoa cai no login e entra de novo na área certa. Testado nos três casos: técnico promovido, gestor rebaixado e conta inativada.
+   - **Decidido em 27/10/2026: manter fixos** os tipos de visita (`TIPOS_VISITA` em `src/lib/visitas.ts`), por ora. Não estavam na lista do que precisa ser configurável. Se virarem cadastro, como temas e setores, é um ponto novo.
+- ✅ **2. Cargo sai, fica só o CBO** (Classificação Brasileira de Ocupações). **Feito para o participante em 26/10/2026 (`63d3dd4`).**
+   - Removido de `Participante` e `PresencaVisita`, do cadastro e da edição na Administração, do cadastro em campo e da lista no App do Técnico, do detalhe e da correção de visita e da tabela do PDF do relatório. A busca de participantes passa a ser por nome, ocupação ou setor.
+   - **Decidido em 27/10/2026: manter** o cargo do **aprovador** (`Aprovador` e `aprovadorCargo` em `src/lib/types.ts`, cadastro do cliente e relatório). Ele não tem CBO que o substitua, e remover apagaria um dado cadastrado sem ganho. Se um dia o relatório precisar dizer quem aprovou em nome do cliente, o cargo ajuda.
+- ✅ **3. Setor do participante: opcional,** já preenchido com o setor da visita. **Feito em 27/10/2026 (`226ac59`).**
+   - No cadastro de novo participante em campo (App do Técnico), o campo já vem com o setor da visita e pode ser apagado. Na Administração, o setor deixou de ser obrigatório. Sem setor, as tabelas e o PDF mostram "—".
+   - **Decidido em 27/10/2026 (`7cb5a6d`):** participante já cadastrado, escolhido pela busca, mantém o setor do próprio cadastro; se esse setor estiver vazio, a presença herda o setor da visita. Só a presença recebe o setor; o cadastro do participante não muda. O cartão do participante escolhido mostra "(setor da visita)" nesse caso.
+- **4. Lista de presença por seleção: evolutiva.** Nesta versão o técnico digita os participantes. Quando a base de pessoas do cliente estiver disponível, passa a ser seleção. **É o primeiro item a alinhar com o time de desenvolvimento.**
+- **5. Coordenadas do estabelecimento sem digitação, com solução gratuita.** Converter endereço em coordenadas por serviço aberto. Isso acerta a rua, não a porta — então o ponto fica ajustável, e a posição do primeiro check-in pode refinar a referência do estabelecimento.
+   - **Hoje no código:** latitude e longitude do estabelecimento são digitadas à mão (`Unidade` em `src/lib/types.ts`).
+   - **Não iniciado (27/10/2026):** o ambiente de desenvolvimento em nuvem bloqueia o serviço aberto de endereços (`nominatim.openstreetmap.org`, política de rede), então não dá para testar a chamada real daqui. Para fazer: liberar esse domínio nas configurações de rede do ambiente, ou desenvolver e testar no computador local. Sem esse ponto, o raio da definição 6 só funciona nos estabelecimentos com coordenadas digitadas.
+- ⚠ **6. Raio do estabelecimento: alerta, não bloqueio.** **Feito em 27/10/2026 (`d50565c`).** O raio de 300 m foi questionado, mas 20–30 m é apertado demais: o GPS (Sistema de Posicionamento Global) do celular erra de 5 a 20 metros em rua aberta e bem mais dentro de prédio, e UPA e hospital são justamente onde o sinal é pior. Com 25 m, o técnico que está lá dentro geraria alerta quase sempre, e alerta que toca sempre ninguém olha.
+   - **Sugestão:** começar em 50 m e gravar a distância medida em cada check-in. Em dois meses o número real permite apertar o raio com dado, não com palpite. O raio é por estabelecimento, então o que for problemático se ajusta sozinho.
+   - **Feito:** cada estabelecimento tem um raio de verificação (padrão 50 m; editável em Clientes → estabelecimento, de 10 a 5000 m). O check-in presencial grava a distância medida até o estabelecimento e o raio da época, para o alerta não mudar se o raio for alterado depois.
+   - Fora do raio, a Administração mostra o selo "Fora do raio" nas listas de visitas e a distância no detalhe da visita ("178 m — fora do raio de 50 m"). Dentro do raio, mostra o selo verde "Dentro do raio" e "0 m — dentro do raio de 50 m" (acrescentado em 28/10/2026; sem medição, nenhum dos dois aparece). Nunca bloqueia o check-in. Técnico, aprovador e PDF do relatório **não** veem o alerta nem a distância.
+   - **Limites e a decidir:** só mede estabelecimentos com latitude e longitude (sem elas, o detalhe mostra "Não medida"); o alerta vai só para o gestor, não para o técnico no momento do check-in (**decidido em 27/10/2026: continua assim**, para o alerta não disparar com frequência em UPA e hospital); não há ainda um painel com o histórico das distâncias para ajustar o raio (a distância de cada visita já fica gravada). A visita de exemplo de 20/10 (Visita técnica, Carlos) está fora do raio, para demonstração.
+- **7 e 8. Marcação de implantação e check-list: fora desta versão.** Entram quando a função existir.
+- **9. Aviso de visita aberta por WhatsApp, via Fortics.** **Parcial: o campo de telefone está feito (27/10/2026, ver abaixo); o envio não.** O número virá do cadastro do técnico. O e-mail fica como reserva. O sistema continua nunca encerrando a visita sozinho.
+   - **Dúvida para o time:** o Fortics expõe API (Interface de Programação de Aplicações) para disparo? Se expuser, é o melhor canal. Notificação do próprio navegador é alternativa, mas falha no iPhone e não é confiável.
+   - **Feito:** o cadastro de usuário tem o telefone com DDD, opcional, com máscara de digitação e validação (10 dígitos, ou 11 começando com 9 depois do DDD). Aparece na lista de usuários. Guardado só com dígitos, sem o 55 do país.
+   - **Falta, e não dá para fazer sem o time:** o envio em si (depende da resposta sobre a API do Fortics) e as regras do aviso, que ainda não foram definidas: depois de quantas horas aberta a visita dispara, se repete, e quem mais é avisado. Hoje a Administração já destaca visitas abertas há 10 horas ou mais, sem enviar nada.
+- **10. Registro pelo celular e pelo computador, com o meio identificado.** O técnico registra pelos dois, e a visita grava por onde foi feita, aparecendo no relatório. No computador, aviso em tela quando o tipo for presencial. Modo específico de treinamento online fica como *evolutiva*. **Feito em 27/10/2026 (`d50565c`).**
+   - **Feito:** o check-in identifica o aparelho (celular ou computador) e grava na visita. Aparece como "Registrado por" no detalhe da visita, no relatório (tela e PDF) e na página do aprovador. No computador, visita presencial mostra um aviso em tela, sem bloquear. As mensagens de localização passam a falar em "aparelho".
+   - **Limites:** a identificação é pelo navegador (tablet conta como celular); a localização de um computador é aproximada; o App do Técnico segue em coluna estreita também no computador. O modo específico de treinamento online segue como evolutiva.
+- **11. Nada se perde, com rascunho local.** Cada item é salvo no servidor quando registrado, e o que está sendo digitado fica guardado no próprio aparelho — aba aberta, celular travado ou bateria no fim, o técnico volta e encontra tudo como estava. **Feito em 27/10/2026 (`cfbf5d0`).**
+   - **Já era assim:** os temas marcados, as fotos extras e as presenças confirmadas são salvos no servidor na hora, e o check-out já guardava rascunho das observações, pendências e próximos passos.
+   - **Novo:** rascunho do **check-in** (cliente, estabelecimento, setor, tipo e link da reunião), do **tema adicional** (recuperado e salvo no servidor ao reabrir) e do **cadastro de novo participante** (nome, ocupação, setor e CPF; a tela avisa que a recuperação aconteceu). Cada rascunho é apagado quando cumpre o papel: check-in feito, presença confirmada, "Voltar à busca" ou visita encerrada.
+   - **Limites:** a foto do check-in e a localização são pedidas de novo; a assinatura do participante não é guardada (a tela avisa); o rascunho fica no navegador do aparelho, então não acompanha o técnico se ele trocar de aparelho ou limpar os dados do navegador.
+- ✅ **12. "Liberado para faturar" passa a "Aprovado".** **Feito em 26/10/2026 (`805693d`).**
+  - O rótulo está em `src/lib/visitas.ts` e aparece no selo de status, na lista e no detalhe do relatório (Administração).
+  - **Ficou como estava, a decidir:** a mensagem ao aprovador na página de aprovação (`src/app/aprovacao/[token]/decisao.tsx`: "A aprovação libera o faturamento dos serviços…"), a frase do README ("que libera o faturamento") e o cabeçalho "Status / faturamento" da lista de relatórios. Falam do faturamento como conceito, não do rótulo.
+
+### Para alinhar com o time de desenvolvimento
+
+- [ ] **Primeiro** — Base de pessoas do cliente, para a lista de presença passar de digitação a seleção (definição 4).
+- [ ] O Fortics expõe API para disparo de WhatsApp? E quais as regras do aviso: depois de quantas horas, se repete, quem mais recebe? (definição 9)
+- [x] A remoção do cargo vale também para o aprovador? (definição 2) — **respondida em 27/10/2026: não, o cargo do aprovador fica.**
+- [x] O alerta de check-in fora do raio vai só para o gestor ou o técnico também é avisado? (definição 6) — **respondida em 27/10/2026: só o gestor.**
+
+## Pontos bloqueados e decisões em aberto
+
+Atualizado em 27/10/2026. Aqui está tudo o que **não anda sem uma ação de fora do código**, com o motivo, a evidência, o que destrava e quem pode destravar. A ideia é resolver um por um, na ordem sugerida no fim da seção.
+
+**Tipos de bloqueio:** *técnico* (o ambiente impede) · *informação externa* (depende do time ou de um fornecedor) · *dependência* (espera outra coisa ficar pronta) · *decisão* (falta escolher entre opções).
+
+| Ponto | Tipo | O que destrava | Quem |
+|---|---|---|---|
+| **5. Coordenadas automáticas** | Técnico | Liberar `nominatim.openstreetmap.org` na rede do ambiente, ou fazer no computador local | Quem administra o ambiente |
+| **9. Aviso por WhatsApp (Fortics)** | Informação externa | Resposta sobre a API do Fortics, regras do aviso e um agendador na hospedagem | Time de desenvolvimento / Fortics |
+| **4. Lista de presença por seleção** | Dependência | Definir de onde vem a base de pessoas do cliente | Time de desenvolvimento |
+| **7 e 8. Implantação e check-list** | Não é bloqueio: adiados por definição | Entram quando a função existir | — |
+| **3 decisões em aberto (2, 6 e 7)** | Decisão | Uma resposta para cada. As decisões 1, 3, 4 e 5 foram respondidas em 27/10/2026. | Quem decide o produto |
+| **Plataforma SIDIM (SINC + ReportS)** | Plano aprovado em 29/10/2026 | Fases 0 a 3 do SINC antes do banco real do ReportS | Helena e desenvolvimento do SINC |
+
+### Ponto 5 — Coordenadas do estabelecimento sem digitação · feito e testado com o serviço real (28/10/2026)
+
+- **Entregue:** botão **"Buscar coordenadas pelo endereço"** em Clientes → estabelecimento → Editar. A chamada ao Nominatim roda no servidor (`src/lib/geocodificar.ts`, mesma fila de 1 consulta por segundo da localização por CEP), latitude e longitude são preenchidas e **continuam editáveis**, a mensagem mostra o endereço que o mapa achou e há um link "Ver no mapa". Trata endereço não encontrado, serviço fora do ar e excesso de buscas (10 por minuto por gestor). **Desligado por padrão** (`BUSCA_COORDENADAS=true`). Roteiro em `docs/teste-busca-coordenadas.md`.
+- **Testado** com o Nominatim simulado (14/14) e, em 28/10/2026, no computador local, com o serviço real: a busca preencheu as coordenadas de um estabelecimento. Para ligar em produção: `BUSCA_COORDENADAS=true` e um `GEOCODING_USER_AGENT` com contato real.
+- **Não entregue (decisão pendente):** refinar o ponto pelo primeiro check-in. Recomendação: só sugerir ao gestor, nunca alterar sozinho.
+- **Histórico do bloqueio:** o ambiente em nuvem não alcança o domínio do serviço (veja abaixo); por isso o teste real é feito no computador local.
+
+**Contexto original do bloqueio (mantido para consulta):**
+
+- **O que estava bloqueado:** a chamada ao serviço aberto que converte endereço em coordenadas. Sem testar a chamada real, não entregamos a função.
+- **Evidência (27/10/2026):** ao chamar `https://nominatim.openstreetmap.org/search?...` a partir do ambiente de desenvolvimento em nuvem, a resposta foi `CONNECT tunnel failed, response 403`. É o proxy do ambiente recusando o domínio (política de rede), não o serviço fora do ar.
+- **Confirmado em 28/10/2026:** no computador local, o Nominatim e o ViaCEP responderam normalmente (consulta inversa, coordenada → endereço, usada pela entrega do CEP). Ou seja, o bloqueio é só do ambiente em nuvem, e a saída 2 abaixo funciona.
+- **Duas saídas:**
+  1. **Liberar o domínio.** Nas configurações do ambiente em nuvem (menu do ambiente na barra de título da sessão → *Edit* → *Network access*), ampliar o nível de acesso ou incluir `nominatim.openstreetmap.org` em *Allowed domains*, mantendo marcada a caixa dos gerenciadores de pacotes para o `npm install` continuar funcionando. Passo a passo oficial: https://code.claude.com/docs/en/cloud-environments#network-access
+  2. **Fazer no computador local**, numa sessão que roda lá, sem a restrição de rede. Depois é só enviar a branch.
+- **Escopo depois de destravar (tamanho: pequeno a médio):** botão "Buscar coordenadas pelo endereço" no cadastro do estabelecimento (Clientes → estabelecimento → Editar); a chamada roda no servidor; latitude e longitude são preenchidas e **continuam editáveis**; mensagem clara quando o endereço não é encontrado ou o serviço falha; teste com endereços reais da SIDIM.
+- **Decisões a tomar antes:**
+  - *Qual serviço.* O Nominatim (OpenStreetMap) é gratuito, mas a instância pública tem regras de uso: identificar o aplicativo no cabeçalho da requisição, no máximo 1 consulta por segundo e uso moderado. Para volume maior, seria outro serviço ou uma instância própria.
+  - *Refinar a referência pelo primeiro check-in.* A definição diz que a posição do primeiro check-in pode refinar o ponto. **Recomendação:** só sugerir ao gestor, nunca alterar sozinho. Um check-in feito no estacionamento deslocaria a referência de todas as visitas seguintes.
+- **Efeito sobre outros pontos:** o raio (ponto 6) só mede estabelecimentos que têm coordenadas, e hoje elas são digitadas à mão. Nos dados de exemplo, só a "Sede da Prefeitura" tem.
+
+### Ponto 9 — Aviso de visita aberta por WhatsApp (Fortics) · bloqueio de informação externa
+
+- **Já pronto:** o telefone com DDD no cadastro de usuário (`9dac1a8`); o destaque "Possivelmente esquecida" para visitas abertas há 10 horas ou mais, na Administração (`HORAS_ALERTA` em `src/app/admin/visitas/page.tsx`); e a regra de que o sistema nunca encerra a visita sozinho (nenhum trecho do código faz isso).
+- **O que bloqueia (cinco itens):**
+  1. **API do Fortics.** Ele expõe API de disparo? Qual a documentação, a autenticação, os limites e o custo? Se for a API oficial do WhatsApp, mensagens iniciadas pela empresa costumam exigir modelos de mensagem pré-aprovados. *A confirmar com o fornecedor.*
+  2. **Regras do aviso, ainda não definidas:** depois de quantas horas dispara, se repete, em que horário pode enviar, quem mais recebe (o gestor?) e o que fazer quando o técnico não tem telefone cadastrado.
+  3. **Agendador.** O sistema não tem tarefas em segundo plano. Para olhar as visitas abertas de tempos em tempos, a hospedagem precisa de uma tarefa periódica, que só passa a existir quando o sistema for publicado (item de infraestrutura pendente).
+  4. **E-mail de reserva.** Depende do envio real de e-mail, que ainda é simulado (item de infraestrutura pendente).
+  5. **Uso do número.** Confirmar com quem cuida de LGPD e RH se o telefone do técnico pode receber mensagens da empresa. *A confirmar.*
+- **O que destrava:** as respostas do time e do Fortics, as regras definidas e a publicação com agendador.
+- **Enquanto isso:** não há trabalho útil no código sem risco de retrabalho.
+
+### Ponto 4 — Lista de presença por seleção · dependência
+
+- **Hoje:** o técnico busca por nome entre os participantes já cadastrados do cliente e, se a pessoa não existe, cadastra em campo.
+- **O que falta definir:** de onde vem a base de pessoas do cliente (outro sistema interno, planilha do cliente, integração com o cliente); que dados ela traz (nome, CPF, CBO, setor); como é mantida atualizada; e como tratar os dados pessoais (LGPD, principalmente o CPF).
+- **Por que é "o primeiro a alinhar":** a resposta muda o desenho de vários itens, inclusive o do login único (a base de pessoas pode morar em outro sistema).
+- **Depois de definido:** a seleção passa a ser a forma principal, e a digitação livre vira exceção.
+
+### Pontos 7 e 8 — Marcação de implantação e check-list · adiados, não bloqueados
+
+A definição diz apenas que entram "quando a função existir". Não há escopo: o que é a marcação de implantação, e se o check-list é fixo ou por cliente, ainda não foi descrito. Nada a fazer até lá.
+
+### Decisões em aberto (bloqueiam o acabamento de pontos já feitos)
+
+**Situação em 27/10/2026:** respondidas as decisões **1** (manter o cargo do aprovador), **3** (alerta só para o gestor), **4** (herdar o setor da visita, feito em `7cb5a6d`) e **5** (tipos de visita continuam fixos). A **6** foi resolvida em 28/10/2026 (PR com os 12 pontos mesclada na `main`). Seguem abertas a **2** (falta o motivo da troca para "Aprovado") e a **7** (decisão do dono do repositório).
+
+| # | Decisão | Fato verificado | Opções |
+|---|---|---|---|
+| 1 | **Cargo do aprovador** (ponto 2) | O cargo só aparece no cadastro do cliente. É copiado para o link de aprovação (`aprovadorCargo`), mas nenhuma tela do aprovador nem o PDF o mostram. | Remover (arquivos: tipos, cadastro do cliente, repositório de clientes e de relatórios) ou manter. O impacto é baixo nos dois sentidos. |
+| 2 | **Textos de "faturamento"** (ponto 12) | Três lugares ainda falam de faturamento: a mensagem ao aprovador (`src/app/aprovacao/[token]/decisao.tsx`), o README e o cabeçalho "Status / faturamento" da lista de relatórios. | Se a ideia é o sistema não afirmar nada sobre faturamento, mudar os três (sugestão para a mensagem: "A aprovação confirma os atendimentos deste relatório."). Se foi só o rótulo, manter. |
+| 3 | **Quem recebe o alerta de raio** (ponto 6) | Hoje só o gestor vê o selo e a distância. | Manter só o gestor, ou avisar também o técnico na hora do check-in. |
+| 4 | **Setor da presença de participante já cadastrado** (ponto 3) | Se o cadastro da pessoa não tem setor, a presença fica sem setor. | **Recomendação:** herdar o setor da visita, coerente com a definição "já preenchido com o setor da visita". É uma mudança pequena. |
+| 5 | **Tipos de visita como cadastro** (ponto 1) | São uma lista fixa em `src/lib/visitas.ts`. | Manter fixos ou virar cadastro, como temas e setores. |
+| 6 | **Destino da branch** | A `claude/practical-dijkstra-zfagzj` tem vários commits à frente da `main` (ver `git log origin/main..HEAD`). **Em 28/10/2026** a `main` recebeu as duas entregas externas; a branch foi atualizada com ela (conflitos resolvidos, testes repetidos) e mesclada na `main` pela PR 3. **Resolvida.** | Feito: PR para a `main`. |
+| 7 | **Repositório público** | O repositório está público: o README (com os acessos de teste) e este arquivo (regras de negócio, o nome do fornecedor Fortics) podem ser lidos por qualquer pessoa. Este arquivo evita citar outros sistemas internos por nome. | Manter público, ou tornar privado antes de documentar mais. |
+
+### Entregas externas integradas (28/10/2026)
+
+Duas entregas vieram do time e entraram na `main` por PR, **desligadas por padrão** (sem as variáveis, o sistema fica como antes). Cada uma tem roteiro de teste em `docs/`.
+
+**Chamados de suporte no relatório** (mesclado na `main` em `9ac1ae2`)
+- Mostra, no rascunho e no relatório emitido, quantos chamados de suporte o cliente teve no período (total, por sistema, por assunto, por motivo de encerramento e espera média). Os números são **congelados na emissão**.
+- O gestor vê a lista de chamados com o atendente; o aprovador vê só totais e contagens. O PDF só traz o resumo se `CHAMADOS_SUPORTE_PDF=true`.
+- Os dados vêm de um fluxo do n8n da SIDIM, que lê a tabela `atendimentos` (alimentada por outro fluxo que já existia). O servidor do ReportS é o único a chamar o n8n, com a chave no cabeçalho. Se o n8n falhar, o relatório sai com "Dados de suporte indisponíveis".
+- **Testado em 28/10/2026** com o n8n real: o bloco trouxe o total, as três contagens e a lista, e a falha de configuração mostrou "indisponíveis" sem impedir o relatório. Os números ainda precisam ser **conferidos com a tabela `atendimentos`** pelo time que mantém o fluxo.
+- **Feito em 29/10/2026:** o campo agora se chama **"Nome no SINC"** (o identificador interno continua `nomesFortics`) e só aparece com os chamados ligados; salvar o cliente com o recurso desligado não apaga os nomes já cadastrados. Em aberto: quem preenche esse nome dos clientes que já existem; trocar a chave do n8n usada nos testes locais (feito pela equipe do n8n).
+
+**Localização por CEP no check-in e no check-out** (mesclado na `main` em `974d774`)
+- Troca a coordenada pelo CEP e pelo endereço em todas as telas (técnico, gestor, aprovador e PDF). A coordenada continua gravada por baixo. Carimbo opcional na foto do ambiente (data, hora e CEP).
+- A conversão usa o OpenStreetMap (Nominatim) e, se faltar o CEP, o ViaCEP. Precisa de `GEOCODING_USER_AGENT` com um contato real da SIDIM.
+- **Decisão da Helena (28/10/2026): o CEP e a precisão aparecem sempre como aproximados**, no estilo do WhatsApp ("CEP … (aproximado)", "Precisão: aprox. 94 m"). Já aplicado.
+- **Testado em 28/10/2026** no computador, com os serviços reais: o CEP apareceu em todas as telas, sem coordenadas. Observação importante: o navegador do computador estima a posição por Wi-Fi e IP, e o mapa gratuito devolveu a via mais próxima, com um CEP diferente do oficial do endereço. Por isso o CEP é só uma referência, e a prova de presença mais confiável continua sendo a **distância até o estabelecimento** (ponto 6). No celular, com GPS, a posição deve ser bem melhor, mas isso **ainda não foi testado**.
+- Em aberto: teste no celular com https; aviso de LGPD ao técnico (a coordenada vai a um serviço de terceiros); confirmar se o aprovador do cliente deve ver o CEP; o cadastro do estabelecimento ainda pede latitude e longitude digitadas.
+
+### Plataforma SIDIM — unificação SINC + ReportS · plano aprovado (29/10/2026)
+
+Substitui a antiga ideia de "login único". A Helena fechou 24 decisões (documento "Plataforma SIDIM — Unificação SINC + ReportS: plano e documentação"). Em resumo: banco `plataforma` comum no PostgreSQL do SINC (só o SINC altera a estrutura), banco `reports` próprio, ReportS no mesmo servidor, sistemas e clientes (por CNPJ) com uma fonte só, usuários da SIDIM com papéis e permissões geridos no Admin do SINC, participantes confirmados/provisórios com junção. O plano anterior (Prisma + Supabase + Vercel + Resend) foi substituído.
+
+O ReportS adapta o protótipo **em memória** enquanto o SINC faz as Fases 0 a 3; só na Fase 4 troca a camada de dados. Trilha do ReportS:
+
+| Fase | No ReportS | Situação |
+|---|---|---|
+| 0 | README e MELHORIAS atualizados; biblioteca de banco; inventário do que depende de perfil, cliente e participante | Docs e biblioteca de banco **decididos** em 29/10/2026 (ver abaixo); inventário pendente |
+| 1 | Cadastro de sistemas (SERP, SCA, SE, Saúde) só de leitura; tema escolhe o sistema numa lista; dados de exemplo sem sistemas fictícios | **Feito** em 29/10/2026 (`src/lib/repo/sistemas.ts`) |
+| 2 | Cliente em três (cliente, sistemas do cliente, contrato por sistema); aprovador próprio; check-in cliente → sistema → estabelecimento → setor; relatório por contrato; chamados por sistema | **Feito em 29/10/2026**; os chamados por sistema, em **30/10/2026** (depende de reimportar o fluxo do n8n e de conferir os valores que o Fortics grava em `sistema`) |
+| 3 | Perfil gestor/técnico sai; permissões; sessão só com o id; telas de usuários saem | **Feito em 29/10/2026**; o "esqueci minha senha" apontando para o SINC e o limite de tentativas do login (RN-PL-55) entraram na Fase 4, em **30/10/2026** |
+| 4 | Banco `reports`, leitura/escrita na plataforma, arquivos em disco, SMTP, deploy | Depende das Fases 1 a 3 do SINC em produção e da decisão de LGPD sobre guardar CPF |
+| 5 | Junção de participantes | Depende da Fase 4 |
+
+#### Fase 2 no ReportS: como ficou (29/10/2026)
+
+- **Cliente** (nome, CNPJ, "Nome no SINC", ativo, origem), **sistemas do cliente** (sistema, tenant, estado "em implantação" ou "vinculado") e **contrato** por sistema do cliente (texto da capa, comprovação, CPF, ativo, aprovadores). O CNPJ é obrigatório ao criar à mão e pode ficar pendente só em cliente que veio do SINC; relatório não é emitido com CNPJ pendente (RN-PL-11).
+- Cliente novo escolhe os sistemas (todos entram "em implantação"); o contrato de cada um é cadastrado na tela do cliente. O ReportS não liga o sistema ao tenant: isso é do SINC. Sistema sem contrato não aparece no check-in.
+- **Aprovadores** têm cadastro próprio (Administração → Aprovadores): e-mail único, um cargo só, ativo/inativo; a mesma pessoa pode estar em vários contratos. Aprovador inativo deixa de receber os próximos relatórios; contrato sem aprovador ativo não emite.
+- **Check-in**: cliente → sistema → estabelecimento → setor (sistema único já vem escolhido; o rascunho do aparelho guarda o contrato). A visita guarda o contrato; comprovação, assinatura e CPF seguem o contrato da visita. Os **temas** da visita (técnico e correção do gestor) são só do sistema do contrato.
+- **Relatório por contrato e período**: visitas elegíveis, sobreposição de períodos, capa, PDF, e-mail e página do aprovador mostram o sistema; só os aprovadores do contrato recebem. Cliente com dois sistemas tem dois relatórios por período.
+- Contrato inativo some do check-in, mas continua podendo gerar relatório das visitas antigas.
+- **Ficou fora** (não pedido nesta etapa): remover um sistema de um cliente; o inventário da Fase 0. *(O filtro dos chamados por sistema entrou em 30/10/2026: ver "Chamados por sistema".)* *(Os participantes por sistema do cliente entraram depois: ver "Participantes: confirmado e provisório".)*
+
+#### Fase 3 no ReportS: como ficou (29/10/2026)
+
+- **Perfil "gestor" removido.** O usuário tem papéis; os papéis somam permissões do catálogo do ReportS (`src/lib/permissoes.ts`: `reports.tecnico`, `reports.clientes.cadastrar`, `reports.contratos.gerenciar`, `reports.temas.gerenciar`, `reports.participantes.gerenciar`, `reports.participantes.revisar`, `reports.visitas.gerenciar`, `reports.relatorios.gerenciar`). Papéis e usuários de teste são dados de exemplo em memória; na plataforma são do SINC.
+- **Sessão só com o id** (`session.ts`). As permissões são lidas a cada requisição, **sem cache** (o `getUsuarioAtual` perdeu o `use cache: private`): revogar ou mudar uma permissão vale na próxima tela ou ação (RN-PL-52 e 64).
+- **`dal.ts`**: `exigirPermissao`/`exigirAdministracao`/`exigirTecnico` para páginas e `exigirPermissaoAcao` para ações no lugar de `exigirPerfil`, `exigirGestorAcao`, `exigirTecnicoAcao` e `exigirLogadoAcao`. Cada seção da Administração tem um guarda de tela, e cada ação confere a permissão própria.
+- **`proxy.ts`** só confere a sessão. A área certa é decidida em `/inicio`: uma área abre direto, as duas mostram o seletor (e "Trocar de área" no cabeçalho), nenhuma avisa que não há acesso. O login recusa quem não tem nenhuma permissão do ReportS (RN-PL-61).
+- **Menu e atalhos** da Administração mostram só as telas que as permissões liberam; botões de editar somem sem a permissão (cliente e estabelecimentos exigem cadastrar cliente; contratos e aprovadores exigem gerenciar contratos).
+- **Telas de usuários removidas**: `/admin/usuarios` virou o aviso "Usuários e permissões são gerenciados no SINC", com o link (`SINC_URL`) e a lista das permissões do ReportS.
+- "Gestor" virou "administração" nos nomes e textos (`encerradaPelaAdministracao`, `encerrarPelaAdministracao`, `cancelarPelaAdministracao`, `corrigirPelaAdministracao`, "Encerrada pela administração"). Os e-mails de teste continuam os mesmos (`gestor@sidim.com.br` agora é a "Coordenação ReportS").
+- **Ficou para a Fase 4** (feito em 30/10/2026, ver "Fase 4 no ReportS: como ficou"): "esqueci minha senha" apontando para o SINC, limite de 10 tentativas em 3 minutos por IP no login (RN-PL-55) e o registro do catálogo de permissões na plataforma.
+
+#### Participantes: confirmado e provisório (29/10/2026)
+
+- **Participante é do sistema do cliente** (RN-PL-30), não do cliente: a mesma pessoa pode ter cadastros diferentes em cada sistema, e a lista, o CPF único e a busca são por sistema. A visita usa os participantes do sistema do contrato dela.
+- **Estados (RN-PL-31):** *confirmado pelo ERP* (tem o id do usuário no ERP; nome vem do ERP e não se edita no ReportS; nos dados de exemplo representa a captura do painel do SINC, sem CPF) e *provisório* (criado no ReportS, sem id do ERP). O "unido" e a junção são a fase seguinte. Origem do registro: painel do SINC, em campo (técnico) ou cadastro no ReportS (Administração).
+- **Quem edita o quê (RN-PL-42):** nome do confirmado, o ERP; nome do provisório, CBO, setor e CPF, o ReportS.
+- **Busca antes de criar (RN-PL-34):** ao criar um provisório (técnico em campo ou Administração), o ReportS procura, no mesmo sistema do cliente, quem já tem o **CPF** e quem tem **nome igual ou parecido** (sem acento; mesma semelhança do SINC: Levenshtein, a partir de 0,75). CPF igual **bloqueia** a criação e, no técnico, oferece "Usar esta pessoa". Nome parecido mostra **"É esta pessoa?"** com a lista e só cria depois de o usuário marcar que não é nenhuma delas.
+- **Selos** "Confirmado pelo ERP" e "Provisório" na lista de participantes, na escolha de presenças, no detalhe da visita (técnico e Administração) e no relatório da Administração. O aprovador e o PDF mostram só os nomes. A presença guarda o estado do dia.
+- **Temas com os 4 sistemas reais:** os temas escolhem o sistema entre SERP, SCA, SE e Saúde desde a Fase 1; agora os dados de exemplo têm temas para os quatro.
+- **CPF na presença (RN-PL-35, 30/10/2026):** quando o contrato exige CPF e o participante escolhido **já está cadastrado sem CPF** (é o caso dos confirmados, que vêm do ERP sem CPF), o técnico informa o CPF na própria presença e ele fica **no cadastro da pessoa**; nas visitas seguintes não é pedido de novo. CPF inválido ou vazio bloqueia; CPF que já é de **outra pessoa do mesmo sistema** bloqueia e oferece "Usar esta pessoa". O CPF só é gravado depois de a presença estar toda conferida (assinatura incluída). Quem já tem CPF não vê o campo, e a tela do técnico só mostra o CPF mascarado.
+- **Ficou fora (fase seguinte):** junção automática por CPF e pela revisão, desfazer junção, o estado "unido", a lista de revisão e a permissão `reports.participantes.revisar` em uso; a importação do ERP.
+
+#### Chamados por sistema (30/10/2026)
+
+- O relatório de um contrato conta só os chamados do **sistema do contrato**. O ReportS manda ao n8n o parâmetro opcional `sistema`, com o **"Nome no Fortics"** do sistema (`erp_systems.fortics_nome` no SINC); o fluxo filtra os atendimentos pelo campo `sistema`, sem diferença de maiúsculas, acentos e espaços (`docs/n8n-resumo-chamados.json`, `docs/n8n-resumo-chamados.md`).
+- Sistema **sem** "Nome no Fortics": o pedido não leva `sistema`, contam todos os sistemas do cliente, e a Administração (nunca o aprovador) vê o aviso. O resumo guarda o filtro usado (`sistemaFiltro`), então a versão emitida mostra o mesmo que o rascunho. O cache por cliente, período e sistema evita pedidos repetidos.
+- **Testado** em 30/10/2026 com um servidor que imita o n8n: o pedido leva ou não `sistema` conforme o sistema, o aviso é só da Administração, o aprovador não vê o aviso e o filtro do fluxo foi conferido num teste em Node (13 verificações). **Não testado** com o n8n real nem com os valores reais do Fortics.
+- **Em aberto:** (a) conferir, com o time do Fortics/n8n, se os "Nome no Fortics" do SINC são iguais aos valores gravados em `sistema` (um nome diferente zera o resumo); (b) o fluxo atualizado precisa ser reimportado no n8n; sem isso o parâmetro é ignorado e contam todos os sistemas; (c) se o cliente tem **mais de um tenant do mesmo sistema** (QA-043 do SINC), a granularidade do contrato e do relatório ainda não está decidida.
+
+- **Atualização de 30/10/2026 (publicação do SINC):** a QA-043 foi decidida: **sim**, um cliente pode ter mais de um tenant do mesmo sistema (unidades diferentes de uma empresa que paga uma vez). O índice "um tenant por sistema por cliente" saiu do banco da plataforma e do `prisma/plataforma/schema.prisma`. Os contratos do ReportS já são por tenant (`sistemaDoClienteId`) e o filtro de chamados é por cliente e sistema, então dois tenants do mesmo sistema mostrariam o mesmo número de chamados; a granularidade do contrato e do relatório continua a definir. Ao ensaiar o primeiro deploy contra a estrutura de produção, a conferência de estrutura (`db:plataforma:conferir`) falhava só pela **ordem das colunas** (o arquivo veio de um banco criado de uma vez; o de produção recebeu as colunas por migração); ela passou a ignorar a ordem dentro de cada bloco e continua falhando em coluna, tipo ou índice que mudam.
+
+Pontos para alinhar com a Helena que afetam o ReportS: o campo hoje chamado "Nome no SINC" (nomes do cliente nos chamados) é "Nomes no Fortics" no plano, e o plano também prevê "nome no Fortics" por sistema; um cliente pode ter dois tenants do mesmo sistema?; cargo do aprovador (um só, mesmo aprovando para vários clientes).
+
+#### Decisão técnica: biblioteca de banco — Prisma 7 (29/10/2026)
+
+**Segue o artefato.** A Fase 0 do plano diz: "Prisma com dois esquemas, o `reports` com migrações próprias e o `plataforma` só por introspecção, nunca migrado pelo ReportS (D-03)"; "Pontos a confirmar" deixa a escolha com o Desenvolvimento; a Fase 4 pede um teste que falhe se a introspecção estiver desatualizada. Escolhido: **Prisma 7.x** (`prisma`, `@prisma/client` e `@prisma/adapter-pg`).
+
+Como o plano será seguido (a "dois esquemas" foi lida como **um schema do Prisma por banco**, `reports` e `plataforma`, porque os dois são bancos separados pela D-02):
+
+- **`reports`**: schema com migrações do Prisma.
+- **`plataforma`**: schema só por introspecção (`prisma db pull`), sem pasta de migrações e sem `migrate`. A proteção de verdade é o usuário de banco do ReportS, sem permissão de alterar estrutura.
+- **Teste de atualização (Fase 4)**: `prisma db pull --print` comparado com o `schema.prisma` versionado; falha se a plataforma mudou.
+- **Rails**: a leitura aceita as tabelas da plataforma como o plano as descreve, com `now()` como padrão de `created_at`/`updated_at`, índices únicos parciais (CNPJ, opção do ClickUp, tenant) e `check`.
+
+**Observações do desenvolvimento (não constam no artefato; não mudam nenhuma decisão dele).** Vêm de um teste prático feito em 29/10/2026, em PostgreSQL 16 com tabelas no estilo do Rails, comparando com o Drizzle:
+
+- O Prisma não entende `check` (só avisa na introspecção): a restrição fica no banco e o código do ReportS precisa tratar o erro. O índice único parcial devolve `P2002`.
+- Os ids `bigint` da plataforma voltam como `BigInt` do JavaScript, que não vai para JSON nem para componentes de cliente. Os repositórios (`src/lib/repo/*`) convertem para texto na fronteira.
+- Versão: usar a 7.x estável; a 8.0 ainda é candidata a lançamento (RC).
+- O Prisma 7 exige Node `^20.19`, `^22.12` ou `24+`. O plano diz "Node 20 ou mais novo" para o servidor; conferir que seja pelo menos 20.19.
+- O client é gerado (`prisma generate`); o build e o script de publicação precisam gerar os dois clients.
+- As tabelas do Rails vêm em inglês e snake_case (`users`, `email_address`, `active`); o mapeamento para os nomes do ReportS fica nos repositórios.
+- Se o Prisma der problema no servidor, o Drizzle leu as mesmas tabelas no teste e a troca ficaria restrita a `src/lib/repo/*`. Não foi escolhido porque o plano indica o Prisma.
+
+#### Fase 4 no ReportS: como ficou (30/10/2026)
+
+- **Dois bancos com Prisma 7.10**, uma configuração por banco (`prisma.reports.config.ts`, `prisma.plataforma.config.ts`) e o adaptador `pg`. O schema da plataforma vem só da introspecção, feita com o próprio usuário `reports` (as tabelas que ele não lê, como `sessions`, aparecem comentadas); `npm run db:plataforma:conferir` roda no deploy, antes do build, e para a publicação se o SINC mudou uma tabela.
+- **Usuário de banco do ReportS na plataforma** (ADR-035 do SINC): grava coluna por coluna. O Prisma manda, em toda inclusão, as colunas com valor padrão (datas, situação do ClickUp); como o `reports` não pode gravá-las, as **inclusões na plataforma são em SQL direto** (cliente, sistema do cliente, participante provisório e catálogo de permissões), e as alterações mandam `updated_at`. Foi preciso liberar no SINC a coluna `customers.ativo` (commit `5a9ccbf` do SINC), porque a tela de cliente do ReportS ativa e desativa clientes.
+- **Ordem entre bancos** (não há transação entre eles): cliente e sistemas do cliente numa transação da plataforma; o contrato depois, no `reports`.
+- **Login** no cadastro único: e-mail e senha do SINC (o resumo bcrypt do Rails é conferido pelo `bcryptjs`; testado com uma senha gerada pelo Rails), usuário ativo e alguma permissão `reports.*`. O papel protegido (Administrador) tem todas. Limite de **10 tentativas em 3 minutos por IP** (RN-PL-55), na memória do processo (o ReportS roda num processo só; reiniciar zera a contagem), com o IP do cabeçalho `X-Real-IP` do nginx. "Esqueci minha senha" leva a `SINC_URL/passwords/new`.
+- **Catálogo de permissões** registrado na plataforma a cada deploy (`npm run permissoes:registrar`): inclui, atualiza e inativa as `reports.*` que saíram do código. Rodar de novo não muda nada.
+- **Cliente vinculado ao ClickUp** tem o nome travado no ReportS (RN-PL-12): o campo fica só de leitura e o nome enviado é ignorado.
+- **Participante confirmado sem CBO**: os confirmados chegam do SINC sem ocupação, então `cbo` passou a ser opcional no participante e na presença; as telas e o PDF mostram "—" e a Administração completa a ocupação.
+- **Estabelecimento ou setor com visitas** não é mais removido (o banco não deixaria): a tela avisa o motivo.
+- **Visitas**: uma em andamento por técnico garantida por índice único parcial (dois check-ins ao mesmo tempo: o segundo é recusado). Fotos extras acrescentadas no próprio banco (envios simultâneos não se perdem). O CEP é gravado dentro do JSON do local, sem tocar na coordenada.
+- **Desvio do plano: fotos extras em JSON** na própria visita (`fotos_extras`), e não numa tabela própria. Elas só existem dentro da visita, a ordem importa, e a correção pela administração já reescreve a lista inteira; uma tabela só traria junções. Locais do check-in e do check-out, foto do ambiente e print também são JSON, na mesma forma do protótipo.
+- **Relatórios**: as visitas do relatório são as que apontam para ele (`visitas.relatorio_id`); emissão, decisão e invalidação dos links em transação, com a situação conferida no próprio `UPDATE` (duas emissões ou dois aprovadores ao mesmo tempo: só a primeira vale).
+- **Arquivos** no disco (`ARQUIVOS_DIR`, por ano e mês), gravados primeiro num nome temporário; o banco guarda tipo, tamanho e caminho. **E-mails** registrados no banco (a Caixa de saída mostra os 300 mais recentes).
+- **CBO**: o site oficial não abre do ambiente de desenvolvimento em nuvem; `npm run cbo:importar` lê o arquivo oficial baixado (`CBO2002 - Ocupacao.csv`, ISO-8859-1 ou UTF-8), recusa arquivo com menos de 1.000 ocupações e nunca apaga. Em desenvolvimento, `npm run db:exemplo` grava uma amostra.
+- **CEPs pendentes**: `npm run ceps:preencher`, pelo timer `reports-ceps` a cada 30 minutos, no máximo 200 locais por vez e 1 consulta por segundo ao Nominatim.
+- **Testado em 30/10/2026**, no ambiente de desenvolvimento com o SINC: com o servidor de desenvolvimento e com o build de produção (`next start`), pelo navegador, login (aceito, senha errada e sem acesso), todas as telas da Administração, check-in presencial com GPS e foto, temas, participante confirmado sem CBO, participante novo gravado na plataforma, foto extra, check-out, CNPJ do cliente, rascunho, emissão com PDF, e-mail na Caixa de saída, aprovação pelo link sem login e relatório travado. Testes automáticos: `npm test` (10 testes).
+- **Não testado** (na data desta seção, antes da publicação; depois disso foram feitos a publicação, a importação da CBO e o teste no celular, abaixo): publicação no servidor real, celular com https, envio real de e-mail com o banco, importação com o arquivo CBO oficial.
+
+#### Publicação no servidor: como ficou (30/10/2026)
+
+- **Onde:** servidor do SINC, `https://reports.sidim.com.br`; usuário de sistema `reports` (sem sudo) em `/var/www/reports`; serviço `reports-web` (127.0.0.1:3100) atrás do nginx, com certificado Let's Encrypt renovado pelo certbot; banco `reports_production`; arquivos em `/var/lib/reports/arquivos`; Node.js 22 oficial em `/opt`. Decisão e alternativas: ADR-036 do SINC. Deploy: `bin/deploy`, rodado como o usuário `reports`, depois do SINC publicado.
+- **Segredos** só em `/var/www/reports/.env.local` (modo 600), gerados no servidor; não entram no Git nem no backup. Se o servidor for refeito, gerar de novo (senha do usuário de banco e chave de sessão).
+- **Ensaio antes de publicar** (PostgreSQL temporário só com a estrutura da plataforma de produção, usuário de teste local, build de produção e navegador) achou dois problemas que parariam o deploy: o arquivo `prisma/plataforma/schema.prisma` ainda tinha o índice "um tenant por sistema por cliente", que o SINC tirou em 30/10 (QA-043), e a conferência `db:plataforma:conferir` falhava só pela **ordem das colunas** (agora ela ignora a ordem e continua falhando em coluna, tipo ou índice que mudam). PR #10.
+- **Defeito do primeiro uso no celular** (login ok, e ao escolher Administração ou App do Técnico voltava ao login): a tela `/inicio` tinha `<Link href="/sair">`, e a rota `GET /sair` apaga a sessão. O Next.js pré-carrega os links visíveis **só no build de produção**, então a sessão era apagada sozinha. Corrigido: "Sair" é a ação `logout`, e a rota ignora pré-carga (PR #11, com teste de regressão). Achado ao conferir ao vivo: a mesma rota redirecionava para `https://localhost:3100/login`; agora o redirect é relativo (PR #12).
+- **Lições:** (1) nunca ponha um GET com efeito colateral (sair, apagar) atrás de `<Link>`; (2) em rota (route handler) atrás do nginx, `req.nextUrl` traz o host interno, então redirecione com endereço relativo; (3) teste o build de produção (`next build` e `next start`), não só o modo de desenvolvimento; (4) quando o SINC muda a plataforma, atualizar `prisma/plataforma/schema.prisma` antes do deploy do ReportS.
+- **Verificado em produção:** login, tela de escolha e abertura da Administração e do App do Técnico pelo celular, com https (Helena); `/sair` ignora a pré-carga e redireciona de forma relativa; sem erro no log do serviço; as 8 permissões `reports.*` registradas; CBO com 2.694 ocupações.
+- **Ainda não testado:** envio real de e-mail (faltam as credenciais do SMTP), fluxo completo de uma visita em campo no celular e os chamados de suporte com o n8n real.
+
+### Pré-requisitos externos dos itens de infraestrutura
+
+Situação em 30/10/2026: banco, armazenamento, CBO e publicação com https estão prontos (ver "Publicação no servidor: como ficou"). Faltam as credenciais do SMTP da SIDIM e o SPF/DKIM do remetente.
+
+| Item | Precisa de |
+|---|---|
+| Banco de dados real e armazenamento | Banco `reports` e acesso à base `plataforma` no servidor do SINC (Fases 0 a 3 do SINC); disco do servidor para os arquivos |
+| Envio real de e-mail | As credenciais do SMTP da SIDIM (usuário, senha e remetente aprovado no OCI), guardadas só no servidor; SPF/DKIM do domínio do remetente |
+| Tabela CBO oficial | O arquivo oficial do Ministério do Trabalho. Não testamos se o ambiente consegue baixá-lo |
+| Publicação e teste no celular com https | Servidor do SINC e o domínio `reports.sidim.com.br` |
+
+### Ordem sugerida para resolver
+
+1. **Decisões em aberto (2, 6 e 7).** São respostas rápidas e destravam o acabamento do que já foi feito.
+2. **Ponto 5**: testar no computador local, com o serviço real e o endereço real de um estabelecimento (roteiro em `docs/teste-busca-coordenadas.md`).
+3. **Plataforma SIDIM**: trilha do ReportS em memória (Fases 1 a 3), em paralelo ao SINC; banco real só depois.
+4. **Pontos 4 e 9**, que dependem do time e do Fortics.
+5. **Infraestrutura**, na ordem da seção "A fazer".
+
+## A fazer
+
+### Infraestrutura (vem do "Próximos passos" do README)
+
+- [x] **Alta** — Banco de dados real (Fase 4 do plano da plataforma): banco `reports` no PostgreSQL do SINC e leitura/escrita na base `plataforma` — 30/10/2026 (ver "Fase 4 no ReportS: como ficou").
+- [x] **Alta** — Armazenamento de fotos, assinaturas e PDFs no disco do servidor, fora da pasta pública (`ARQUIVOS_DIR`) — 30/10/2026.
+- [x] **Alta** — Backup do banco `reports` e da pasta `ARQUIVOS_DIR`: entram na rotina noturna do servidor (03:00 UTC, 14 dias) desde 30/10/2026 (ADR-036 do SINC). Em aberto: cópia automática fora do servidor e ensaio periódico de restauração (QA-002 do SINC); o `.env.local` não entra no backup.
+- [ ] **Média** — Envio real de e-mail. **Decisão da Helena (29/10/2026): usar o SMTP da própria SIDIM** (Oracle Cloud Email Delivery, o mesmo dos outros sistemas; porta 587 com STARTTLS; remetente aprovado no OCI). **Testado de ponta a ponta com o SMTP real da SIDIM em 29/10/2026**: o e-mail chegou com o PDF e o botão, e a aprovação pelo link pessoal funcionou (com a trava `EMAIL_REDIRECIONAR_PARA`). Na máquina de desenvolvimento foi preciso `NODE_OPTIONS=--use-system-ca`, porque o antivírus ou o firewall da rede troca o certificado; em produção isso não deve ser necessário. O Resend, usado nos primeiros testes, sai do plano (D-04 do plano da plataforma); o suporte a ele no código será removido (próximo item). **Falta** para enviar aos aprovadores de verdade: `APP_URL` público (https), remover a trava, e confirmar com a equipe do e-mail o SPF/DKIM do remetente (domínio dinâmico) para não cair no spam. **As credenciais do SMTP foram coladas no chat em 29/10/2026: a equipe responsável deve trocá-las.** Sem as variáveis, segue simulado na Caixa de saída (`src/lib/email.ts`).
+- [x] **Baixa** — Remover do código o envio pelo Resend (`enviarPeloResend`, `EMAIL_PROVEDOR`, `RESEND_API_KEY`) e do roteiro `docs/teste-email-real.md` (D-04) — 30/10/2026.
+- [x] **Média** — Importar a tabela CBO oficial do Ministério do Trabalho no servidor — 30/10/2026: 2.694 ocupações (a Helena baixou o arquivo, porque o site do Ministério exige captcha). Para atualizar: `npm run cbo:importar -- <arquivo>` como usuário `reports` no servidor; não apaga nada e rodar de novo não muda nada.
+- [x] **Média** — Publicar no servidor do SINC (`reports.sidim.com.br`, https) e testar no celular — publicado em 30/10/2026 (~17:30 UTC) e testado no celular pela Helena, com https (ver "Publicação no servidor: como ficou").
+
+### Documentação
+
+- [x] **Média** — Comando do `.env.local` no README corrigido para funcionar no PowerShell (o `>` gravava UTF-16 e quebrava o login) — 29/10/2026.
+
+- [x] **Média** — Regras de negócio no repositório: `docs/regras.md`, levantado do código e atualizado em 30/10/2026 para o sistema em produção (acesso por permissões, contratos por sistema, participantes confirmados e provisórios, raio, CEP, relatórios por contrato); convenções do código em `AGENTS.md`.
+
+### Qualidade
+
+- [x] **Média** — Testar o fluxo completo de ponta a ponta: check-in → check-out → emissão do relatório → aprovação pelo cliente — 30/10/2026, com o banco, no servidor de desenvolvimento e no build de produção (ver "Fase 4 no ReportS: como ficou"). Falta repetir no servidor real, pelo celular.
+
+## Sugestões a avaliar
+
+- [ ] **Baixa** — Acesso pelo GitHub Codespaces (navegador, com https). **Não testado.** O login usa Server Action, e a documentação do Next.js 16 indica que acesso por túnel ou proxy pode exigir `allowedOrigins` (em `experimental.serverActions`) e `allowedDevOrigins` no `next.config.ts`, liberando `*.app.github.dev`. Avaliar também um `devcontainer`. Em Codespaces, o `APP_URL` precisa ser o endereço público, senão os links de aprovação apontam para `localhost`.
+- [ ] **Baixa** — Padronizar a versão do npm da equipe. O `npm install` com npm 10.9 remove campos `libc` do `package-lock.json`, gerando um diff sem significado. Enquanto não padronizar, não commitar esse diff.
+
+## Concluído
+
+- [x] Mockup completo das três interfaces (Administração, App do Técnico e Aprovação), com dados em memória — `745a349`.
+- [x] README com como rodar, acessos de teste e situação atual — `c085435`.
+- [x] Chamados de suporte do cliente no relatório (n8n/Fortics), desligado por padrão — mesclado em `9ac1ae2` (28/10/2026).
+- [x] Localização por CEP no check-in/check-out, com CEP e precisão sempre "aproximados", desligado por padrão — mesclado em `974d774` (28/10/2026).
+- [x] Definições 1, 2, 3, 6, 10, 11 e 12 e telefone do usuário — PR 3, mesclada em `ace1b3f` (28/10/2026).
+- [x] CEP gravado na hora quando a prévia já o resolveu, e tela da visita que se atualiza sozinha enquanto o CEP está pendente — `c9b632a` e `5f182b9` (28/10/2026).
+- [x] Selo "Dentro do raio" para o gestor, ao lado do "Fora do raio" — `f9581d2` (28/10/2026).
+- [x] Ponto 5: botão "Buscar coordenadas pelo endereço" no cadastro do estabelecimento, testado com o serviço real — `8cc34fd` (28/10/2026).
+- [x] Termo **"unidade" passa a ser "estabelecimento"** em telas, mensagens, PDF e documentação, por decisão com a Helena (28/10/2026). Os nomes internos do código (`unidadeId`, `Unidade`, `listarUnidades`) foram mantidos de propósito, para não arriscar uma refatoração grande sem ganho para o usuário.
+- [x] Envio real de e-mail pelo Resend, testado de ponta a ponta (emissão → e-mail com PDF → aprovação pelo link) — 29/10/2026. Aprovadores reais dependem de verificar o domínio da SIDIM.
+- [x] Envio real de e-mail pelo SMTP da SIDIM (Oracle Cloud), testado de ponta a ponta (emissão → e-mail com PDF → aprovação) — 29/10/2026. Aprovadores reais dependem de `APP_URL` público, remover a trava e SPF/DKIM.

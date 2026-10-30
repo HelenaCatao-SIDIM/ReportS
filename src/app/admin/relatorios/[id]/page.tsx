@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Download, Eye, FileText, Lock, Mail, MessageSquareWarning } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Download, Eye, FileText, Lock, Mail, MessageSquareWarning } from "lucide-react";
 import { montarConteudo } from "@/lib/repo/relatorios";
 import { formatarDataHora } from "@/lib/datas";
 import { formatarDataCurta, formatarMinutos } from "@/lib/visitas";
@@ -10,6 +10,13 @@ import { ConteudoRelatorio, type DadosConteudo } from "@/components/relatorio/co
 import { Mudancas } from "@/components/relatorio/mudancas";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { chamadosSuporte } from "@/lib/config-suporte";
+import { emailReal } from "@/lib/config";
+import { buscarResumoSuporte } from "@/lib/suporte";
+import { buscarSistema } from "@/lib/repo/sistemas";
+import { agendarCepPendente, locaisPendentes } from "@/lib/cep-visitas";
+import { horaDoServidor } from "@/lib/agora";
+import { AtualizarEnquantoPendente } from "@/components/visita/atualizar-enquanto-pendente";
 import { AcoesRascunho } from "./acoes-rascunho";
 
 export default function RelatorioPage({ params, searchParams }: PageProps<"/admin/relatorios/[id]">) {
@@ -34,13 +41,29 @@ function Mensagem({ sp }: { sp: Record<string, string | string[] | undefined> })
     const depois = Number(sp.depois);
     texto = antes === depois ? `Visitas conferidas: nenhuma mudança (${depois}).` : `Visitas atualizadas: ${antes} → ${depois}.`;
   }
-  if (sp.ok === "emitido") texto = `Relatório emitido: PDF gerado e e-mail enviado a ${sp.destinatarios} aprovador(es). Veja na Caixa de saída.`;
+  const falhas = Number(sp.falhas) || 0;
+  if (sp.ok === "emitido") {
+    const total = Number(sp.destinatarios) || 0;
+    texto = emailReal()
+      ? `Relatório emitido: PDF gerado e e-mail enviado a ${total - falhas} de ${total} aprovador(es). Veja na Caixa de saída.`
+      : `Relatório emitido: PDF gerado e e-mail simulado para ${total} aprovador(es) (envio real desligado). Veja na Caixa de saída.`;
+  }
   if (!texto) return null;
   return (
-    <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
-      <CheckCircle2 />
-      <AlertDescription className="text-emerald-800">{texto}</AlertDescription>
-    </Alert>
+    <>
+      <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
+        <CheckCircle2 />
+        <AlertDescription className="text-emerald-800">{texto}</AlertDescription>
+      </Alert>
+      {sp.ok === "emitido" && falhas > 0 && (
+        <Alert className="border-amber-300 bg-amber-50 text-amber-900">
+          <AlertTriangle />
+          <AlertDescription className="text-amber-900">
+            O envio falhou para {falhas} aprovador(es). O relatório está emitido e os links existem; veja o motivo na Caixa de saída.
+          </AlertDescription>
+        </Alert>
+      )}
+    </>
   );
 }
 
@@ -48,30 +71,43 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const c = await montarConteudo(id);
   if (!c) notFound();
-  const { relatorio: r, cliente } = c;
+  const { relatorio: r, cliente, contrato } = c;
   const editavel = r.status === "rascunho" || r.status === "ajuste_solicitado";
   const ultima = r.versoes.at(-1);
 
+  // Emitido com conteúdo congelado: mostra o que o cliente recebeu (o CEP já foi congelado junto). Em edição, ou sem
+  // conteúdo congelado (como o relatório de exemplo), mostra os dados atuais: as visitas sem CEP começam a ser
+  // convertidas agora, e a tela se atualiza sozinha.
+  const congelado = !editavel && !!ultima?.conteudo;
+  const agora = await horaDoServidor();
+  if (!congelado) for (const v of c.visitas) agendarCepPendente(v, agora);
+  const pendentes = congelado ? 0 : locaisPendentes(c.visitas);
+
   // Emitido: mostra o conteúdo congelado da última versão (o que o cliente recebeu); em edição, os dados atuais.
   const dados: DadosConteudo =
-    !editavel && ultima?.conteudo
+    congelado && ultima?.conteudo
       ? ultima.conteudo
       : {
-          cliente: { nome: cliente.nome, cnpj: cliente.cnpj, contrato: cliente.contrato },
+          cliente: { nome: cliente.nome, cnpj: cliente.cnpj, contrato: contrato.texto },
+          sistema: { codigo: contrato.sistema, nome: contrato.sistemaNome },
           de: r.de,
           ate: r.ate,
           visitas: c.visitas,
           deOutroPeriodo: [...c.deOutroPeriodo],
           minutosPresenciais: c.minutosPresenciais,
           minutosOnline: c.minutosOnline,
+          // Prévia, buscada agora; na emissão estes números são congelados na versão.
+          suporte: chamadosSuporte() ? await buscarResumoSuporte(cliente, r.de, r.ate, (await buscarSistema(contrato.sistema))?.nomeFortics) : null,
         };
 
   return (
     <div className="space-y-6">
+      <AtualizarEnquantoPendente pendente={pendentes > 0} tentativas={Math.min(40, 8 + pendentes)} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="flex flex-wrap items-center gap-2 text-2xl font-semibold tracking-tight">
             {cliente.nome}
+            <span className="font-normal text-muted-foreground">· {contrato.sistemaNome}</span>
             <StatusRelatorioBadge status={r.status} />
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -84,7 +120,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
             id={r.id}
             podeExcluir={r.status === "rascunho" && r.versoes.length === 0}
             proximaVersao={r.versoes.length + 1}
-            aprovadores={cliente.aprovadores.map((a) => ({ nome: a.nome, email: a.email }))}
+            aprovadores={contrato.aprovadores.filter((a) => a.ativo).map((a) => ({ nome: a.nome, email: a.email }))}
             visitas={c.visitas.length}
             horas={formatarMinutos(c.minutosPresenciais)}
           />
@@ -112,7 +148,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
         <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
           <Lock />
           <AlertDescription className="text-emerald-800">
-            Liberado para faturar: aprovado por {ultima?.decisao?.aprovadorNome} em {ultima?.decisao ? formatarDataHora(ultima.decisao.em) : "—"}. O
+            Aprovado por {ultima?.decisao?.aprovadorNome} em {ultima?.decisao ? formatarDataHora(ultima.decisao.em) : "—"}. O
             relatório e as visitas estão travados.
           </AlertDescription>
         </Alert>

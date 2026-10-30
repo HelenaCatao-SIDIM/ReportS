@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mudancas } from "@/components/relatorio/mudancas";
+import { ChamadosSuporte } from "@/components/relatorio/chamados-suporte";
 import { Decisao } from "./decisao";
 
 export const metadata: Metadata = { title: "Relatório de atendimento · SIDIM", robots: { index: false, follow: false } };
@@ -91,7 +92,10 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/aprovacao/[to
 
       <div>
         <p className="text-sm text-muted-foreground">Olá, {link.aprovadorNome}</p>
-        <h1 className="text-2xl font-semibold tracking-tight">{c.cliente.nome}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {c.cliente.nome}
+          <span className="font-normal text-muted-foreground"> · {c.sistema.nome}</span>
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Período de {formatarDataCurta(c.de)} a {formatarDataCurta(c.ate)} · versão v{versao.numero} · enviada em {formatarDataHora(versao.emitidoEm)}
         </p>
@@ -175,6 +179,8 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/aprovacao/[to
           </div>
         </CardContent>
       </Card>
+
+      {c.suporte && <ChamadosSuporte resumo={c.suporte} publico="aprovador" />}
 
       {pdf && (
         <a href={pdf} className="flex items-center justify-center gap-2 rounded-xl border bg-background p-3 text-sm font-medium text-primary hover:bg-muted/50">
