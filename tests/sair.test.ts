@@ -36,7 +36,8 @@ describe("sair", () => {
   it("a rota /sair, numa navegação de verdade, apaga a sessão e volta ao login", () => {
     const res = GET(new NextRequest("http://localhost/sair", { headers: { cookie: "sessao=x" } }));
     assert.equal(res.status, 307);
-    assert.equal(new URL(res.headers.get("location")!).pathname, "/login");
+    // Relativo, de propósito: atrás do nginx o host da requisição é o interno (localhost:3100).
+    assert.equal(res.headers.get("location"), "/login");
     assert.match(res.headers.get("set-cookie") ?? "", /sessao=;/);
   });
 });
