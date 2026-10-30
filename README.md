@@ -11,32 +11,54 @@ Três interfaces:
 
 Tecnologia: Next.js 16 (App Router) + TypeScript + Tailwind CSS 4 + shadcn/ui (Base UI). PDF com `@react-pdf/renderer`.
 
-## Situação atual: mockup funcional com dados em memória
+## Situação atual: Fase 4, com banco de dados
 
-Todas as telas e regras do guia estão implementadas, mas **os dados ficam na memória do servidor**:
+Desde 30/10/2026 os dados ficam no PostgreSQL, em dois bancos (plano "Plataforma SIDIM", Fase 4):
 
-- ao reiniciar o servidor, tudo volta aos dados de exemplo;
-- e-mails não são enviados: aparecem em **Administração → Caixa de saída (teste)**;
-- fotos, assinaturas e PDFs também ficam em memória;
-- a tabela CBO é uma **amostra de 25 ocupações** (códigos não conferidos) — falta importar a tabela oficial.
+- **`plataforma`**, comum com o SINC, que define a estrutura dele: sistemas, usuários da SIDIM, papéis e permissões, clientes,
+  sistemas do cliente e participantes. O ReportS lê e grava só as colunas liberadas ao seu usuário de banco (ADR-035 do SINC).
+- **`reports`**, só do ReportS, com migrações próprias: estabelecimentos, setores, contratos, aprovadores, temas, CBO, visitas,
+  relatórios, links de aprovação, arquivos e e-mails.
 
-A troca para banco de dados real fica concentrada em `src/lib/repo/*`; as telas não mudam. O banco será o PostgreSQL do servidor do SINC (banco `reports` próprio, mais a base comum `plataforma`); ver "Plataforma SIDIM" abaixo.
+Login com o e-mail e a senha do cadastro único (os mesmos do SINC); usuários, papéis e senhas são gerenciados no Admin do SINC.
+Fotos, assinaturas e PDFs ficam no disco do servidor (`ARQUIVOS_DIR`). Os e-mails ficam registrados no banco e aparecem em
+**Administração → Caixa de saída**; o envio real é pelo SMTP da SIDIM. A tabela CBO oficial é carregada por script.
 
 ## Como rodar no seu computador
 
-Pré-requisitos: [Node.js](https://nodejs.org) 20 ou mais novo e [Git](https://git-scm.com).
+Pré-requisitos: [Node.js](https://nodejs.org) 22 (o Prisma 7 pede 20.19 ou mais novo), PostgreSQL 16, [Git](https://git-scm.com)
+e o **SINC de desenvolvimento** rodando no mesmo PostgreSQL, com o banco `plataforma` migrado (é ele que cria as tabelas comuns e os
+usuários).
 
-```bash
-git clone https://github.com/HelenaCatao-SIDIM/ReportS.git
-cd ReportS
-npm install
-```
+1. Usuário e banco do ReportS (uma vez; troque a senha):
 
-Crie o arquivo `.env.local` na raiz do projeto (ele não vai para o Git porque guarda uma chave secreta). Este comando funciona em
-qualquer terminal, inclusive no PowerShell do Windows:
+   ```bash
+   sudo -u postgres psql -c "CREATE ROLE reports LOGIN PASSWORD 'senha-dev'"
+   sudo -u postgres createdb -O reports reports_development
+   ```
+
+   No SINC, aplique as permissões desse usuário na plataforma: `bin/rails plataforma:permissoes_reports`.
+
+2. Projeto:
+
+   ```bash
+   git clone https://github.com/HelenaCatao-SIDIM/ReportS.git
+   cd ReportS
+   npm install          # também gera os clientes do Prisma (src/generated/, fora do Git)
+   ```
+
+3. Crie o arquivo `.env.local` na raiz do projeto (ele não vai para o Git porque guarda segredos). O comando abaixo funciona em
+qualquer terminal, inclusive no PowerShell do Windows; depois acrescente as linhas dos bancos:
 
 ```bash
 node -e "require('fs').writeFileSync('.env.local', 'SESSION_SECRET=' + require('crypto').randomBytes(32).toString('base64') + '\nAPP_URL=http://localhost:3000\n')"
+```
+
+```bash
+REPORTS_DATABASE_URL=postgresql://reports:senha-dev@localhost:5432/reports_development
+PLATAFORMA_DATABASE_URL=postgresql://reports:senha-dev@localhost:5432/plataforma_development
+SINC_URL=http://localhost:3001
+ARQUIVOS_DIR=./tmp/arquivos
 ```
 
 Não use `> .env.local` no PowerShell: ele grava o arquivo em UTF-16, o Next.js não o lê, a chave de sessão fica vazia e o login
@@ -44,6 +66,18 @@ quebra com "Zero-length key". Ao acrescentar variáveis depois, cada uma fica em
 
 - `SESSION_SECRET`: chave usada para assinar a sessão de login (qualquer texto aleatório longo).
 - `APP_URL`: endereço usado nos links dos e-mails de aprovação.
+- `REPORTS_DATABASE_URL` e `PLATAFORMA_DATABASE_URL`: os dois bancos, com o mesmo usuário `reports`.
+- `SINC_URL`: endereço do SINC, para o "Esqueci minha senha" e o aviso da tela "Usuários e permissões" (padrão `https://sinc.sidim.com.br`).
+  A tela de login é gerada no build: em produção, a variável precisa estar definida antes do `npm run build`.
+- `ARQUIVOS_DIR`: pasta das fotos, assinaturas e PDFs (em desenvolvimento, `./tmp/arquivos`; em produção, obrigatória e fora do projeto).
+
+4. Banco do ReportS, catálogo de permissões e dados de exemplo:
+
+```bash
+npm run db:migrate             # cria as tabelas do banco reports
+npm run permissoes:registrar   # grava as permissões reports.* na plataforma
+npm run db:exemplo             # só em desenvolvimento: CBO de amostra, temas, aprovadores, estabelecimentos e contratos
+```
 
 Opcional — **localização por CEP** (desligada por padrão; com ela desligada, nada muda):
 
@@ -64,7 +98,7 @@ Opcional — **endereço do SINC** (onde ficam os usuários e as permissões), m
 
 Opcional — **envio real de e-mail** (desligado por padrão; com ele desligado, os e-mails só aparecem na Caixa de saída,
 como antes). O caminho da SIDIM é o **servidor SMTP da própria empresa** (Oracle Cloud Email Delivery), o mesmo que os outros
-sistemas usam. O Resend, usado nos primeiros testes, sai do plano da plataforma (decisão D-04).
+sistemas usam (decisão D-04).
 
 ```bash
 EMAIL_REAL=true
@@ -89,8 +123,7 @@ EMAIL_REDIRECIONAR_PARA=voce@sidimsistemas.com.br
 - As credenciais do SMTP são segredos: ficam só no `.env.local` (ou nas variáveis do servidor de produção), nunca no repositório, no chat
   ou em e-mail.
 
-O código ainda aceita `EMAIL_PROVEDOR=resend` com `RESEND_API_KEY`, herança dos primeiros testes. Esse suporte será removido (ver `MELHORIAS.md`); não use em produção.
-Sem `EMAIL_PROVEDOR`, vale o SMTP quando `SMTP_HOST` está definido. Gmail e Microsoft 365 também funcionam por SMTP.
+Gmail e Microsoft 365 também funcionam por SMTP (só para teste). O envio pelo Resend, dos primeiros testes, foi retirado.
 
 Roteiro de teste em `docs/teste-email-real.md`.
 
@@ -121,39 +154,23 @@ npm run dev
 
 Abra http://localhost:3000.
 
-> Se uma tela mostrar o erro "… is not a function" depois de alterar um arquivo, pare o servidor (Ctrl+C) e rode `npm run dev` de novo — às vezes o recarregamento automático fica com uma versão antiga do arquivo. Os dados de exemplo voltam ao estado inicial.
+> Se uma tela mostrar o erro "… is not a function" depois de alterar um arquivo, pare o servidor (Ctrl+C) e rode `npm run dev` de novo — às vezes o recarregamento automático fica com uma versão antiga do arquivo. Os dados continuam no banco.
 
 ## Acessos de teste
 
-Senha de todos os usuários de teste: **`sidim123`** (definida em `src/lib/repo/usuarios.ts`; só para desenvolvimento).
-
-Não existe perfil "gestor": cada pessoa tem **papéis**, e os papéis somam **permissões** (`src/lib/permissoes.ts`). Quem tem as duas áreas (Administração e App do Técnico) escolhe uma depois do login e troca por "Trocar de área". Os usuários e os papéis dos testes são dados de exemplo (`src/lib/repo/usuarios.ts` e `permissoes.ts`); na plataforma eles são gerenciados no Admin do SINC.
-
-| Papel | E-mail | O que acontece |
-|---|---|---|
-| Coordenação ReportS (todas as permissões) | `gestor@sidim.com.br` | vê o seletor de área; Administração completa e App do Técnico |
-| Técnico de campo | `ana@sidim.com.br` | começa com uma visita aberta; só o App do Técnico |
-| Técnico de campo | `carlos@sidim.com.br` | começa com uma visita aberta; só o App do Técnico |
-| Faturamento (só `reports.relatorios.gerenciar`) | `faturamento@sidim.com.br` | Administração só com Relatórios e Caixa de saída |
-| Sem nenhum papel | `semacesso@sidim.com.br` | o login avisa que não há acesso ao ReportS |
-| Técnico inativo | `paulo@sidim.com.br` | o login é recusado (teste de bloqueio) |
+Os usuários são os do SINC de desenvolvimento (banco `plataforma`), com a mesma senha de lá. Não existe perfil "gestor": cada pessoa
+tem **papéis**, e os papéis somam **permissões** (`src/lib/permissoes.ts`). O papel **Administrador** do SINC tem todas as permissões,
+inclusive as do ReportS. Para testar outros perfis, crie papéis com algumas permissões `reports.*` em **Admin do SINC → Usuários → Papéis**.
+Quem tem as duas áreas (Administração e App do Técnico) escolhe uma depois do login e troca por "Trocar de área"; quem não tem
+nenhuma permissão do ReportS vê o aviso de que não tem acesso.
 
 **Aprovador (cliente) não tem login.** Ele entra pelo link pessoal enviado no e-mail do relatório. Para testar:
-entre como `gestor@sidim.com.br` → **Administração → Relatórios → Novo relatório** (cliente, **sistema** e período) → emita → **Caixa de saída (teste)** → **"Ver relatório"**.
+**Administração → Relatórios → Novo relatório** (cliente, **sistema** e período) → emita → **Caixa de saída (teste)** → **"Ver relatório"**.
+O cliente precisa ter CNPJ (os que vieram do SINC começam com "CNPJ pendente": preencha em **Clientes → Editar**).
 
-Cada cliente tem um contrato por sistema, e cada contrato tem a sua comprovação e os seus aprovadores (a mesma pessoa pode aprovar para vários contratos). Dados de exemplo:
-
-| Cliente | Sistema | Comprovação | Aprovadores |
-|---|---|---|---|
-| Prefeitura de Vale Verde | SERP | **Assinada**, exige CPF | Marta Ribeiro, José Antunes |
-| Prefeitura de Vale Verde | SCA | **Assinada**, exige CPF | Marta Ribeiro |
-| Prefeitura de Vale Verde | Saúde (em implantação) | **Nominal**, exige CPF | Marta Ribeiro, Paulo Mendes |
-| Clínica Bem Viver | Saúde | **Nominal** | Renata Lopes |
-
-Cliente com dois sistemas tem **dois relatórios por período**, um por contrato. Os aprovadores ficam em **Administração → Aprovadores**.
-
-Para ver o check-in do técnico, ele não pode ter visita aberta: faça o check-out da visita de exemplo
-(ou, na Administração, cancele-a em **Visitas → Em andamento**).
+Os dados de exemplo (`npm run db:exemplo`) criam, para os clientes que já existem no SINC de desenvolvimento, um estabelecimento
+"Sede" com três setores e um contrato por sistema do cliente, com dois aprovadores. Cliente com dois sistemas tem **dois relatórios
+por período**, um por contrato.
 
 ## Testar no celular
 
@@ -165,14 +182,85 @@ nesse endereço — use um treinamento online para testar sem GPS.
 
 - `src/proxy.ts` — só confere se há sessão; a área certa (Administração ou App do Técnico) é decidida pelas permissões, na página `/inicio`
 - `src/lib/session.ts`, `src/lib/dal.ts`, `src/lib/permissoes.ts` — sessão (JWT em cookie httpOnly com só o id do usuário), verificação de permissão (uma para páginas, outra para ações; lida a cada requisição, sem cache) e catálogo de permissões
-- `src/lib/repo/*` — **camada de dados (mock em memória)**: usuários, clientes, temas, participantes, CBO, visitas, relatórios, arquivos
+- `src/lib/limite-login.ts` — até 10 tentativas de login em 3 minutos por IP (RN-PL-55)
+- `src/lib/db.ts` — conexões com os dois bancos (Prisma 7 com o adaptador `pg`); ids da plataforma viram texto na fronteira
+- `src/lib/repo/*` — **camada de dados**: usuários, papéis e permissões, sistemas, clientes e participantes (plataforma); estabelecimentos, contratos, aprovadores, temas, CBO, visitas, relatórios e arquivos (reports)
 - Participantes: por sistema do cliente, **confirmado pelo ERP** ou **provisório**, com busca por CPF e nome parecido antes de criar (`src/lib/repo/participantes.ts`, `src/lib/similaridade.ts`)
-- `src/lib/emissao.tsx`, `src/lib/pdf/` — geração do PDF e envio (simulado) dos e-mails do relatório
-- `src/lib/email.ts` — envio de e-mail (simulado; trocar pelo provedor real)
+- `src/lib/emissao.tsx`, `src/lib/pdf/` — geração do PDF e envio dos e-mails do relatório
+- `src/lib/email.ts` — envio pelo SMTP (ou simulado) e registro de todo e-mail no banco
 - `src/app/admin/*` — Administração (cada tela exige a sua permissão)
 - `src/app/tecnico/*` — App do Técnico
 - `src/app/aprovacao/[token]/*` — página do aprovador (sem login)
 - `src/components/*` — componentes de tela (formulários, visita, relatório, shell)
+- `prisma/reports/` — schema e migrações do banco do ReportS; `prisma/plataforma/schema.prisma` — estrutura da plataforma, só lida do banco (`npm run db:plataforma:ler`), nunca migrada daqui
+- `scripts/` — tarefas de linha de comando (abaixo); `tests/` — testes; `bin/deploy` e `deploy/` — publicação
+
+## Scripts
+
+| Comando | O que faz |
+|---|---|
+| `npm run db:migrate` | Aplica as migrações do banco `reports` (`db:migrate:dev` cria uma nova em desenvolvimento) |
+| `npm run db:plataforma:ler` | Relê a estrutura da plataforma para `prisma/plataforma/schema.prisma` (depois de o SINC mudar uma tabela) |
+| `npm run db:plataforma:conferir` | Falha se a estrutura da plataforma mudou e o arquivo não foi relido (roda no deploy, antes do build) |
+| `npm run permissoes:registrar` | Grava o catálogo `reports.*` na plataforma: inclui, atualiza e inativa o que saiu do código (roda no deploy) |
+| `npm run cbo:importar -- "CBO2002 - Ocupacao.csv"` | Importa a tabela CBO oficial (arquivo do site da CBO, mtecbo.gov.br): inclui e atualiza, nunca apaga |
+| `npm run ceps:preencher` | Converte em CEP as coordenadas que ficaram pendentes (timer `reports-ceps` no servidor) |
+| `npm run db:exemplo` | Dados de exemplo, só em desenvolvimento e com o banco `reports` vazio |
+| `npm test` | Testes (abaixo) |
+
+## Testes
+
+```bash
+sudo -u postgres createdb -O reports reports_test     # uma vez
+REPORTS_TEST_DATABASE_URL=postgresql://reports:senha-dev@localhost:5432/reports_test npm test
+```
+
+Testes com `node:test` (`tests/`): as regras de permissão e, no banco de testes (migrado e esvaziado a cada teste), a visita única em
+andamento por técnico, fotos enviadas ao mesmo tempo, o CEP gravado dentro do local, o ciclo do relatório (rascunho, emissão, primeira
+decisão vale, visitas travadas) e as verificações do banco. A plataforma de desenvolvimento só é lida. Sem `REPORTS_TEST_DATABASE_URL`,
+os testes de banco são pulados.
+
+## Publicação
+
+O ReportS roda no servidor do SINC, atrás do nginx, em `https://reports.sidim.com.br`. **O que está na `main` vai para produção** pelo
+`bin/deploy`: `git pull`, `npm ci`, conferência da estrutura da plataforma, build, migrações do banco `reports`, registro das permissões
+e reinício do serviço `reports-web`.
+
+Antes, o SINC precisa estar publicado com as Fases 0 a 4 (inclusive a permissão de coluna `customers.ativo` para o usuário `reports`).
+
+Primeira instalação (uma vez, no servidor):
+
+1. Node.js 22 instalado no sistema (`/usr/bin/node`, por exemplo pelo NodeSource).
+2. Usuário de banco e banco do ReportS (se o usuário `reports` ainda não existe, ver a Arquitetura do SINC, "Usuário do ReportS no banco
+   plataforma"); depois, no SINC, `RAILS_ENV=production bin/rails plataforma:permissoes_reports`:
+
+   ```bash
+   sudo -u postgres createdb -O reports reports_production
+   ```
+
+3. Clone o repositório na pasta de serviços (o modelo usa `/home/ubuntu/ReportS`, com o usuário `ubuntu`; ajuste os arquivos de
+   `deploy/` se o SINC usar outros) e crie o `.env.local` de produção:
+
+   ```bash
+   SESSION_SECRET=<aleatório, 32 bytes ou mais>
+   APP_URL=https://reports.sidim.com.br
+   SINC_URL=https://sinc.sidim.com.br
+   REPORTS_DATABASE_URL=postgresql://reports:<senha>@localhost:5432/reports_production
+   PLATAFORMA_DATABASE_URL=postgresql://reports:<senha>@localhost:5432/plataforma_production
+   ARQUIVOS_DIR=/var/lib/reports/arquivos
+   # e-mail (SMTP da SIDIM), localização por CEP e chamados de suporte: ver acima
+   ```
+
+   Confira o nome do banco plataforma de produção no `config/database.yml` do SINC.
+
+4. Pasta dos arquivos: `sudo mkdir -p /var/lib/reports/arquivos && sudo chown ubuntu: /var/lib/reports/arquivos`.
+5. Serviços e nginx: copie `deploy/reports-web.service`, `deploy/reports-ceps.service` e `deploy/reports-ceps.timer` para
+   `/etc/systemd/system/`, `sudo systemctl daemon-reload && sudo systemctl enable reports-web reports-ceps.timer`; copie
+   `deploy/nginx-reports.conf` para `/etc/nginx/sites-available/reports`, ligue o site e rode `sudo certbot --nginx -d reports.sidim.com.br`.
+   O nginx precisa mandar o `X-Real-IP` (o modelo já manda): o limite de tentativas de login depende dele.
+6. `bin/deploy`, e depois `npm run cbo:importar -- "<arquivo oficial>"` uma vez.
+7. Backup: o banco `reports_production` e a pasta `ARQUIVOS_DIR` precisam entrar no backup do servidor, junto com os bancos do SINC
+   (em aberto com a Helena: QA-002 do SINC).
 
 ## Plataforma SIDIM (SINC + ReportS)
 
@@ -180,19 +268,22 @@ Decisão de 29/10/2026: o ReportS e o SINC passam a ser dois serviços de um mes
 
 - **Sai** o plano anterior (Supabase, Vercel, Resend). **Entram** o servidor do SINC (https em `reports.sidim.com.br`), o banco `reports`, a base `plataforma` (só o SINC cria e altera tabelas lá), o disco do servidor para fotos, assinaturas e PDFs, e o SMTP da SIDIM para e-mails.
 - Sistemas (SERP, SCA, SE, Saúde), clientes, participantes e usuários da SIDIM passam a ter **uma fonte só**, na plataforma. O ReportS deixa de ter cadastro próprio de usuários e de clientes; o perfil "gestor" vira permissões.
-- O ReportS adapta o protótipo **em memória** enquanto o SINC faz as Fases 0 a 3, e só passa a usar banco na Fase 4.
+- O ReportS adaptou o protótipo **em memória** enquanto o SINC fazia as Fases 0 a 3 e passou a usar banco na Fase 4 (30/10/2026).
 - **Biblioteca de banco: Prisma 7.x**, como o plano sugere: um schema do Prisma por banco, `reports` com migrações próprias e `plataforma` só por introspecção (o ReportS nunca altera a estrutura dela). Detalhes no `MELHORIAS.md`.
 
-Andamento do ReportS (detalhes no `MELHORIAS.md`): **Fase 0** com a documentação e a biblioteca de banco decididas; **Fase 1** feita (sistemas como cadastro só de leitura; temas escolhem o sistema numa lista); **Fase 2** feita em grande parte (cliente, sistemas do cliente, contrato por sistema, aprovador próprio, check-in e relatório por contrato; falta o filtro dos chamados por sistema); **Fase 3** no ReportS feita em grande parte (perfil "gestor" substituído por permissões, telas de usuários trocadas pelo aviso do SINC; faltam o "esqueci minha senha" e o limite de tentativas do login).
+Andamento do ReportS (detalhes no `MELHORIAS.md`): **Fases 0 a 3** feitas em memória; **Fase 4** feita em 30/10/2026: os dois bancos,
+login no cadastro único com limite de tentativas e "Esqueci minha senha" no SINC, catálogo de permissões registrado na plataforma,
+arquivos em disco, e-mails registrados, CBO oficial por script, tarefa dos CEPs, testes e publicação (`bin/deploy`). Falta o filtro dos
+chamados de suporte por sistema (Fase 2). A **Fase 5** (junção de participantes) vem depois.
 
 ## Próximos passos
 
-1. O que falta das Fases 2 e 3, em memória: chamados filtrados pelo sistema; "esqueci minha senha" apontando para o SINC e limite de tentativas no login.
-2. Fase 4, depois que o SINC concluir as Fases 1 a 3: banco `reports` e leitura da plataforma (Prisma 7).
-3. Arquivos (fotos, assinaturas e PDFs) no disco do servidor.
-4. Envio real de e-mail pelo SMTP da SIDIM: implementado e testado com o serviço real; falta o domínio público (`APP_URL`) e o SPF/DKIM do remetente.
-5. Importar a tabela CBO oficial do Ministério do Trabalho.
-6. Publicar no servidor do SINC com https e testar no celular.
+1. Publicar no servidor (seção "Publicação"), importar a CBO oficial e testar no celular, com https.
+2. Backup do banco `reports` e da pasta de arquivos (QA-002 do SINC, em aberto).
+3. Envio real de e-mail pelo SMTP da SIDIM: implementado e testado com o serviço real; falta o SPF/DKIM do remetente e tirar a trava
+   `EMAIL_REDIRECIONAR_PARA` quando for enviar aos clientes.
+4. Chamados de suporte filtrados pelo sistema do contrato (parâmetro novo no fluxo do n8n).
+5. Fase 5: junção de participantes (provisório com confirmado).
 
 ## Chamados de suporte no relatório (opcional)
 

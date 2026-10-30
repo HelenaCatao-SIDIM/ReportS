@@ -15,7 +15,9 @@
     "db:plataforma:conferir": "tsx scripts/conferir-plataforma.ts",
     "db:exemplo": "tsx scripts/dados-de-exemplo.ts",
     "cbo:importar": "tsx scripts/importar-cbo.ts",
-    "permissoes:registrar": "tsx scripts/registrar-permissoes.ts"
+    "permissoes:registrar": "tsx scripts/registrar-permissoes.ts",
+    "ceps:preencher": "tsx --conditions=react-server scripts/preencher-ceps.ts",
+    "test": "tsx --conditions=react-server --test tests/*.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

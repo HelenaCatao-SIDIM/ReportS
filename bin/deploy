@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Publicação do ReportS no servidor (o mesmo do SINC). O que está na main vai para produção.
+# Primeira instalação: README, "Publicação".
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+# O pull vem primeiro e o resto roda na versão do script que acabou de chegar
+# (o bash que já está rodando seguiria lendo a versão antiga; o SINC passou por isso).
+if [ -z "${REPORTS_DEPLOY_JA_ATUALIZADO:-}" ]; then
+  echo "==> git pull"
+  git pull origin main
+  export REPORTS_DEPLOY_JA_ATUALIZADO=1
+  exec "$PWD/bin/deploy" "$@"
+fi
+
+# --include=dev: o tsx (scripts abaixo) é dependência de desenvolvimento. O postinstall gera os clientes do Prisma.
+echo "==> npm ci"
+npm ci --include=dev
+
+# A estrutura da plataforma é do SINC. Se ele mudou uma tabela que o ReportS lê, para aqui, antes do build,
+# com o app antigo ainda no ar: rode npm run db:plataforma:ler, revise e publique o ajuste.
+echo "==> estrutura do banco plataforma confere?"
+npm run db:plataforma:conferir
+
+echo "==> build"
+npm run build
+
+echo "==> migrações do banco reports"
+npm run db:migrate
+
+# Catálogo de permissões do ReportS na plataforma (RN-PL-60). Idempotente.
+echo "==> permissões do ReportS"
+npm run permissoes:registrar
+
+echo "==> reiniciando"
+sudo systemctl restart reports-web
+
+echo "==> status"
+sudo systemctl status reports-web --no-pager --lines 5
+
+echo "==> deploy finalizado"

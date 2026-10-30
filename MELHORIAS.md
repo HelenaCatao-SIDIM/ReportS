@@ -218,6 +218,25 @@ Como o plano será seguido (a "dois esquemas" foi lida como **um schema do Prism
 - As tabelas do Rails vêm em inglês e snake_case (`users`, `email_address`, `active`); o mapeamento para os nomes do ReportS fica nos repositórios.
 - Se o Prisma der problema no servidor, o Drizzle leu as mesmas tabelas no teste e a troca ficaria restrita a `src/lib/repo/*`. Não foi escolhido porque o plano indica o Prisma.
 
+#### Fase 4 no ReportS: como ficou (30/10/2026)
+
+- **Dois bancos com Prisma 7.10**, uma configuração por banco (`prisma.reports.config.ts`, `prisma.plataforma.config.ts`) e o adaptador `pg`. O schema da plataforma vem só da introspecção, feita com o próprio usuário `reports` (as tabelas que ele não lê, como `sessions`, aparecem comentadas); `npm run db:plataforma:conferir` roda no deploy, antes do build, e para a publicação se o SINC mudou uma tabela.
+- **Usuário de banco do ReportS na plataforma** (ADR-035 do SINC): grava coluna por coluna. O Prisma manda, em toda inclusão, as colunas com valor padrão (datas, situação do ClickUp); como o `reports` não pode gravá-las, as **inclusões na plataforma são em SQL direto** (cliente, sistema do cliente, participante provisório e catálogo de permissões), e as alterações mandam `updated_at`. Foi preciso liberar no SINC a coluna `customers.ativo` (commit `5a9ccbf` do SINC), porque a tela de cliente do ReportS ativa e desativa clientes.
+- **Ordem entre bancos** (não há transação entre eles): cliente e sistemas do cliente numa transação da plataforma; o contrato depois, no `reports`.
+- **Login** no cadastro único: e-mail e senha do SINC (o resumo bcrypt do Rails é conferido pelo `bcryptjs`; testado com uma senha gerada pelo Rails), usuário ativo e alguma permissão `reports.*`. O papel protegido (Administrador) tem todas. Limite de **10 tentativas em 3 minutos por IP** (RN-PL-55), na memória do processo (o ReportS roda num processo só; reiniciar zera a contagem), com o IP do cabeçalho `X-Real-IP` do nginx. "Esqueci minha senha" leva a `SINC_URL/passwords/new`.
+- **Catálogo de permissões** registrado na plataforma a cada deploy (`npm run permissoes:registrar`): inclui, atualiza e inativa as `reports.*` que saíram do código. Rodar de novo não muda nada.
+- **Cliente vinculado ao ClickUp** tem o nome travado no ReportS (RN-PL-12): o campo fica só de leitura e o nome enviado é ignorado.
+- **Participante confirmado sem CBO**: os confirmados chegam do SINC sem ocupação, então `cbo` passou a ser opcional no participante e na presença; as telas e o PDF mostram "—" e a Administração completa a ocupação.
+- **Estabelecimento ou setor com visitas** não é mais removido (o banco não deixaria): a tela avisa o motivo.
+- **Visitas**: uma em andamento por técnico garantida por índice único parcial (dois check-ins ao mesmo tempo: o segundo é recusado). Fotos extras acrescentadas no próprio banco (envios simultâneos não se perdem). O CEP é gravado dentro do JSON do local, sem tocar na coordenada.
+- **Desvio do plano: fotos extras em JSON** na própria visita (`fotos_extras`), e não numa tabela própria. Elas só existem dentro da visita, a ordem importa, e a correção pela administração já reescreve a lista inteira; uma tabela só traria junções. Locais do check-in e do check-out, foto do ambiente e print também são JSON, na mesma forma do protótipo.
+- **Relatórios**: as visitas do relatório são as que apontam para ele (`visitas.relatorio_id`); emissão, decisão e invalidação dos links em transação, com a situação conferida no próprio `UPDATE` (duas emissões ou dois aprovadores ao mesmo tempo: só a primeira vale).
+- **Arquivos** no disco (`ARQUIVOS_DIR`, por ano e mês), gravados primeiro num nome temporário; o banco guarda tipo, tamanho e caminho. **E-mails** registrados no banco (a Caixa de saída mostra os 300 mais recentes).
+- **CBO**: o site oficial não abre do ambiente de desenvolvimento em nuvem; `npm run cbo:importar` lê o arquivo oficial baixado (`CBO2002 - Ocupacao.csv`, ISO-8859-1 ou UTF-8), recusa arquivo com menos de 1.000 ocupações e nunca apaga. Em desenvolvimento, `npm run db:exemplo` grava uma amostra.
+- **CEPs pendentes**: `npm run ceps:preencher`, pelo timer `reports-ceps` a cada 30 minutos, no máximo 200 locais por vez e 1 consulta por segundo ao Nominatim.
+- **Testado em 30/10/2026**, no ambiente de desenvolvimento com o SINC: com o servidor de desenvolvimento e com o build de produção (`next start`), pelo navegador, login (aceito, senha errada e sem acesso), todas as telas da Administração, check-in presencial com GPS e foto, temas, participante confirmado sem CBO, participante novo gravado na plataforma, foto extra, check-out, CNPJ do cliente, rascunho, emissão com PDF, e-mail na Caixa de saída, aprovação pelo link sem login e relatório travado. Testes automáticos: `npm test` (10 testes).
+- **Não testado**: publicação no servidor real, celular com https, envio real de e-mail com o banco, importação com o arquivo CBO oficial.
+
 ### Pré-requisitos externos dos itens de infraestrutura (não verificados)
 
 Não sabemos se já existem; precisam ser confirmados antes de cada item começar.
@@ -241,12 +260,13 @@ Não sabemos se já existem; precisam ser confirmados antes de cada item começa
 
 ### Infraestrutura (vem do "Próximos passos" do README)
 
-- [ ] **Alta** — Banco de dados real (Fase 4 do plano da plataforma): banco `reports` no PostgreSQL do SINC e leitura/escrita na base `plataforma`. A troca fica concentrada em `src/lib/repo/*`; as telas não mudam.
-- [ ] **Alta** — Armazenamento de fotos, assinaturas e PDFs no disco do servidor, fora da pasta pública (Fase 4). Hoje ficam em memória.
+- [x] **Alta** — Banco de dados real (Fase 4 do plano da plataforma): banco `reports` no PostgreSQL do SINC e leitura/escrita na base `plataforma` — 30/10/2026 (ver "Fase 4 no ReportS: como ficou").
+- [x] **Alta** — Armazenamento de fotos, assinaturas e PDFs no disco do servidor, fora da pasta pública (`ARQUIVOS_DIR`) — 30/10/2026.
+- [ ] **Alta** — Backup do banco `reports` e da pasta `ARQUIVOS_DIR`, junto com os bancos do SINC. Em aberto com a Helena (QA-002 do SINC); não bloqueia a publicação, mas sem ele uma falha de disco perde visitas, fotos e relatórios.
 - [ ] **Média** — Envio real de e-mail. **Decisão da Helena (29/10/2026): usar o SMTP da própria SIDIM** (Oracle Cloud Email Delivery, o mesmo dos outros sistemas; porta 587 com STARTTLS; remetente aprovado no OCI). **Testado de ponta a ponta com o SMTP real da SIDIM em 29/10/2026**: o e-mail chegou com o PDF e o botão, e a aprovação pelo link pessoal funcionou (com a trava `EMAIL_REDIRECIONAR_PARA`). Na máquina de desenvolvimento foi preciso `NODE_OPTIONS=--use-system-ca`, porque o antivírus ou o firewall da rede troca o certificado; em produção isso não deve ser necessário. O Resend, usado nos primeiros testes, sai do plano (D-04 do plano da plataforma); o suporte a ele no código será removido (próximo item). **Falta** para enviar aos aprovadores de verdade: `APP_URL` público (https), remover a trava, e confirmar com a equipe do e-mail o SPF/DKIM do remetente (domínio dinâmico) para não cair no spam. **As credenciais do SMTP foram coladas no chat em 29/10/2026: a equipe responsável deve trocá-las.** Sem as variáveis, segue simulado na Caixa de saída (`src/lib/email.ts`).
-- [ ] **Baixa** — Remover do código o envio pelo Resend (`enviarPeloResend`, `EMAIL_PROVEDOR`, `RESEND_API_KEY`) e do roteiro `docs/teste-email-real.md`, porque o plano da plataforma tira o Resend (D-04) e deixa só o SMTP da SIDIM. Até lá o código ainda o aceita, mas não deve ser usado em produção.
-- [ ] **Média** — Importar a tabela CBO oficial do Ministério do Trabalho. Hoje é uma amostra de 25 ocupações, com códigos não conferidos. Ganha peso com a definição 2, em que o CBO passa a ser o único campo de ocupação.
-- [ ] **Média** — Publicar no servidor do SINC (`reports.sidim.com.br`, https) e testar no celular. O GPS do check-in presencial só funciona em https ou em `localhost`.
+- [x] **Baixa** — Remover do código o envio pelo Resend (`enviarPeloResend`, `EMAIL_PROVEDOR`, `RESEND_API_KEY`) e do roteiro `docs/teste-email-real.md` (D-04) — 30/10/2026.
+- [ ] **Média** — Importar a tabela CBO oficial do Ministério do Trabalho no servidor: o importador está pronto (`npm run cbo:importar`, 30/10/2026); falta baixar o arquivo oficial (`CBO2002 - Ocupacao.csv`, no site da CBO) e rodar uma vez.
+- [ ] **Média** — Publicar no servidor do SINC (`reports.sidim.com.br`, https) e testar no celular. O GPS do check-in presencial só funciona em https ou em `localhost`. **Pronto para publicar (30/10/2026):** `bin/deploy`, serviços do systemd e modelo do nginx em `deploy/`, passo a passo no README ("Publicação"). Os modelos usam o usuário `ubuntu` e a pasta `/home/ubuntu/ReportS`: conferir com o servidor do SINC.
 
 ### Documentação
 
@@ -256,9 +276,7 @@ Não sabemos se já existem; precisam ser confirmados antes de cada item começa
 
 ### Qualidade
 
-- [ ] **Média** — Testar o fluxo completo de ponta a ponta: check-in → check-out → emissão do relatório → aprovação pelo cliente.
-  - Já verificado: login de gestor, técnico e técnico inativo (recusado); telas iniciais de Administração e Técnico sem erros de JavaScript.
-  - Ainda não verificado: check-in e check-out, emissão do relatório, página de aprovação.
+- [x] **Média** — Testar o fluxo completo de ponta a ponta: check-in → check-out → emissão do relatório → aprovação pelo cliente — 30/10/2026, com o banco, no servidor de desenvolvimento e no build de produção (ver "Fase 4 no ReportS: como ficou"). Falta repetir no servidor real, pelo celular.
 
 ## Sugestões a avaliar
 

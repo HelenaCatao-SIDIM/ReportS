@@ -17,20 +17,10 @@ export const carimboFoto = () => localizacaoPorCep() && ligado("CARIMBO_FOTO");
 export const buscaCoordenadas = () => ligado("BUSCA_COORDENADAS");
 
 /**
- * Envio real de e-mail. Provedor: SMTP (o servidor da SIDIM, Gmail, Microsoft 365) ou Resend (plano gratuito), escolhido por
- * EMAIL_PROVEDOR; sem ele, vale o SMTP quando SMTP_HOST está definido e o Resend nos demais casos. Exige EMAIL_REAL=true e as credenciais do provedor (só no servidor).
- * Sem isso, o e-mail é apenas gravado na Caixa de saída (simulado).
+ * Envio real de e-mail pelo SMTP da SIDIM (Oracle Cloud Email Delivery, o mesmo dos outros sistemas). Exige EMAIL_REAL=true e
+ * SMTP_HOST (credenciais só no servidor). Sem isso, o e-mail é apenas gravado na Caixa de saída (simulado).
  */
-export type ProvedorEmail = "resend" | "smtp";
-export const provedorEmail = (): ProvedorEmail => {
-  const escolhido = process.env.EMAIL_PROVEDOR?.trim().toLowerCase();
-  if (escolhido === "smtp" || escolhido === "resend") return escolhido;
-  // Sem escolha explícita: quem configurou um servidor SMTP quer o SMTP; senão, o Resend.
-  return process.env.SMTP_HOST?.trim() ? "smtp" : "resend";
-};
-
-export const emailReal = () =>
-  ligado("EMAIL_REAL") && (provedorEmail() === "smtp" ? !!process.env.SMTP_HOST?.trim() : !!process.env.RESEND_API_KEY?.trim());
+export const emailReal = () => ligado("EMAIL_REAL") && !!process.env.SMTP_HOST?.trim();
 
 export const smtp = () => {
   const porta = Number(process.env.SMTP_PORTA) || 587;
@@ -44,14 +34,10 @@ export const smtp = () => {
   };
 };
 
-/**
- * Remetente. No Resend, o padrão é o de testes (`onboarding@resend.dev`), que só entrega ao dono da conta; para os clientes,
- * use um domínio verificado. No SMTP, Gmail e Microsoft 365 só aceitam o próprio endereço da conta: o padrão é o usuário.
- */
+/** Remetente. O SMTP só aceita remetentes aprovados (no OCI) ou o próprio endereço da conta: o padrão é o usuário. */
 export const emailRemetente = () => {
   const definido = process.env.EMAIL_REMETENTE?.trim();
   if (definido) return definido;
-  if (provedorEmail() === "resend") return "SIDIM Visitas <onboarding@resend.dev>";
   const usuario = process.env.SMTP_USUARIO?.trim();
   return usuario?.includes("@") ? `SIDIM Visitas <${usuario}>` : "SIDIM Visitas <nao-responda@localhost>";
 };

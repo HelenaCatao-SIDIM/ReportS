@@ -1,7 +1,7 @@
 # Teste do envio real de e-mail
 
-Sem `EMAIL_REAL=true` e as credenciais de um provedor, nada muda: os e-mails só aparecem em **Administração → Caixa de saída**.
-O caminho da SIDIM é o **SMTP da própria empresa** (Oracle Cloud Email Delivery). O Resend e o SMTP de Gmail ficam como alternativas, no fim.
+Sem `EMAIL_REAL=true` e o SMTP configurado, nada muda: os e-mails só aparecem em **Administração → Caixa de saída**.
+O caminho da SIDIM é o **SMTP da própria empresa** (Oracle Cloud Email Delivery). O SMTP do Gmail fica como alternativa para teste, no fim. (O envio pelo Resend, dos primeiros testes, foi retirado em 30/10/2026: decisão D-04 do plano.)
 
 ## 1. Com o SMTP da SIDIM
 
@@ -54,23 +54,10 @@ Com `EMAIL_REDIRECIONAR_PARA` definida, **nada** vai para os aprovadores de verd
 | Página: "O envio falhou para N aprovador(es)" | O relatório está emitido e os links existem; corrija a causa e emita uma nova versão |
 | Nada na Caixa de saída como "Enviado" | `EMAIL_REAL` ou `SMTP_HOST` não foram lidos: reinicie o servidor |
 
-## Alternativa: Resend (plano gratuito)
-
-```
-EMAIL_REAL=true
-EMAIL_PROVEDOR=resend
-RESEND_API_KEY=<chave criada no painel do Resend>
-EMAIL_REDIRECIONAR_PARA=<o e-mail da conta do Resend>
-```
-
-Sem domínio verificado, o Resend só entrega ao e-mail dono da conta (por isso a trava aponta para ele). Para os clientes, verifique um
-domínio em **Domains** no painel e use `EMAIL_REMETENTE=SIDIM Relatórios <endereço do domínio>`.
-
 ## Alternativa: Gmail (só para teste)
 
 ```
 EMAIL_REAL=true
-EMAIL_PROVEDOR=smtp
 SMTP_HOST=smtp.gmail.com
 SMTP_PORTA=465
 SMTP_USUARIO=seu-email@gmail.com
