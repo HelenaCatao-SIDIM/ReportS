@@ -273,8 +273,8 @@ Decisão de 29/10/2026: o ReportS e o SINC passam a ser dois serviços de um mes
 
 Andamento do ReportS (detalhes no `MELHORIAS.md`): **Fases 0 a 3** feitas em memória; **Fase 4** feita em 30/10/2026: os dois bancos,
 login no cadastro único com limite de tentativas e "Esqueci minha senha" no SINC, catálogo de permissões registrado na plataforma,
-arquivos em disco, e-mails registrados, CBO oficial por script, tarefa dos CEPs, testes e publicação (`bin/deploy`). Falta o filtro dos
-chamados de suporte por sistema (Fase 2). A **Fase 5** (junção de participantes) vem depois.
+arquivos em disco, e-mails registrados, CBO oficial por script, tarefa dos CEPs, testes e publicação (`bin/deploy`). Os chamados de
+suporte já são filtrados pelo sistema do contrato (Fase 2). A **Fase 5** (junção de participantes) vem depois.
 
 ## Próximos passos
 
@@ -282,7 +282,8 @@ chamados de suporte por sistema (Fase 2). A **Fase 5** (junção de participante
 2. Backup do banco `reports` e da pasta de arquivos (QA-002 do SINC, em aberto).
 3. Envio real de e-mail pelo SMTP da SIDIM: implementado e testado com o serviço real; falta o SPF/DKIM do remetente e tirar a trava
    `EMAIL_REDIRECIONAR_PARA` quando for enviar aos clientes.
-4. Chamados de suporte filtrados pelo sistema do contrato (parâmetro novo no fluxo do n8n).
+4. Chamados por sistema em produção: reimportar o fluxo do n8n atualizado (`docs/n8n-resumo-chamados.json`) e conferir se o "Nome no Fortics"
+   de cada sistema no SINC é igual ao valor que o Fortics grava em `sistema`.
 5. Fase 5: junção de participantes (provisório com confirmado).
 
 ## Chamados de suporte no relatório (opcional)
@@ -302,4 +303,5 @@ N8N_RESUMO_CHAMADOS_CHAVE=<a mesma chave da credencial "Chave Reports Sidim" no 
 - Os números são buscados na emissão e **congelados na versão**: PDF, página do aprovador e versões antigas mostram sempre o mesmo número.
 - Só o servidor chama o n8n, com a chave. Se o n8n falhar, o relatório é emitido com "Dados de suporte indisponíveis".
 - O aprovador vê só os totais e as contagens (sem a lista de chamados e sem nomes de atendentes).
+- **Por sistema:** se o sistema do contrato tem **"Nome no Fortics"** cadastrado (no SINC, em Configurações > Sistemas), o pedido ao n8n leva `sistema` e só entram os chamados desse sistema. Sem esse nome, entram todos os do cliente e a Administração vê um aviso. O fluxo do n8n precisa estar na versão com o parâmetro `sistema`.
 - `CHAMADOS_SUPORTE_PDF=true` coloca o resumo também na capa do PDF.

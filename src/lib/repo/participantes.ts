@@ -96,6 +96,11 @@ export async function criarProvisorio(
   return (await buscarParticipante(idTexto(id)))!;
 }
 
+/** Grava só o CPF, informado na presença (RN-PL-35). Não mexe em nome, CBO nem setor, que o confirmado pode ter vazios. */
+export async function definirCpfDoParticipante(id: string, cpf: string): Promise<void> {
+  await plataforma.client_users.update({ where: { id: idPlataforma(id)! }, data: { cpf, updated_at: new Date() } });
+}
+
 /** Atualiza CBO, setor e CPF. O nome só muda no provisório: o do confirmado vem do ERP (RN-PL-42). */
 export async function atualizarParticipante(id: string, d: DadosParticipante): Promise<void> {
   const atual = await buscarParticipante(id);

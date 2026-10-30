@@ -339,6 +339,11 @@ export interface ResumoSuporte {
   situacao: "ok" | "sem_vinculo" | "indisponivel";
   totalAbertosEFechados: number;
   porSistema: ContagemSuporte[];
+  /**
+   * Nome do sistema usado para filtrar os chamados (o "Nome no Fortics" do sistema do contrato). Null = sem filtro, todos os
+   * sistemas do cliente (o sistema não tem o nome cadastrado). Opcional: versões emitidas antes do filtro não têm.
+   */
+  sistemaFiltro?: string | null;
   porTopico: ContagemSuporte[];
   porMotivoEncerramento: ContagemSuporte[];
   tempoMedioEsperaMin: number | null;

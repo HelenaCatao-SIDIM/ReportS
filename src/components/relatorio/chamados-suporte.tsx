@@ -64,6 +64,13 @@ export function ChamadosSuporte({ resumo: r, publico }: { resumo: ResumoSuporte;
             </div>
           )}
         </div>
+        {publico === "administracao" && r.sistemaFiltro !== undefined && (
+          <p className="text-xs text-muted-foreground">
+            {r.sistemaFiltro
+              ? `Só os chamados do sistema ${r.sistemaFiltro} no Fortics.`
+              : "Todos os sistemas do cliente: este sistema não tem “Nome no Fortics” cadastrado no SINC (Configurações > Sistemas). Se o cliente tem mais de um sistema, o número se repete nos relatórios de cada um."}
+          </p>
+        )}
         <div className="grid gap-4 md:grid-cols-3">
           <Tabela titulo="Por sistema" itens={topComOutros(r.porSistema)} />
           <Tabela titulo="Por assunto" itens={topComOutros(r.porTopico)} />

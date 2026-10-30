@@ -142,6 +142,7 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
                     type="button"
                     onClick={() => {
                       setEscolhido(s);
+                      setCpf("");
                       setModo("existente");
                     }}
                     className="w-full px-3 py-2.5 text-left"
@@ -212,6 +213,48 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
               <X />
             </Button>
           </div>
+        </div>
+      )}
+
+      {modo === "existente" && escolhido && exigeCpf && !escolhido.cpfMascarado && (
+        <div>
+          <Label htmlFor="e-cpf" className="mb-1.5">
+            CPF
+          </Label>
+          <Input
+            id="e-cpf"
+            name="cpf"
+            inputMode="numeric"
+            placeholder="000.000.000-00"
+            value={cpf}
+            onChange={(ev) => setCpf(formatarCpf(ev.target.value))}
+            className="h-11 text-base"
+            aria-invalid={!!e.cpf}
+          />
+          <p className="mt-1 text-xs text-muted-foreground">O contrato exige CPF e esta pessoa ainda não tem. O CPF fica no cadastro dela.</p>
+          <Erro msg={e.cpf} />
+          {state.existente && state.existente.id !== escolhido.id && (
+            <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+              <div className="min-w-0 text-sm">
+                <div className="flex flex-wrap items-center gap-1.5 font-medium">
+                  {state.existente.nome}
+                  <SeloParticipante estado={state.existente.estado} />
+                </div>
+                <div className="truncate text-xs text-muted-foreground">{juntar(state.existente.cbo?.titulo ?? "", state.existente.setor)}</div>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  if (!state.existente) return;
+                  setEscolhido(state.existente);
+                  setCpf("");
+                }}
+              >
+                Usar esta pessoa
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
