@@ -8,7 +8,7 @@ import { ehPresencial } from "@/lib/visitas";
 import { buscarContrato } from "@/lib/repo/contratos";
 import { buscarCbo } from "@/lib/repo/cbo";
 import { salvarImagem } from "@/lib/repo/arquivos";
-import { buscarParticipante, buscarSemelhantes, criarProvisorio, listarParticipantes } from "@/lib/repo/participantes";
+import { atualizarParticipante, buscarParticipante, buscarSemelhantes, criarProvisorio, listarParticipantes } from "@/lib/repo/participantes";
 import { adicionarPresenca, buscarVisita, removerPresenca } from "@/lib/repo/visitas";
 import type { Cbo, EstadoParticipante, Participante } from "@/lib/types";
 
@@ -83,6 +83,25 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
     return { erros: { geral: `${participante.nome} já está na lista.` } };
   }
 
+  // RN-PL-35: com CPF no contrato, a presença exige o CPF. Participante já cadastrado sem CPF (como os confirmados, que vêm
+  // do ERP sem CPF) informa agora, e o CPF fica no cadastro dele. CPF que é de outra pessoa do sistema bloqueia.
+  let cpfNovo: string | null = null;
+  if (participante && exigeCpf && !participante.cpf) {
+    const informado = soDigitos(String(fd.get("cpf") ?? ""));
+    if (!cpfValido(informado)) {
+      erros.cpf = `O contrato exige CPF e ${participante.nome} ainda não tem CPF cadastrado. Informe o CPF.`;
+    } else {
+      const achados = await buscarSemelhantes(sistemaDoClienteId, { nome: participante.nome, cpf: informado }, participante.id);
+      if (achados.mesmoCpf) {
+        return {
+          erros: { cpf: `Este CPF já está cadastrado em ${achados.mesmoCpf.nome}. Use essa pessoa em vez de gravar o CPF em ${participante.nome}.` },
+          existente: sugestao(achados.mesmoCpf),
+        };
+      }
+      cpfNovo = informado;
+    }
+  }
+
   if (!participante) {
     const nome = String(fd.get("nome") ?? "").trim();
     const setor = String(fd.get("setor") ?? "").trim();
@@ -116,6 +135,12 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
     const img = await salvarImagem(assinaturaArquivo as File);
     if (!img) return { erros: { assinatura: "Não foi possível salvar a assinatura. Tente de novo." } };
     assinatura = img.url;
+  }
+
+  // Só depois de tudo conferido (assinatura incluída) o CPF informado vai para o cadastro do participante.
+  if (cpfNovo && participante) {
+    await atualizarParticipante(participante.id, { nome: participante.nome, cbo: participante.cbo, setor: participante.setor, cpf: cpfNovo });
+    participante = { ...participante, cpf: cpfNovo };
   }
 
   // Quem não tem setor no cadastro entra na lista com o setor da visita (só na presença; o cadastro não muda).

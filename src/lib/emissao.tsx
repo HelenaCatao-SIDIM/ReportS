@@ -3,6 +3,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { enviarEmail } from "@/lib/email";
 import { chamadosSuporte, chamadosSuportePdf } from "@/lib/config-suporte";
 import { buscarResumoSuporte } from "@/lib/suporte";
+import { buscarSistema } from "@/lib/repo/sistemas";
 import { formatarDataCurta } from "@/lib/visitas";
 import { RelatorioPdf, type ImagensPdf } from "@/lib/pdf/relatorio-pdf";
 import { lerImagemPorUrl, salvarArquivo } from "@/lib/repo/arquivos";
@@ -60,7 +61,8 @@ export async function emitirRelatorio(id: string) {
   const numero = c.relatorio.versoes.length + 1;
   const emitidoEm = new Date().toISOString();
   // Chamados de suporte congelados junto com a versão: PDF, página do aprovador e versões antigas mostram o mesmo número.
-  if (chamadosSuporte()) conteudo.suporte = await buscarResumoSuporte(c.cliente, c.relatorio.de, c.relatorio.ate);
+  // Os chamados são do sistema do contrato: o "Nome no Fortics" do sistema vai como filtro.
+  if (chamadosSuporte()) conteudo.suporte = await buscarResumoSuporte(c.cliente, c.relatorio.de, c.relatorio.ate, (await buscarSistema(c.contrato.sistema))?.nomeFortics);
   const pdf = await renderToBuffer(
     <RelatorioPdf conteudo={conteudo} versao={numero} emitidoEm={emitidoEm} imagens={await carregarImagens(conteudo)} mostrarSuporte={chamadosSuportePdf()} />,
   );

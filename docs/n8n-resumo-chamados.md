@@ -25,14 +25,15 @@ Webhook (POST, Header Auth) → Validar entrada → Entrada válida?
 Pedido:
 
 ```json
-{ "clientes": ["Prefeitura de Vale Verde / Vale Verde"], "inicio": "2026-10-01", "fim": "2026-10-31", "incluirLista": true }
+{ "clientes": ["Prefeitura de Vale Verde / Vale Verde"], "inicio": "2026-10-01", "fim": "2026-10-31", "incluirLista": true, "sistema": "SERP" }
 ```
 
 - `clientes`: 1 a 10 nomes, exatamente como no campo Cliente / Município dos atendimentos (o mesmo nome do cliente no SINC). A comparação ignora acentos, maiúsculas e espaços extras.
 - `inicio`/`fim`: datas AAAA-MM-DD (horário de Brasília), inclusive, no máximo 12 meses.
+- `sistema` (**opcional**): o nome do sistema como o Fortics grava no campo **sistema** da tabela `atendimentos`. Com ele, o fluxo conta só os chamados desse sistema (mesma comparação sem acento, maiúsculas e espaços extras); sem ele, conta todos os sistemas do cliente, como antes. O Reports manda o **"Nome no Fortics" do sistema do contrato do relatório**, cadastrado no SINC em Configurações > Sistemas. Sistema sem esse nome cadastrado vai sem o campo (e a Administração vê o aviso no bloco de chamados). Texto de até 120 caracteres; outro tipo dá erro 400.
 - Conta o chamado quando a `data_abertura` está no período. Toda linha da tabela já é um chamado encerrado.
 
-Resposta: `totalAbertosEFechados`, `porSistema`, `porTopico`, `porMotivoEncerramento`, `tempoMedioEsperaMin` e `chamados`
+Resposta: `sistema` (o filtro usado, ou `null`), `totalAbertosEFechados`, `porSistema`, `porTopico`, `porMotivoEncerramento`, `tempoMedioEsperaMin` e `chamados`
 (protocolo, abertura, encerramento, sistema, tópico, motivo, atendente). **Nunca** devolve a transcrição nem as avaliações das IAs.
 
 ## Fuso das datas (`FUSO_DATAS`)
@@ -41,6 +42,14 @@ Conferido em 26/10/2026 na tabela `atendimentos`: a `data_abertura` é gravada c
 mas os horários vão das 07h às 17h e o último chamado bate com o horário de Brasília. Ou seja, o `Z` do final **não**
 é UTC de verdade. Por isso o padrão é `FUSO_DATAS = 'brasilia'`, que usa a data como está gravada.
 Troque para `'utc'` só se o capturador passar a gravar o horário UTC real.
+
+## Quais valores o campo sistema tem (conferir antes de cadastrar)
+
+O filtro só acerta se o "Nome no Fortics" do sistema for igual ao valor que o Fortics grava no campo **sistema**. **Esses valores ainda
+não foram conferidos.** Antes de preencher o "Nome no Fortics" em Configurações > Sistemas do SINC, veja os valores distintos da coluna
+`sistema` da tabela `atendimentos` (por exemplo, numa execução manual com um nó que lê a tabela e agrupa por `sistema`). Se o
+Fortics grava mais de uma forma para o mesmo sistema (ex.: `SERP` e `Gestão Tributária`), o filtro por um nome só perde os chamados da
+outra forma: neste caso, é preciso decidir com quem mantém o fluxo se `sistema` passa a aceitar uma lista.
 
 Os nomes no campo Cliente / Município são texto livre e variam (ex.: `Mariana` e `mariana`; acentos e maiúsculas
 já são ignorados). Quando o mesmo cliente aparece de formas diferentes, cadastre cada forma em "Nome no SINC".
@@ -61,5 +70,8 @@ curl -s -X POST "https://<seu-n8n>/webhook-test/resumo-chamados-cliente" \
 | Cliente sem chamados | `totalAbertosEFechados: 0`, sem erro |
 | `"inicio":"2026-10-31","fim":"2026-10-01"` | status 400 com `erro` |
 | Sem o cabeçalho `x-api-key` | recusado (403) |
+| `"sistema":"SERP"` | só os chamados com sistema SERP (sem acento, maiúsculas e espaços extras), e `"sistema":"SERP"` na resposta |
+| Sem `sistema` | todos os sistemas do cliente, e `"sistema":null` na resposta |
+| `"sistema":123` | status 400 com `erro` |
 
 Se a tabela ficar muito grande, troque a leitura "Return All" por um filtro na própria consulta.

@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { chamadosSuporte } from "@/lib/config-suporte";
 import { emailReal } from "@/lib/config";
 import { buscarResumoSuporte } from "@/lib/suporte";
+import { buscarSistema } from "@/lib/repo/sistemas";
 import { agendarCepPendente, locaisPendentes } from "@/lib/cep-visitas";
 import { horaDoServidor } from "@/lib/agora";
 import { AtualizarEnquantoPendente } from "@/components/visita/atualizar-enquanto-pendente";
@@ -96,7 +97,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
           minutosPresenciais: c.minutosPresenciais,
           minutosOnline: c.minutosOnline,
           // Prévia, buscada agora; na emissão estes números são congelados na versão.
-          suporte: chamadosSuporte() ? await buscarResumoSuporte(cliente, r.de, r.ate) : null,
+          suporte: chamadosSuporte() ? await buscarResumoSuporte(cliente, r.de, r.ate, (await buscarSistema(contrato.sistema))?.nomeFortics) : null,
         };
 
   return (

@@ -62,9 +62,18 @@ async function pedir(corpo: object): Promise<Response> {
   });
 }
 
-/** Chamados do cliente no período (datas AAAA-MM-DD, horário de Brasília, inclusive). */
-export async function buscarResumoSuporte(cliente: Pick<Cliente, "id" | "nomesFortics">, de: string, ate: string): Promise<ResumoSuporte> {
+/**
+ * Chamados do cliente no período (datas AAAA-MM-DD, horário de Brasília, inclusive).
+ * `sistema`: o "Nome no Fortics" do sistema do contrato, para contar só os chamados desse sistema; vazio = todos os sistemas do cliente.
+ */
+export async function buscarResumoSuporte(
+  cliente: Pick<Cliente, "id" | "nomesFortics">,
+  de: string,
+  ate: string,
+  sistema?: string | null,
+): Promise<ResumoSuporte> {
   await connection(); // a hora da consulta e o cache dependem da requisição, nunca da pré-renderização
+  const filtro = sistema?.trim() || null;
   const nomes = (cliente.nomesFortics ?? []).filter(Boolean);
   if (!nomes.length) return vazio("sem_vinculo");
   if (!n8nResumoUrl() || !n8nResumoChave()) {
@@ -72,11 +81,11 @@ export async function buscarResumoSuporte(cliente: Pick<Cliente, "id" | "nomesFo
     return vazio("indisponivel");
   }
 
-  const chave = JSON.stringify([nomes, de, ate]);
+  const chave = JSON.stringify([nomes, de, ate, filtro]);
   const guardado = cache.get(chave);
   if (guardado && Date.now() - guardado.em < CACHE_MS) return guardado.resumo;
 
-  const corpo = { clientes: nomes, inicio: de, fim: ate, incluirLista: true };
+  const corpo = { clientes: nomes, inicio: de, fim: ate, incluirLista: true, ...(filtro ? { sistema: filtro } : {}) };
   for (let tentativa = 1; tentativa <= 2; tentativa++) {
     try {
       const r = await pedir(corpo);
@@ -91,7 +100,7 @@ export async function buscarResumoSuporte(cliente: Pick<Cliente, "id" | "nomesFo
         console.error(`[suporte] resposta do n8n em formato inesperado (cliente ${cliente.id}).`);
         return vazio("indisponivel");
       }
-      const resumo: ResumoSuporte = { situacao: "ok", ...dados, consultadoEm: new Date().toISOString() };
+      const resumo: ResumoSuporte = { situacao: "ok", ...dados, sistemaFiltro: filtro, consultadoEm: new Date().toISOString() };
       cache.set(chave, { em: Date.now(), resumo });
       return resumo;
     } catch (e) {

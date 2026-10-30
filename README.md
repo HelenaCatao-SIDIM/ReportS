@@ -183,11 +183,12 @@ Decisão de 29/10/2026: o ReportS e o SINC passam a ser dois serviços de um mes
 - O ReportS adapta o protótipo **em memória** enquanto o SINC faz as Fases 0 a 3, e só passa a usar banco na Fase 4.
 - **Biblioteca de banco: Prisma 7.x**, como o plano sugere: um schema do Prisma por banco, `reports` com migrações próprias e `plataforma` só por introspecção (o ReportS nunca altera a estrutura dela). Detalhes no `MELHORIAS.md`.
 
-Andamento do ReportS (detalhes no `MELHORIAS.md`): **Fase 0** com a documentação e a biblioteca de banco decididas; **Fase 1** feita (sistemas como cadastro só de leitura; temas escolhem o sistema numa lista); **Fase 2** feita em grande parte (cliente, sistemas do cliente, contrato por sistema, aprovador próprio, check-in e relatório por contrato; falta o filtro dos chamados por sistema); **Fase 3** no ReportS feita em grande parte (perfil "gestor" substituído por permissões, telas de usuários trocadas pelo aviso do SINC; faltam o "esqueci minha senha" e o limite de tentativas do login).
+Andamento do ReportS (detalhes no `MELHORIAS.md`): **Fase 0** com a documentação e a biblioteca de banco decididas; **Fase 1** feita (sistemas como cadastro só de leitura; temas escolhem o sistema numa lista); **Fase 2** feita (cliente, sistemas do cliente, contrato por sistema, aprovador próprio, check-in e relatório por contrato, chamados filtrados pelo sistema do contrato); **Fase 3** no ReportS feita em grande parte (perfil "gestor" substituído por permissões, telas de usuários trocadas pelo aviso do SINC; faltam o "esqueci minha senha" e o limite de tentativas do login).
 
 ## Próximos passos
 
-1. O que falta das Fases 2 e 3, em memória: chamados filtrados pelo sistema; "esqueci minha senha" apontando para o SINC e limite de tentativas no login.
+1. O que falta da Fase 3, em memória: "esqueci minha senha" apontando para o SINC e limite de tentativas no login (já estão na PR 8, ainda aberta).
+   Antes de ligar os chamados por sistema em produção: conferir se o "Nome no Fortics" de cada sistema no SINC é igual ao valor que o Fortics grava em `sistema`.
 2. Fase 4, depois que o SINC concluir as Fases 1 a 3: banco `reports` e leitura da plataforma (Prisma 7).
 3. Arquivos (fotos, assinaturas e PDFs) no disco do servidor.
 4. Envio real de e-mail pelo SMTP da SIDIM: implementado e testado com o serviço real; falta o domínio público (`APP_URL`) e o SPF/DKIM do remetente.
@@ -211,4 +212,5 @@ N8N_RESUMO_CHAMADOS_CHAVE=<a mesma chave da credencial "Chave Reports Sidim" no 
 - Os números são buscados na emissão e **congelados na versão**: PDF, página do aprovador e versões antigas mostram sempre o mesmo número.
 - Só o servidor chama o n8n, com a chave. Se o n8n falhar, o relatório é emitido com "Dados de suporte indisponíveis".
 - O aprovador vê só os totais e as contagens (sem a lista de chamados e sem nomes de atendentes).
+- **Por sistema:** se o sistema do contrato tem **"Nome no Fortics"** cadastrado (no SINC, em Configurações > Sistemas), o pedido ao n8n leva `sistema` e só entram os chamados desse sistema. Sem esse nome, entram todos os do cliente e a Administração vê um aviso. O fluxo do n8n precisa estar na versão com o parâmetro `sistema`.
 - `CHAMADOS_SUPORTE_PDF=true` coloca o resumo também na capa do PDF.
