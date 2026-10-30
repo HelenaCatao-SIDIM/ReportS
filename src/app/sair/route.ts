@@ -19,7 +19,8 @@ function ePreCarga(req: NextRequest) {
  */
 export function GET(req: NextRequest) {
   if (ePreCarga(req)) return new NextResponse(null, { status: 204 });
-  const res = NextResponse.redirect(new URL("/login", req.nextUrl));
+  // Endereço relativo: atrás do nginx, req.nextUrl traz o host interno (https://localhost:3100), que o celular não alcança.
+  const res = new NextResponse(null, { status: 307, headers: { Location: "/login" } });
   res.cookies.delete(SESSION_COOKIE);
   return res;
 }
