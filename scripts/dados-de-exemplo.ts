@@ -23,6 +23,13 @@ const TEMAS: [string, string, string][] = [
   ["Dispensação de medicamentos", "saude", "Farmácia"], ["Cadastros básicos", "se", "Cadastros"], ["Emissão de relatórios", "se", "Relatórios"],
 ];
 
+const EQUIPES: [string, string[]][] = [
+  ["Equipe de recepção", ["Agendamento de consultas"]],
+  ["Equipe de farmácia", ["Dispensação de medicamentos"]],
+  ["Equipe de RH", ["Folha de pagamento mensal", "Cálculo de férias", "Ponto eletrônico"]],
+  ["Equipe de tributação", ["Cadastro de contribuintes", "Emissão de guias de IPTU", "Baixa de pagamentos"]],
+];
+
 const id = () => crypto.randomUUID();
 
 rodar(async () => {
@@ -32,6 +39,13 @@ rodar(async () => {
   if (!(await reports.cbo.count())) await reports.cbo.createMany({ data: CBO.map(([codigo, titulo]) => ({ codigo, titulo })) });
   const sistemas = new Set((await plataforma.erp_systems.findMany({ select: { codigo: true } })).map((s) => s.codigo));
   await reports.tema.createMany({ data: TEMAS.filter(([, s]) => sistemas.has(s)).map(([nome, sistema, modulo]) => ({ id: id(), nome, sistema, modulo })) });
+
+  // Equipes com os temas mínimos, pelo nome dos temas acima (os de sistemas que não existem ficam de fora).
+  const temaPorNome = new Map((await reports.tema.findMany({ select: { id: true, nome: true } })).map((t) => [t.nome, t.id]));
+  for (const [nome, nomesDosTemas] of EQUIPES) {
+    const temaIds = nomesDosTemas.map((n) => temaPorNome.get(n)).filter((x): x is string => !!x);
+    if (temaIds.length) await reports.equipe.create({ data: { id: id(), nome, temas: { create: temaIds.map((temaId) => ({ temaId })) } } });
+  }
 
   const aprovadores = [
     { id: id(), nome: "Marta Ribeiro", cargo: "Secretária de Administração", email: "marta.ribeiro@cliente.example" },
@@ -74,5 +88,5 @@ rodar(async () => {
       contratos++;
     }
   }
-  console.log(`Dados de exemplo: ${CBO.length} ocupações, ${TEMAS.length} temas, ${aprovadores.length} aprovadores, ${clientes.length} cliente(s) com estabelecimento e ${contratos} contrato(s).`);
+  console.log(`Dados de exemplo: ${CBO.length} ocupações, ${TEMAS.length} temas, ${EQUIPES.length} equipes, ${aprovadores.length} aprovadores, ${clientes.length} cliente(s) com estabelecimento e ${contratos} contrato(s).`);
 });

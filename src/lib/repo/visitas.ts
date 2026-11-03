@@ -8,6 +8,7 @@ import type {
   UsuarioPublico, Visita, VisitaDetalhada,
 } from "@/lib/types";
 import { nomesDosClientes } from "./clientes";
+import { nomesDasEquipes } from "./equipes";
 import { buscarTemasPorIds } from "./temas";
 import { nomesDosSistemas } from "./sistemas";
 import { nomesDosUsuarios } from "./usuarios";
@@ -22,6 +23,7 @@ export type { VisitaDetalhada };
 
 const INCLUIR = {
   temas: { select: { temaId: true } },
+  equipes: { select: { equipeId: true } },
   presencas: { orderBy: { ordem: "asc" } },
   alteracoes: { orderBy: { em: "asc" } },
   estabelecimento: { select: { nome: true } },
@@ -76,6 +78,7 @@ const paraVisita = (v: Linha): Visita => ({
   fotoAmbiente: v.fotoAmbiente as unknown as Foto | null,
   printTela: v.printTela as unknown as Foto | null,
   linkReuniao: v.linkReuniao,
+  equipeIds: v.equipes.map((e) => e.equipeId),
   temaIds: v.temas.map((t) => t.temaId),
   temaAdicional: v.temaAdicional,
   fotosExtras: (v.fotosExtras as unknown as Foto[]) ?? [],
@@ -91,12 +94,13 @@ const paraVisita = (v: Linha): Visita => ({
 /** Resolve os nomes de várias visitas com uma consulta por cadastro. */
 async function detalharTodas(linhas: Linha[]): Promise<VisitaDetalhada[]> {
   if (!linhas.length) return [];
-  const [tecnicos, clientes, sistemas, nomeDoSistema, temas] = await Promise.all([
+  const [tecnicos, clientes, sistemas, nomeDoSistema, temas, equipes] = await Promise.all([
     nomesDosUsuarios(linhas.map((v) => idTexto(v.tecnicoId))),
     nomesDosClientes(linhas.map((v) => idTexto(v.clienteId))),
     plataforma.clients.findMany({ where: { id: { in: [...new Set(linhas.map((v) => v.contrato.sistemaDoClienteId))] } }, select: { id: true, sistema: true } }),
     nomesDosSistemas(),
     buscarTemasPorIds([...new Set(linhas.flatMap((v) => v.temas.map((t) => t.temaId)))]),
+    nomesDasEquipes([...new Set(linhas.flatMap((v) => v.equipes.map((e) => e.equipeId)))]),
   ]);
   const sistemaDe = new Map(sistemas.map((s) => [s.id, s.sistema]));
   return linhas.map((linha) => {
@@ -110,6 +114,7 @@ async function detalharTodas(linhas: Linha[]): Promise<VisitaDetalhada[]> {
       sistemaNome: sistema ? nomeDoSistema(sistema) : "—",
       unidadeNome: linha.estabelecimento.nome,
       setorNome: linha.setor?.nome ?? v.setorOutro ?? "—",
+      equipes: v.equipeIds.map((id) => equipes.get(id) ?? "—").sort((a, b) => a.localeCompare(b, "pt-BR")),
       temas: temas.filter((t) => v.temaIds.includes(t.id)),
       travada: linha.relatorio?.status === "aprovado",
     };
@@ -362,6 +367,14 @@ export async function definirTemas(id: string, tecnicoId: string, temaIds: strin
   await reports.$transaction([
     reports.visitaTema.deleteMany({ where: { visitaId: id } }),
     reports.visitaTema.createMany({ data: [...new Set(temaIds)].map((temaId) => ({ visitaId: id, temaId })) }),
+  ]);
+}
+
+export async function definirEquipes(id: string, tecnicoId: string, equipeIds: string[]) {
+  await abertaDe(id, tecnicoId);
+  await reports.$transaction([
+    reports.visitaEquipe.deleteMany({ where: { visitaId: id } }),
+    reports.visitaEquipe.createMany({ data: [...new Set(equipeIds)].map((equipeId) => ({ visitaId: id, equipeId })) }),
   ]);
 }
 

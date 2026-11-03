@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Timer,
   Users,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react";
 import { PERMISSOES_DA_TELA, temAlguma } from "@/lib/permissoes";
@@ -38,6 +39,7 @@ const GRUPOS: { titulo?: string; itens: NavItem[] }[] = [
       { href: "/admin/clientes", label: "Clientes", icon: Building2 },
       { href: "/admin/aprovadores", label: "Aprovadores", icon: BadgeCheck },
       { href: "/admin/temas", label: "Temas", icon: BookOpen },
+      { href: "/admin/equipes", label: "Equipes", icon: UsersRound },
       { href: "/admin/participantes", label: "Participantes", icon: Users },
     ],
   },

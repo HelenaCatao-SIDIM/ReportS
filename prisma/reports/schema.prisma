@@ -96,8 +96,34 @@ model Tema {
   modulo  String
   ativo   Boolean      @default(true)
   visitas VisitaTema[]
+  equipes EquipeTema[]
 
   @@map("temas")
+}
+
+/// Equipe do cliente (médica, enfermagem, administrativa…): cadastro único da SIDIM, vale para todos os clientes.
+/// Os temas mínimos da equipe são sugeridos na visita quando o técnico marca a equipe (implantação e treinamentos).
+model Equipe {
+  id       String         @id
+  nome     String
+  ativo    Boolean        @default(true)
+  criadoEm DateTime       @default(now()) @map("criado_em")
+  temas    EquipeTema[]
+  visitas  VisitaEquipe[]
+
+  @@map("equipes")
+}
+
+/// Temas mínimos de cada equipe (de qualquer sistema: na visita, só os do sistema do contrato são sugeridos).
+model EquipeTema {
+  equipeId String @map("equipe_id")
+  temaId   String @map("tema_id")
+  equipe   Equipe @relation(fields: [equipeId], references: [id], onDelete: Cascade)
+  tema     Tema   @relation(fields: [temaId], references: [id])
+
+  @@id([equipeId, temaId])
+  @@index([temaId])
+  @@map("equipe_temas")
 }
 
 /// Classificação Brasileira de Ocupações (tabela oficial do Ministério do Trabalho).
@@ -143,6 +169,7 @@ model Visita {
   setor                      Setor?           @relation(fields: [setorId], references: [id])
   relatorio                  Relatorio?       @relation(fields: [relatorioId], references: [id])
   temas                      VisitaTema[]
+  equipes                    VisitaEquipe[]
   presencas                  Presenca[]
   alteracoes                 AlteracaoVisita[]
 
@@ -162,6 +189,18 @@ model VisitaTema {
 
   @@id([visitaId, temaId])
   @@map("visita_temas")
+}
+
+/// Equipes treinadas na visita (implantação e treinamentos).
+model VisitaEquipe {
+  visitaId String @map("visita_id")
+  equipeId String @map("equipe_id")
+  visita   Visita @relation(fields: [visitaId], references: [id], onDelete: Cascade)
+  equipe   Equipe @relation(fields: [equipeId], references: [id])
+
+  @@id([visitaId, equipeId])
+  @@index([equipeId])
+  @@map("visita_equipes")
 }
 
 /// Presença registrada na visita: cópia dos dados do participante no dia (o participante é da plataforma).
