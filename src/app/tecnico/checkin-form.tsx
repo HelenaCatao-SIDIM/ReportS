@@ -6,11 +6,13 @@ import type { ClienteCheckin } from "@/lib/repo/contratos";
 import type { MeioRegistro, TipoVisita } from "@/lib/types";
 import { detectarMeio } from "@/lib/meio";
 import { chaveRascunhoCheckin } from "@/lib/regras-visita";
+import type { PendenciaCronograma } from "@/lib/cronograma";
 import { ehPresencial, TIPOS_VISITA } from "@/lib/visitas";
 import { cn } from "@/lib/utils";
 import { fazerCheckin, type CheckinState } from "./actions";
 import { useAcao } from "@/components/form/use-acao";
 import { selectClass } from "@/components/form/campo";
+import { PendenciasCronograma } from "@/components/cronograma/pendencias-cronograma";
 import { FotoCampo } from "@/components/tecnico/foto-campo";
 import { guardarRascunho, lerRascunho } from "@/components/tecnico/rascunho";
 import { useGps } from "@/components/tecnico/use-gps";
@@ -67,7 +69,17 @@ function linhasCarimbo(cep: string | null, cidade: string | null, uf: string | n
   return [quando, local];
 }
 
-export function CheckinForm({ clientes, porCep = false, carimbo = false }: { clientes: ClienteCheckin[]; porCep?: boolean; carimbo?: boolean }) {
+export function CheckinForm({
+  clientes,
+  cronograma = [],
+  porCep = false,
+  carimbo = false,
+}: {
+  clientes: ClienteCheckin[];
+  cronograma?: PendenciaCronograma[];
+  porCep?: boolean;
+  carimbo?: boolean;
+}) {
   const [state, onSubmit, pending] = useAcao<CheckinState>(fazerCheckin, {});
   const e = state.erros ?? {};
 
@@ -223,6 +235,7 @@ export function CheckinForm({ clientes, porCep = false, carimbo = false }: { cli
               {unidade.endereco}
             </p>
           )}
+          {contratoId && unidade && <PendenciasCronograma itens={cronograma.filter((i) => i.contratoId === contratoId && i.unidadeId === unidade.id)} setorId={setor} />}
           <Erro msg={e.unidade} />
         </div>
         <div>

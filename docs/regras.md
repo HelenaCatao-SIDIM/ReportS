@@ -25,11 +25,11 @@ As regras com código `RN-PL-xx` são da Plataforma SIDIM e estão na Especifica
 |---|---|
 | `reports.tecnico` | App do Técnico: check-in, visita, presenças, check-out e o próprio histórico |
 | `reports.clientes.cadastrar` | Criar cliente à mão; editar nome, CNPJ e nomes no Fortics; estabelecimentos e setores |
-| `reports.contratos.gerenciar` | Contratos, tipo de comprovação, exigência de CPF e aprovadores |
+| `reports.contratos.gerenciar` | Contratos, tipo de comprovação, exigência de CPF e aprovadores; cadastro do cronograma de implantação |
 | `reports.temas.gerenciar` | Temas das visitas |
 | `reports.participantes.gerenciar` | Ver e editar participantes (CPF, CBO, setor) e criar provisórios fora de uma visita |
 | `reports.participantes.revisar` | Reservada para a junção de participantes (Fase 5); ainda sem tela |
-| `reports.visitas.gerenciar` | Ver todas as visitas; corrigir, encerrar e cancelar |
+| `reports.visitas.gerenciar` | Ver todas as visitas e o cronograma de implantação; corrigir, encerrar e cancelar |
 | `reports.relatorios.gerenciar` | Criar rascunho, emitir, reenviar e acompanhar relatórios, e a Caixa de saída de e-mails |
 
 - O papel **Administrador** é protegido: tem todas as permissões ativas, inclusive as que forem criadas depois (RN-PL-63).
@@ -234,6 +234,25 @@ Onde: `src/app/admin/visitas/actions.ts`, `src/lib/repo/visitas.ts`, `src/compon
 Com `CHAMADOS_SUPORTE` ligado, o relatório mostra quantos chamados o cliente **abriu e teve fechados** no período, a partir dos atendimentos do Fortics guardados pelo n8n. A contagem é do **sistema do contrato**: o ReportS manda o "Nome no Fortics" do sistema, e o n8n filtra pelo campo `sistema`. Sistema sem "Nome no Fortics": contam todos os sistemas do cliente, e só a Administração vê o aviso. Detalhes em `docs/n8n-resumo-chamados.md`.
 
 Onde: `src/lib/repo/relatorios.ts`, `src/lib/emissao.tsx`, `src/lib/email.ts`, `src/app/admin/relatorios/actions.ts`, `src/app/aprovacao/[token]/`.
+
+## Cronograma de implantação (`reports.contratos.gerenciar`; leitura com `reports.visitas.gerenciar`)
+
+Planeja **onde e até quando** cada atividade deve acontecer. Exemplo: "no Posto Central, o setor Recepção recebe o treinamento até 20/11". Fica em Administração → Cronograma.
+
+- Um **item** é de um **contrato** (cliente + sistema) e traz: **estabelecimento**, **equipe** (o **setor** do estabelecimento; em branco vale qualquer setor), **atividade** (um dos tipos de visita, como Treinamento ou Implantação), **prazo** (data, vale até o fim do dia, no horário de Brasília) e uma **observação interna**.
+- Só o contrato **ativo** de cliente ativo recebe item novo. O contrato de um item não muda: para outro contrato, cancele e crie outro. Não pode haver dois itens ativos iguais (mesmo contrato, estabelecimento, setor e atividade).
+- A **situação nunca é digitada**: o sistema calcula pelas **visitas encerradas** do mesmo contrato, estabelecimento e tipo (e do mesmo setor, quando o item pede um). Visita em andamento ou cancelada não conta. Vale a primeira visita que bate:
+  - **Cumprido**: a visita foi até o prazo. **Cumprido com atraso**: foi depois.
+  - Sem visita: **Atrasado** se o prazo passou; **A vencer** se faltam até 7 dias (inclusive no próprio dia do prazo); **No prazo** nos demais casos.
+  - **Cancelado**: a Administração cancelou; não conta e não aparece ao técnico nem ao cliente. Dá para reativar.
+- **Administração:** a lista vem do item mais urgente ao menos urgente, com quatro contadores (atrasados, a vencer, no prazo, cumpridos) e filtros por contrato e situação. Criar, editar e cancelar exigem `reports.contratos.gerenciar`; quem só tem `reports.visitas.gerenciar` vê, sem editar.
+- **App do Técnico:** no check-in, ao escolher o estabelecimento, o técnico vê o que **ainda falta** ali (atrasado, a vencer e no prazo), e o item do setor escolhido ganha destaque. Não vê a observação interna.
+- **Relatório:** o relatório do contrato traz o cronograma dele (sem os cancelados e **sem a observação interna**): no rascunho, na situação de hoje; na **emissão**, **congelado** junto com a versão, como os chamados. A página do aprovador e o PDF mostram o mesmo, e uma mudança no cronograma depois da emissão não altera a versão enviada. Relatório de contrato sem cronograma não mostra o bloco, e versões emitidas antes desta função continuam sem ele.
+- **Remover** um estabelecimento ou setor com **item ativo** no cronograma é barrado; os itens já cancelados saem junto.
+
+Limites desta versão: visita **antes** da criação do item também o cumpre; visita com setor digitado à mão ("Outro") não cumpre item de setor específico; o treinamento online é um tipo à parte do presencial; não há aviso automático de prazo vencendo (a lista e os contadores são a forma de acompanhar).
+
+Onde: `src/lib/cronograma.ts` (regras), `src/lib/repo/cronograma.ts`, `src/app/admin/cronograma/`, `src/components/cronograma/`, `src/app/tecnico/page.tsx`, `src/lib/emissao.tsx`. Migração: `prisma/reports/migrations/*_cronograma`.
 
 ## Datas e horas
 

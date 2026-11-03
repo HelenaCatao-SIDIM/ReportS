@@ -1,6 +1,6 @@
 /** Regras do cronograma de implantação, compartilhadas entre servidor e navegador. Não acessa banco. */
 import { dataLocal } from "@/lib/datas";
-import type { ItemCronograma, SituacaoCronograma, TipoVisita } from "@/lib/types";
+import type { CronogramaCongelado, ItemCronograma, SituacaoCronograma, TipoVisita } from "@/lib/types";
 
 /** Até quantos dias antes do prazo o item passa a "a vencer". */
 export const DIAS_A_VENCER = 7;
@@ -72,4 +72,33 @@ export function contarPorSituacao(itens: { situacao: SituacaoCronograma }[]): Re
   const c: Record<SituacaoCronograma, number> = { cumprido: 0, cumprido_com_atraso: 0, no_prazo: 0, a_vencer: 0, atrasado: 0, cancelado: 0 };
   for (const i of itens) c[i.situacao]++;
   return c;
+}
+
+/** "faltam 3 dias", "vence hoje", "venceu há 2 dias" — para o que ainda não foi cumprido. */
+export function descreverPrazo(diasParaPrazo: number): string {
+  if (diasParaPrazo === 0) return "vence hoje";
+  const n = Math.abs(diasParaPrazo);
+  const dias = n === 1 ? "1 dia" : `${n} dias`;
+  return diasParaPrazo > 0 ? `faltam ${dias}` : `venceu há ${dias}`;
+}
+
+/** O que o técnico vê no check-in: item pendente do cronograma, sem a observação interna. */
+export interface PendenciaCronograma {
+  contratoId: string;
+  unidadeId: string;
+  setorId: string | null;
+  setorNome: string | null;
+  tipo: TipoVisita;
+  prazo: string;
+  situacao: SituacaoCronograma;
+  diasParaPrazo: number;
+}
+
+/** Resumo em uma frase: "3 de 5 itens cumpridos · 1 atrasado". */
+export function resumoCronograma(c: CronogramaCongelado): string {
+  const n = contarPorSituacao(c.itens);
+  const cumpridos = n.cumprido + n.cumprido_com_atraso;
+  const partes = [`${cumpridos} de ${c.itens.length} ${c.itens.length === 1 ? "item cumprido" : "itens cumpridos"}`];
+  if (n.atrasado) partes.push(`${n.atrasado} ${n.atrasado === 1 ? "atrasado" : "atrasados"}`);
+  return partes.join(" · ");
 }

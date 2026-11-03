@@ -7,6 +7,7 @@ import {
   BadgeCheck,
   BookOpen,
   Building2,
+  CalendarClock,
   ClipboardCheck,
   FileText,
   LayoutDashboard,
@@ -43,6 +44,7 @@ const GRUPOS: { titulo?: string; itens: NavItem[] }[] = [
   {
     titulo: "Operação",
     itens: [
+      { href: "/admin/cronograma", label: "Cronograma", icon: CalendarClock },
       { href: "/admin/visitas", label: "Visitas", icon: Timer },
       { href: "/admin/relatorios", label: "Relatórios", icon: FileText },
       { href: "/admin/emails", label: "Caixa de saída (teste)", icon: Mail },

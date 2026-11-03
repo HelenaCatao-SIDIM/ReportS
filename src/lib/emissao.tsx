@@ -4,6 +4,8 @@ import { enviarEmail } from "@/lib/email";
 import { chamadosSuporte, chamadosSuportePdf } from "@/lib/config-suporte";
 import { buscarResumoSuporte } from "@/lib/suporte";
 import { buscarSistema } from "@/lib/repo/sistemas";
+import { congelarCronograma } from "@/lib/repo/cronograma";
+import { dataLocal } from "@/lib/datas";
 import { formatarDataCurta } from "@/lib/visitas";
 import { RelatorioPdf, type ImagensPdf } from "@/lib/pdf/relatorio-pdf";
 import { lerImagemPorUrl, salvarArquivo } from "@/lib/repo/arquivos";
@@ -63,6 +65,8 @@ export async function emitirRelatorio(id: string) {
   // Chamados de suporte congelados junto com a versão: PDF, página do aprovador e versões antigas mostram o mesmo número.
   // Os chamados são do sistema do contrato: o "Nome no Fortics" do sistema vai como filtro.
   if (chamadosSuporte()) conteudo.suporte = await buscarResumoSuporte(c.cliente, c.relatorio.de, c.relatorio.ate, (await buscarSistema(c.contrato.sistema))?.nomeFortics);
+  // Cronograma de implantação do contrato, na situação do dia da emissão: o cliente vê o mesmo na página e no PDF.
+  conteudo.cronograma = await congelarCronograma(c.contrato.id, dataLocal(Date.parse(emitidoEm)));
   const pdf = await renderToBuffer(
     <RelatorioPdf conteudo={conteudo} versao={numero} emitidoEm={emitidoEm} imagens={await carregarImagens(conteudo)} mostrarSuporte={chamadosSuportePdf()} />,
   );

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DIAS_A_VENCER, calcularSituacao, contarPorSituacao, diasEntre, estaPendente, prazoValido, urgencia, type VisitaParaCronograma } from "@/lib/cronograma";
-import type { ItemCronograma } from "@/lib/types";
+import { DIAS_A_VENCER, calcularSituacao, contarPorSituacao, descreverPrazo, diasEntre, estaPendente, prazoValido, resumoCronograma, urgencia, type VisitaParaCronograma } from "@/lib/cronograma";
+import type { CronogramaCongelado, ItemCronograma } from "@/lib/types";
 
 const item = (o: Partial<ItemCronograma> = {}): ItemCronograma => ({
   id: "i1", clienteId: "1", contratoId: "c1", unidadeId: "u1", setorId: "s1", tipo: "treinamento", prazo: "2026-11-20", observacao: "", cancelado: false, ...o,
@@ -75,4 +75,17 @@ test("ordem de urgência e contagem", () => {
   assert.equal(c.atrasado, 2);
   assert.equal(c.cumprido, 1);
   assert.equal(c.a_vencer, 0);
+});
+
+test("textos do prazo e resumo do relatório", () => {
+  assert.equal(descreverPrazo(3), "faltam 3 dias");
+  assert.equal(descreverPrazo(1), "faltam 1 dia");
+  assert.equal(descreverPrazo(0), "vence hoje");
+  assert.equal(descreverPrazo(-1), "venceu há 1 dia");
+  assert.equal(descreverPrazo(-12), "venceu há 12 dias");
+
+  const i = (situacao: CronogramaCongelado["itens"][number]["situacao"]) => ({ unidadeNome: "Sede", setorNome: null, tipo: "treinamento" as const, prazo: "2026-11-20", situacao, cumpridoEm: null });
+  assert.equal(resumoCronograma({ em: "2026-11-01", itens: [i("cumprido")] }), "1 de 1 item cumprido");
+  assert.equal(resumoCronograma({ em: "2026-11-01", itens: [i("cumprido"), i("cumprido_com_atraso"), i("atrasado"), i("atrasado"), i("no_prazo")] }), "2 de 5 itens cumpridos · 2 atrasados");
+  assert.equal(resumoCronograma({ em: "2026-11-01", itens: [i("a_vencer"), i("atrasado")] }), "0 de 2 itens cumpridos · 1 atrasado");
 });

@@ -3,8 +3,10 @@ import Link from "next/link";
 import { ArrowRight, Timer } from "lucide-react";
 import { getUsuarioAtual } from "@/lib/dal";
 import { listarParaCheckin } from "@/lib/repo/contratos";
+import { listarPendentesDosContratos } from "@/lib/repo/cronograma";
+import { horaDoServidor } from "@/lib/agora";
 import { visitaAbertaDoTecnico } from "@/lib/repo/visitas";
-import { formatarDataHora } from "@/lib/datas";
+import { dataLocal, formatarDataHora } from "@/lib/datas";
 import { rotuloTipo } from "@/lib/visitas";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -58,13 +60,25 @@ async function Conteudo() {
   }
 
   const clientes = await listarParaCheckin();
+  // O que ainda falta do cronograma de implantação nos estabelecimentos desses contratos (sem a observação interna).
+  const hoje = dataLocal(await horaDoServidor());
+  const cronograma = (await listarPendentesDosContratos(clientes.flatMap((c) => c.contratos.map((x) => x.id)), hoje)).map((i) => ({
+    contratoId: i.contratoId,
+    unidadeId: i.unidadeId,
+    setorId: i.setorId,
+    setorNome: i.setorNome,
+    tipo: i.tipo,
+    prazo: i.prazo,
+    situacao: i.situacao,
+    diasParaPrazo: i.diasParaPrazo,
+  }));
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-semibold">Novo check-in</h1>
         <p className="text-sm text-muted-foreground">Registre a chegada ao cliente.</p>
       </div>
-      <CheckinForm clientes={clientes} porCep={localizacaoPorCep()} carimbo={carimboFoto()} />
+      <CheckinForm clientes={clientes} cronograma={cronograma} porCep={localizacaoPorCep()} carimbo={carimboFoto()} />
     </div>
   );
 }

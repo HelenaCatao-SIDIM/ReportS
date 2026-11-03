@@ -187,6 +187,7 @@ nesse endereço — use um treinamento online para testar sem GPS.
 ## Estrutura
 
 - `docs/regras.md` — regras de negócio implementadas (o que o sistema exige e permite em cada etapa)
+- `src/lib/cronograma.ts`, `src/lib/repo/cronograma.ts`, `src/app/admin/cronograma/` — cronograma de implantação: prazos por estabelecimento e setor, com a situação calculada pelas visitas encerradas; aparece na Administração, no check-in do técnico e no relatório ao cliente
 - `AGENTS.md` — convenções do código, para quem for programar (pessoas ou agentes de IA)
 - `src/proxy.ts` — só confere se há sessão; a área certa (Administração ou App do Técnico) é decidida pelas permissões, na página `/inicio`
 - `src/lib/session.ts`, `src/lib/dal.ts`, `src/lib/permissoes.ts` — sessão (JWT em cookie httpOnly com só o id do usuário), verificação de permissão (uma para páginas, outra para ações; lida a cada requisição, sem cache) e catálogo de permissões
