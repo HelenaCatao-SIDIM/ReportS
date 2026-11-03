@@ -13,6 +13,7 @@
     "db:migrate:dev": "prisma migrate dev --config prisma.reports.config.ts",
     "db:plataforma:ler": "prisma db pull --config prisma.plataforma.config.ts",
     "db:plataforma:conferir": "tsx scripts/conferir-plataforma.ts",
+    "db:ambiente-teste": "tsx scripts/ambiente-de-teste.ts",
     "db:exemplo": "tsx scripts/dados-de-exemplo.ts",
     "cbo:importar": "tsx scripts/importar-cbo.ts",
     "permissoes:registrar": "tsx scripts/registrar-permissoes.ts",
