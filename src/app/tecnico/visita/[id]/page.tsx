@@ -6,11 +6,12 @@ import { ArrowLeft, CheckCircle2, LogOut, MapPin, Timer } from "lucide-react";
 import { getUsuarioAtual } from "@/lib/dal";
 import { buscarVisita, type VisitaDetalhada } from "@/lib/repo/visitas";
 import { listarTemas } from "@/lib/repo/temas";
+import { listarEquipes } from "@/lib/repo/equipes";
 import { listarUnidades } from "@/lib/repo/clientes";
 import { buscarContrato } from "@/lib/repo/contratos";
 import { formatarData, formatarDataHora, formatarHora } from "@/lib/datas";
 import { ehPresencial, rotuloTipo } from "@/lib/visitas";
-import { chaveRascunho, chaveRascunhoCheckin, chaveRascunhoParticipante, chaveRascunhoTema, exigeParticipantes } from "@/lib/regras-visita";
+import { chaveRascunho, chaveRascunhoCheckin, chaveRascunhoParticipante, chaveRascunhoTema, exigeParticipantes, sugereTemasPorEquipe } from "@/lib/regras-visita";
 import { LimparRascunho } from "@/components/tecnico/limpar-rascunho";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -22,7 +23,7 @@ import { AtualizarEnquantoPendente } from "@/components/visita/atualizar-enquant
 import { horaDoServidor } from "@/lib/agora";
 import { SelosVisita } from "@/components/visita/selos";
 import { Card } from "@/components/ui/card";
-import { TemasVisita } from "./temas-visita";
+import { TemasVisita, type PorEquipe } from "./temas-visita";
 import { FotosExtras } from "./fotos-extras";
 import { ParticipantesVisita } from "./participantes-visita";
 
@@ -85,9 +86,21 @@ function Cabecalho({ v }: { v: VisitaDetalhada }) {
 }
 
 async function EmAndamento({ v }: { v: VisitaDetalhada }) {
-  const [todosTemas, contrato, unidades] = await Promise.all([listarTemas(), buscarContrato(v.contratoId), listarUnidades(v.clienteId)]);
+  const [todosTemas, contrato, unidades, equipes] = await Promise.all([
+    listarTemas(),
+    buscarContrato(v.contratoId),
+    listarUnidades(v.clienteId),
+    listarEquipes(),
+  ]);
   // Só os temas do sistema do contrato da visita.
   const temas = todosTemas.filter((t) => t.sistema === v.sistema && (t.ativo || v.temaIds.includes(t.id)));
+  // Implantação e treinamentos: o técnico marca as equipes e recebe os temas mínimos delas (do sistema do contrato) como sugestão.
+  const porEquipe: PorEquipe | undefined = sugereTemasPorEquipe(v.tipo)
+    ? {
+        equipes: equipes.filter((e) => e.ativo || v.equipeIds.includes(e.id)).map(({ id, nome, temaIds }) => ({ id, nome, temaIds })),
+        inicial: v.equipeIds,
+      }
+    : undefined;
   const setores = [...new Set(unidades.flatMap((u) => u.setores.map((s) => s.nome)))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   return (
     <div className="space-y-4">
@@ -98,7 +111,7 @@ async function EmAndamento({ v }: { v: VisitaDetalhada }) {
         Início
       </Link>
       <Cabecalho v={v} />
-      <TemasVisita visitaId={v.id} temas={temas} inicial={v.temaIds} adicionalInicial={v.temaAdicional} />
+      <TemasVisita visitaId={v.id} temas={temas} inicial={v.temaIds} adicionalInicial={v.temaAdicional} porEquipe={porEquipe} />
       <FotosExtras visitaId={v.id} fotos={v.fotosExtras} />
       <ParticipantesVisita
         visitaId={v.id}

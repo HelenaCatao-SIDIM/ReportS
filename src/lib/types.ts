@@ -126,6 +126,18 @@ export interface Tema {
   ativo: boolean;
 }
 
+/**
+ * Equipe do cliente (médica, enfermagem, administrativa…). Cadastro único da SIDIM, vale para todos os clientes.
+ * Quando o técnico marca a equipe numa implantação ou num treinamento, o ReportS sugere os temas mínimos dela.
+ */
+export interface Equipe {
+  id: string;
+  nome: string;
+  /** Temas mínimos, de qualquer sistema; na visita só aparecem os do sistema do contrato. */
+  temaIds: string[];
+  ativo: boolean;
+}
+
 /** Ocupação da Classificação Brasileira de Ocupações. */
 export interface Cbo {
   /** 6 dígitos, sem hífen. */
@@ -267,6 +279,8 @@ export interface Visita {
   /** Treinamento online. */
   printTela: Foto | null;
   linkReuniao: string | null;
+  /** Equipes treinadas (implantação e treinamentos). */
+  equipeIds: string[];
   temaIds: string[];
   temaAdicional: string;
   fotosExtras: Foto[];
@@ -313,6 +327,8 @@ export interface VisitaDetalhada extends Visita {
   sistemaNome: string;
   unidadeNome: string;
   setorNome: string;
+  /** Nomes das equipes treinadas. Opcional: as versões de relatório emitidas antes das equipes não têm. */
+  equipes?: string[];
   temas: Tema[];
   /** Incluída em relatório aprovado: ninguém altera. */
   travada: boolean;

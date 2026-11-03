@@ -152,6 +152,7 @@ export function DetalheVisita({
             <CardTitle>Temas</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {!!v.equipes?.length && <Texto rotulo="Equipes treinadas" valor={v.equipes.join(", ")} />}
             {v.temas.length ? (
               <ul className="space-y-1.5">
                 {v.temas.map((t) => (
