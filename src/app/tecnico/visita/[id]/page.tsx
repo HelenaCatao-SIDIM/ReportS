@@ -11,7 +11,15 @@ import { listarUnidades } from "@/lib/repo/clientes";
 import { buscarContrato } from "@/lib/repo/contratos";
 import { formatarData, formatarDataHora, formatarHora } from "@/lib/datas";
 import { ehPresencial, rotuloTipo } from "@/lib/visitas";
-import { chaveRascunho, chaveRascunhoCheckin, chaveRascunhoParticipante, chaveRascunhoTema, exigeParticipantes, sugereTemasPorEquipe } from "@/lib/regras-visita";
+import {
+  chaveRascunho,
+  chaveRascunhoCheckin,
+  chaveRascunhoParticipante,
+  chaveRascunhoTema,
+  equipesDaVisita,
+  exigeParticipantes,
+  sugereTemasPorEquipe,
+} from "@/lib/regras-visita";
 import { LimparRascunho } from "@/components/tecnico/limpar-rascunho";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -97,7 +105,7 @@ async function EmAndamento({ v }: { v: VisitaDetalhada }) {
   // Implantação e treinamentos: o técnico marca as equipes e recebe os temas mínimos delas (do sistema do contrato) como sugestão.
   const porEquipe: PorEquipe | undefined = sugereTemasPorEquipe(v.tipo)
     ? {
-        equipes: equipes.filter((e) => e.ativo || v.equipeIds.includes(e.id)).map(({ id, nome, temaIds }) => ({ id, nome, temaIds })),
+        equipes: equipesDaVisita(equipes, todosTemas, v.sistema, v.equipeIds).map(({ id, nome, temaIds }) => ({ id, nome, temaIds })),
         inicial: v.equipeIds,
       }
     : undefined;

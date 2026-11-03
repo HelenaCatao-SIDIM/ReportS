@@ -183,7 +183,7 @@ export function TemasVisita({
                 })}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">Nenhuma equipe cadastrada.</p>
+              <p className="text-xs text-muted-foreground">Nenhuma equipe tem temas mínimos neste sistema.</p>
             )}
             {sugeridos.length > 0 && (
               <>

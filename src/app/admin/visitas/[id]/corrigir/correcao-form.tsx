@@ -6,9 +6,10 @@ import { useState } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
 import type { VisitaDetalhada } from "@/lib/repo/visitas";
 import type { UnidadeComSetores } from "@/lib/repo/clientes";
-import type { Tema } from "@/lib/types";
+import type { Equipe, Tema, TipoVisita } from "@/lib/types";
 import { paraInputLocal } from "@/lib/datas";
 import { TIPOS_VISITA } from "@/lib/visitas";
+import { sugereTemasPorEquipe } from "@/lib/regras-visita";
 import { cn } from "@/lib/utils";
 import { corrigirVisita, type CorrecaoState } from "../../actions";
 import { useAcao } from "@/components/form/use-acao";
@@ -19,9 +20,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export function CorrecaoForm({ visita: v, unidades, temas }: { visita: VisitaDetalhada; unidades: UnidadeComSetores[]; temas: Tema[] }) {
+export function CorrecaoForm({
+  visita: v,
+  unidades,
+  temas,
+  equipes,
+}: {
+  visita: VisitaDetalhada;
+  unidades: UnidadeComSetores[];
+  temas: Tema[];
+  /** Equipes que a visita aceita (com tema mínimo do sistema do contrato, ou já marcadas). */
+  equipes: Pick<Equipe, "id" | "nome" | "ativo">[];
+}) {
   const [state, onSubmit, pending] = useAcao<CorrecaoState>(corrigirVisita.bind(null, v.id), {});
   const e = state.erros ?? {};
+  const [tipo, setTipo] = useState<TipoVisita>(v.tipo);
+  const registraEquipes = sugereTemasPorEquipe(tipo);
   const [unidadeId, setUnidadeId] = useState(v.unidadeId);
   const [setor, setSetor] = useState(v.setorId ?? "outro");
   const setores = unidades.find((u) => u.id === unidadeId)?.setores ?? [];
@@ -52,7 +66,7 @@ export function CorrecaoForm({ visita: v, unidades, temas }: { visita: VisitaDet
             <Input id="saida" name="saida" type="datetime-local" defaultValue={v.saida ? paraInputLocal(v.saida) : ""} className="h-9" aria-invalid={!!e.saida} />
           </Campo>
           <Campo id="tipo" label="Tipo de visita">
-            <select id="tipo" name="tipo" defaultValue={v.tipo} className={selectClass}>
+            <select id="tipo" name="tipo" value={tipo} onChange={(ev) => setTipo(ev.target.value as TipoVisita)} className={selectClass}>
               {TIPOS_VISITA.map((t) => (
                 <option key={t.valor} value={t.valor}>
                   {t.label}
@@ -104,6 +118,25 @@ export function CorrecaoForm({ visita: v, unidades, temas }: { visita: VisitaDet
           <CardTitle>Temas</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {registraEquipes && equipes.length > 0 && (
+            <fieldset>
+              <legend className="mb-1.5 text-xs font-medium text-muted-foreground">Equipes treinadas</legend>
+              <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+                {equipes.map((eq) => (
+                  <label key={eq.id} className="flex items-start gap-2 text-sm">
+                    <input type="checkbox" name="equipeIds" value={eq.id} defaultChecked={v.equipeIds.includes(eq.id)} className="mt-0.5 size-4 accent-primary" />
+                    <span>
+                      {eq.nome}
+                      {!eq.ativo && <span className="text-xs text-muted-foreground"> (inativa)</span>}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+          {!registraEquipes && v.equipeIds.length > 0 && (
+            <p className="text-xs text-amber-700">Este tipo de visita não registra equipes: as equipes treinadas saem da visita ao salvar.</p>
+          )}
           {sistemas.map(([codigo, nome]) => (
             <fieldset key={codigo}>
               <legend className="mb-1.5 text-xs font-medium text-muted-foreground">{nome}</legend>

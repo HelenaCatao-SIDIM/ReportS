@@ -190,6 +190,25 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     await assert.rejects(visitas.definirEquipes(v.id, tecnico.id, []), /já foi encerrada/);
   });
 
+  test("correção troca as equipes treinadas e registra no histórico", async () => {
+    const t = await temas.criarTema({ nome: "Agendamento de consultas", sistema: "saude", modulo: "Recepção" });
+    const recepcao = await equipes.criarEquipe({ nome: "Equipe de recepção", temaIds: [t.id] });
+    const medica = await equipes.criarEquipe({ nome: "Equipe médica", temaIds: [t.id] });
+    const v = await checkin();
+    await visitas.definirEquipes(v.id, tecnico.id, [recepcao.id]);
+    await encerrar(v.id);
+
+    const antes = (await visitas.buscarVisita(v.id))!;
+    const mudancas = await visitas.corrigirPelaAdministracao(v.id, { ...antes, saida: antes.saida!, equipeIds: [medica.id, recepcao.id], removerPresencas: [], removerFotos: [] }, tecnico, "faltou a equipe médica");
+    assert.deepEqual(mudancas, [{ campo: "Equipes treinadas", antes: "Equipe de recepção", depois: "Equipe de recepção, Equipe médica" }]);
+    const depois = (await visitas.buscarVisita(v.id))!;
+    assert.deepEqual(depois.equipes, ["Equipe de recepção", "Equipe médica"]);
+    assert.equal(depois.historico.at(-1)?.mudancas[0].campo, "Equipes treinadas");
+
+    // Sem mudança nenhuma, nada é gravado.
+    assert.deepEqual(await visitas.corrigirPelaAdministracao(v.id, { ...depois, saida: depois.saida!, removerPresencas: [], removerFotos: [] }, tecnico, "nada"), []);
+  });
+
   test("o banco recusa período invertido e código CBO fora do formato", async () => {
     await assert.rejects(db.reports.relatorio.create({ data: { id: "r", clienteId: BigInt(clienteId), contratoId, de: new Date("2026-10-31"), ate: new Date("2026-10-01"), status: "rascunho" } }));
     await assert.rejects(db.reports.cbo.create({ data: { codigo: "12-34", titulo: "x" } }));

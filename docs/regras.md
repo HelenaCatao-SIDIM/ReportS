@@ -85,10 +85,10 @@ Onde: `src/app/admin/temas/actions.ts`, `src/lib/repo/temas.ts`.
 
 - Uma equipe (médica, enfermagem, administrativa…) é um **cadastro único da SIDIM**, que vale para todos os clientes, com os seus **temas mínimos**. Quem gerencia temas gerencia equipes (`reports.temas.gerenciar`).
 - O nome é obrigatório (até 80 caracteres) e não pode repetir outro, sem diferenciar acento nem maiúsculas. É preciso marcar **pelo menos um tema mínimo**, entre os temas ativos (ou os que a equipe já tinha, mesmo inativados depois).
-- Os temas mínimos podem ser de **sistemas diferentes**: na visita, só os do sistema do contrato são sugeridos.
+- Os temas mínimos podem ser de **sistemas diferentes**: na visita, só os do sistema do contrato são sugeridos, e só aparecem para marcar as equipes que têm **algum tema mínimo ativo desse sistema** (mais as que já estavam marcadas). Assim uma equipe só de outro sistema não vai para o relatório por engano.
 - Não há exclusão: a equipe é **inativada**. Equipe inativa não aparece para o técnico, mas continua nas visitas em que já foi marcada.
 
-Onde: `src/app/admin/equipes/actions.ts`, `src/lib/repo/equipes.ts`.
+Onde: `src/app/admin/equipes/actions.ts`, `src/lib/repo/equipes.ts`, `src/lib/regras-visita.ts` (`equipesDaVisita`).
 
 ### Participantes
 
@@ -142,7 +142,7 @@ Onde: `src/app/tecnico/actions.ts`, `src/components/tecnico/use-gps.ts`, `src/li
 Só o próprio técnico altera a visita, e só enquanto ela está em andamento:
 
 - **Temas**: marca os temas ativos **do sistema do contrato** da visita (ou os que já estavam marcados, mesmo inativados depois);
-- **Equipes treinadas** (só na implantação, no treinamento e no treinamento online): marca as equipes ativas (ou as já marcadas, mesmo inativadas depois). O ReportS mostra os **temas mínimos** delas que são do sistema do contrato, como sugestão; o técnico marca os que trabalhou, e os demais temas continuam em "Outros temas". Marcar a equipe não marca nenhum tema sozinho. As equipes treinadas aparecem no detalhe da visita, no relatório (PDF) e na página do aprovador;
+- **Equipes treinadas** (só na implantação, no treinamento e no treinamento online): marca as equipes ativas que têm algum tema mínimo ativo do sistema do contrato (ou as já marcadas, mesmo inativadas depois). O ReportS mostra os **temas mínimos** delas que são do sistema do contrato, como sugestão; o técnico marca os que trabalhou, e os demais temas continuam em "Outros temas". Marcar a equipe não marca nenhum tema sozinho. As equipes treinadas aparecem no detalhe da visita, no relatório (PDF) e na página do aprovador;
 - **Tema adicional**: texto livre de até 300 caracteres;
 - **Fotos extras**: adiciona e remove.
 
@@ -184,8 +184,9 @@ Aparecem da mais antiga para a mais recente, para que as esquecidas fiquem no to
 
 ### Correção de visita encerrada
 
-- Campos que podem ser corrigidos: entrada, saída (depois da entrada e não no futuro), tipo, estabelecimento (do mesmo cliente), setor, temas (só do sistema do contrato da visita; os já marcados continuam aceitos), tema adicional, observações, pendências e próximos passos. Também dá para **retirar** participantes da lista e fotos extras.
-- Cliente, técnico, sistema, localizações, foto do ambiente, print e equipes treinadas não mudam.
+- Campos que podem ser corrigidos: entrada, saída (depois da entrada e não no futuro), tipo, estabelecimento (do mesmo cliente), setor, equipes treinadas (as mesmas que o técnico pode marcar; veja [Durante a visita](#durante-a-visita)), temas (só do sistema do contrato da visita; os já marcados continuam aceitos), tema adicional, observações, pendências e próximos passos. Também dá para **retirar** participantes da lista e fotos extras.
+- Equipes treinadas só existem na implantação, no treinamento e no treinamento online: se a correção muda o tipo para outro, as equipes saem da visita (a tela avisa antes de salvar).
+- Cliente, técnico, sistema, localizações, foto do ambiente e print não mudam.
 - O **motivo** é obrigatório (pelo menos 5 caracteres). Se nada mudou, nada é gravado.
 - Visita em **relatório aprovado** fica **travada**: ninguém altera.
 
