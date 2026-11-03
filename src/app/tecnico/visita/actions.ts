@@ -5,7 +5,7 @@ import { exigirPermissaoAcao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
 import { listarEquipes } from "@/lib/repo/equipes";
 import { listarTemas } from "@/lib/repo/temas";
-import { sugereTemasPorEquipe } from "@/lib/regras-visita";
+import { equipesDaVisita, sugereTemasPorEquipe } from "@/lib/regras-visita";
 import { salvarImagem } from "@/lib/repo/arquivos";
 import { adicionarFotoExtra, buscarVisita, definirEquipes, definirTemaAdicional, definirTemas, removerFotoExtra } from "@/lib/repo/visitas";
 
@@ -41,8 +41,9 @@ export async function salvarEquipes(visitaId: string, equipeIds: string[]): Prom
   const { tecnico, v, erro } = await visitaAberta(visitaId);
   if (erro) return erro;
   if (!sugereTemasPorEquipe(v.tipo)) return "Este tipo de visita não registra equipes.";
-  // Mesma regra dos temas: equipes ativas, ou já marcadas antes de serem inativadas.
-  const validas = new Set((await listarEquipes()).filter((e) => e.ativo || v.equipeIds.includes(e.id)).map((e) => e.id));
+  // As mesmas equipes que a tela mostra: com tema mínimo do sistema do contrato, ou já marcadas.
+  const [equipes, temas] = await Promise.all([listarEquipes(), listarTemas()]);
+  const validas = new Set(equipesDaVisita(equipes, temas, v.sistema, v.equipeIds).map((e) => e.id));
   await definirEquipes(visitaId, tecnico.id, equipeIds.filter((id) => validas.has(id)));
   atualizar(visitaId);
   return null;

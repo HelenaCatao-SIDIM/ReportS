@@ -219,6 +219,8 @@ export interface CorrecaoVisita {
   unidadeId: string;
   setorId: string | null;
   setorOutro: string | null;
+  /** Equipes treinadas; vazio quando o tipo não registra equipes. */
+  equipeIds: string[];
   temaIds: string[];
   temaAdicional: string;
   observacoes: string;
@@ -236,12 +238,15 @@ export async function corrigirPelaAdministracao(id: string, c: CorrecaoVisita, a
   if (!v || v.status !== "encerrada") throw new Error("Só visitas encerradas podem ser corrigidas");
   if (v.travada) throw new Error("Visita em relatório aprovado");
 
-  const [temas, unidades, setores] = await Promise.all([
+  const [temas, equipes, unidades, setores] = await Promise.all([
     buscarTemasPorIds([...new Set([...v.temaIds, ...c.temaIds])]),
+    nomesDasEquipes([...new Set([...v.equipeIds, ...c.equipeIds])]),
     reports.estabelecimento.findMany({ where: { id: { in: [v.unidadeId, c.unidadeId] } }, select: { id: true, nome: true } }),
     reports.setor.findMany({ where: { id: { in: [v.setorId, c.setorId].filter((x): x is string => !!x) } }, select: { id: true, nome: true } }),
   ]);
   const nomeTemas = (ids: string[]) => temas.filter((t) => ids.includes(t.id)).map((t) => t.nome).join(", ") || "—";
+  const nomeEquipes = (ids: string[]) =>
+    [...new Set(ids)].map((id) => equipes.get(id) ?? "—").sort((a, b) => a.localeCompare(b, "pt-BR")).join(", ") || "—";
   const nomeSetor = (setorId: string | null, outro: string | null) => (setorId ? setores.find((s) => s.id === setorId)?.nome : outro) ?? "—";
   const nomeUnidade = (uid: string) => unidades.find((u) => u.id === uid)?.nome ?? "—";
 
@@ -255,6 +260,7 @@ export async function corrigirPelaAdministracao(id: string, c: CorrecaoVisita, a
   comparar("Tipo", rotuloTipo(v.tipo), rotuloTipo(c.tipo));
   comparar("Estabelecimento", nomeUnidade(v.unidadeId), nomeUnidade(c.unidadeId));
   comparar("Setor", nomeSetor(v.setorId, v.setorOutro), nomeSetor(c.setorId, c.setorOutro));
+  comparar("Equipes treinadas", nomeEquipes(v.equipeIds), nomeEquipes(c.equipeIds));
   comparar("Temas", nomeTemas(v.temaIds), nomeTemas(c.temaIds));
   comparar("Tema adicional", v.temaAdicional, c.temaAdicional);
   comparar("Observações", v.observacoes, c.observacoes);
@@ -273,6 +279,7 @@ export async function corrigirPelaAdministracao(id: string, c: CorrecaoVisita, a
   if (!mudancas.length) return [];
 
   const temaIds = [...new Set(c.temaIds)];
+  const equipeIds = [...new Set(c.equipeIds)];
   await reports.$transaction(async (tx) => {
     // Só grava se a visita continua encerrada e fora de relatório aprovado.
     const { count } = await tx.visita.updateMany({
@@ -294,6 +301,8 @@ export async function corrigirPelaAdministracao(id: string, c: CorrecaoVisita, a
     if (!count) throw new Error("A visita mudou enquanto era corrigida. Abra de novo e confira.");
     await tx.visitaTema.deleteMany({ where: { visitaId: id } });
     await tx.visitaTema.createMany({ data: temaIds.map((temaId) => ({ visitaId: id, temaId })) });
+    await tx.visitaEquipe.deleteMany({ where: { visitaId: id } });
+    await tx.visitaEquipe.createMany({ data: equipeIds.map((equipeId) => ({ visitaId: id, equipeId })) });
     if (presencasRemovidas.length) {
       await tx.presenca.deleteMany({ where: { visitaId: id, participanteId: { in: presencasRemovidas.map((p) => idPlataforma(p.participanteId)!) } } });
     }
