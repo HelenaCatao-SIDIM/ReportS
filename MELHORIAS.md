@@ -161,7 +161,7 @@ O ReportS adapta o protótipo **em memória** enquanto o SINC faz as Fases 0 a 3
 | 1 | Cadastro de sistemas (SERP, SCA, SE, Saúde) só de leitura; tema escolhe o sistema numa lista; dados de exemplo sem sistemas fictícios | **Feito** em 29/10/2026 (`src/lib/repo/sistemas.ts`) |
 | 2 | Cliente em três (cliente, sistemas do cliente, contrato por sistema); aprovador próprio; check-in cliente → sistema → estabelecimento → setor; relatório por contrato; chamados por sistema | **Feito em 29/10/2026**; os chamados por sistema, em **30/10/2026** (depende de reimportar o fluxo do n8n e de conferir os valores que o Fortics grava em `sistema`) |
 | 3 | Perfil gestor/técnico sai; permissões; sessão só com o id; telas de usuários saem | **Feito em 29/10/2026**; o "esqueci minha senha" apontando para o SINC e o limite de tentativas do login (RN-PL-55) entraram na Fase 4, em **30/10/2026** |
-| 4 | Banco `reports`, leitura/escrita na plataforma, arquivos em disco, SMTP, deploy | Depende das Fases 1 a 3 do SINC em produção e da decisão de LGPD sobre guardar CPF |
+| 4 | Banco `reports`, leitura/escrita na plataforma, arquivos em disco, SMTP, deploy | **Feito e no ar** em `https://reports.sidim.com.br`: código em 30/10/2026 (ver "Fase 4 no ReportS: como ficou") e publicação no servidor do SINC na mesma data (ver "Publicação no servidor: como ficou"). Faltam só as credenciais do SMTP e o SPF/DKIM do remetente |
 | 5 | Junção de participantes | Depende da Fase 4 |
 
 #### Fase 2 no ReportS: como ficou (29/10/2026)
@@ -256,6 +256,7 @@ Como o plano será seguido (a "dois esquemas" foi lida como **um schema do Prism
 - **Lições:** (1) nunca ponha um GET com efeito colateral (sair, apagar) atrás de `<Link>`; (2) em rota (route handler) atrás do nginx, `req.nextUrl` traz o host interno, então redirecione com endereço relativo; (3) teste o build de produção (`next build` e `next start`), não só o modo de desenvolvimento; (4) quando o SINC muda a plataforma, atualizar `prisma/plataforma/schema.prisma` antes do deploy do ReportS.
 - **Verificado em produção:** login, tela de escolha e abertura da Administração e do App do Técnico pelo celular, com https (Helena); `/sair` ignora a pré-carga e redireciona de forma relativa; sem erro no log do serviço; as 8 permissões `reports.*` registradas; CBO com 2.694 ocupações.
 - **Ainda não testado:** envio real de e-mail (faltam as credenciais do SMTP), fluxo completo de uma visita em campo no celular e os chamados de suporte com o n8n real.
+- **Situação em 03/11/2026 (informada pela equipe):** tudo o que o ReportS esperava do SINC já está no servidor, o ReportS foi testado e está no ar. A equipe não detalhou quais itens da lista "Ainda não testado" acima foram cobertos; ela fica como estava até alguém confirmar.
 
 ### Pré-requisitos externos dos itens de infraestrutura
 
