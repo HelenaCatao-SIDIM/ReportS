@@ -8,16 +8,19 @@ import type { Participante } from "@/lib/types";
  */
 
 function seed(): Participante[] {
-  const p = (id: string, clienteId: string, nome: string, cargo: string, cbo: [string, string], setor: string, cpf: string | null, criadoEmCampo = false): Participante => ({
-    id, clienteId, nome, cargo, cbo: { codigo: cbo[0], titulo: cbo[1] }, setor, cpf, criadoEmCampo,
+  const p = (id: string, clienteId: string, nome: string, cargo: string, cbo: [string, string], setor: string, equipeId: string, cpf: string | null, criadoEmCampo = false): Participante => ({
+    id, clienteId, nome, cargo, cbo: { codigo: cbo[0], titulo: cbo[1] }, setor, equipeId, cpf, criadoEmCampo,
   });
   return [
-    p("p1", "c1", "Luciana Ferraz", "Assistente administrativa", ["411010", "Assistente administrativo"], "Protocolo", "12345678909"),
-    p("p2", "c1", "Rogério Batista", "Fiscal de tributos", ["411010", "Assistente administrativo"], "Tributação", "98765432100"),
-    p("p3", "c1", "Patrícia Gomes", "Analista de RH", ["252405", "Analista de recursos humanos"], "Recursos Humanos", "11144477735"),
-    p("p4", "c1", "Sandra Moura", "Enfermeira", ["223505", "Enfermeiro"], "Recepção", "52998224725", true),
-    p("p5", "c2", "Fábio Nunes", "Faturista", ["411005", "Auxiliar de escritório"], "Faturamento", null),
-    p("p6", "c2", "Cíntia Alves", "Recepcionista", ["422105", "Recepcionista, em geral"], "Recepção", null, true),
+    p("p1", "c1", "Luciana Ferraz", "Assistente administrativa", ["411010", "Assistente administrativo"], "Protocolo", "e6", "12345678909"),
+    p("p2", "c1", "Rogério Batista", "Fiscal de tributos", ["411010", "Assistente administrativo"], "Tributação", "e7", "98765432100"),
+    p("p3", "c1", "Patrícia Gomes", "Analista de RH", ["252405", "Analista de recursos humanos"], "Recursos Humanos", "e8", "11144477735"),
+    p("p4", "c1", "Sandra Moura", "Enfermeira", ["223505", "Enfermeiro"], "Recepção", "e2", "52998224725", true),
+    p("p5", "c2", "Fábio Nunes", "Faturista", ["411005", "Auxiliar de escritório"], "Faturamento", "e5", null),
+    p("p6", "c2", "Cíntia Alves", "Recepcionista", ["422105", "Recepcionista, em geral"], "Recepção", "e3", null, true),
+    p("p7", "c2", "Marcelo Teixeira", "Médico clínico", ["225125", "Médico clínico"], "Ambulatório", "e1", null),
+    p("p8", "c2", "Juliana Prado", "Enfermeira", ["223505", "Enfermeiro"], "Ambulatório", "e2", null),
+    p("p9", "c2", "Renato Dias", "Técnico de enfermagem", ["322205", "Técnico de enfermagem"], "Ambulatório", "e2", null),
   ];
 }
 

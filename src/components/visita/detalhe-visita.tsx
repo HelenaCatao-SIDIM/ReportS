@@ -112,6 +112,7 @@ export function DetalheVisita({ visita: v, cpf = "mascarado" }: { visita: Visita
             <CardTitle>Temas</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {v.equipes.length > 0 && <Texto rotulo="Equipes treinadas" valor={v.equipes.join(", ")} />}
             {v.temas.length ? (
               <ul className="space-y-1.5">
                 {v.temas.map((t) => (

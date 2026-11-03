@@ -14,6 +14,7 @@ import {
   Timer,
   UserCog,
   Users,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,7 @@ const GRUPOS: { titulo?: string; itens: NavItem[] }[] = [
       { href: "/admin/usuarios", label: "Usuários", icon: UserCog },
       { href: "/admin/clientes", label: "Clientes", icon: Building2 },
       { href: "/admin/temas", label: "Temas", icon: BookOpen },
+      { href: "/admin/equipes", label: "Equipes", icon: UsersRound },
       { href: "/admin/participantes", label: "Participantes", icon: Users },
     ],
   },

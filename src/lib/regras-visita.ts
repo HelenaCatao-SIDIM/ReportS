@@ -6,3 +6,6 @@ export const exigeParticipantes = (tipo: TipoVisita) => tipo === "treinamento" |
 
 /** Chave do rascunho do check-out guardado no celular. */
 export const chaveRascunho = (visitaId: string) => `checkout-rascunho:${visitaId}`;
+
+/** Tipos em que o técnico escolhe as equipes treinadas e recebe os temas mínimos como sugestão. */
+export const sugereTemasPorEquipe = (tipo: TipoVisita) => tipo === "implantacao" || tipo === "treinamento" || tipo === "treinamento_online";

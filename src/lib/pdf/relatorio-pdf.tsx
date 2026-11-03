@@ -96,6 +96,7 @@ function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao }: { v: Visit
       </View>
 
       <Text style={s.secao}>Temas</Text>
+      {v.equipes.length > 0 && <Text style={[s.texto, { marginBottom: 3 }]}>Equipes treinadas: {v.equipes.join(", ")}</Text>}
       <View style={{ marginBottom: 8 }}>
         {temas.length ? temas.map((t) => <Text key={t} style={s.texto}>• {t}</Text>) : <Text style={s.vazio}>Nenhum tema registrado.</Text>}
       </View>

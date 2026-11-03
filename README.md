@@ -5,8 +5,8 @@ do check-in em campo até o relatório periódico aprovado pelo cliente (que lib
 
 Três interfaces:
 
-- **Administração** (gestor, computador): usuários, clientes (aprovadores, unidades e setores), temas, participantes, gestão de visitas e relatórios.
-- **App do Técnico** (celular): check-in com GPS e foto, temas, fotos extras, lista de presença (com assinatura quando o cliente exige), check-out e histórico.
+- **Administração** (gestor, computador): usuários, clientes (aprovadores, unidades e setores), temas, equipes, participantes, gestão de visitas e relatórios.
+- **App do Técnico** (celular): check-in com GPS e foto, temas (com sugestão por equipe), fotos extras, lista de presença (com assinatura quando o cliente exige), check-out e histórico.
 - **Aprovação** (cliente, sem login): página aberta pelo link do e-mail para aprovar o relatório ou pedir ajuste.
 
 Tecnologia: Next.js 16 (App Router) + TypeScript + Tailwind CSS 4 + shadcn/ui (Base UI). PDF com `@react-pdf/renderer`.
@@ -70,6 +70,19 @@ entre como gestor → **Relatórios → Novo relatório** → emita → **Caixa 
 | Marta Ribeiro, José Antunes | Prefeitura de Vale Verde (comprovação **Assinada**, exige CPF) |
 | Renata Lopes | Clínica Bem Viver (comprovação **Nominal**) |
 
+### Equipes e temas mínimos
+
+Cada equipe (médica, enfermagem, administrativa…) tem seus **temas mínimos**, em **Administração → Equipes** (vale para todos os clientes),
+e cada participante pertence a uma equipe. Na **implantação** e nos **treinamentos**, o técnico marca as equipes treinadas e o ReportS
+sugere os temas mínimos, mostrando quem da equipe ainda não recebeu cada um. A visita aceita vários temas, e o técnico ainda pode buscar
+qualquer outro tema do catálogo.
+
+O tema só sai da pendência de uma pessoa quando ela está na lista de presença de uma visita com o tema marcado: quem faltou continua
+pendente. O gestor vê as pendências em **Participantes** (filtro "Só com treinamento pendente").
+
+Para testar: entre como `carlos@sidim.com.br` → a implantação aberta na Clínica Bem Viver → marque "Equipe médica" e "Equipe de enfermagem".
+Na implantação de 23/10, Renato Dias (enfermagem) faltou e aparece com os temas pendentes.
+
 Para ver o check-in do técnico, ele não pode ter visita aberta: faça o check-out da visita de exemplo
 (ou, como gestor, cancele-a em **Visitas → Em andamento**).
 
@@ -83,7 +96,8 @@ nesse endereço — use um treinamento online para testar sem GPS.
 
 - `src/proxy.ts` — redireciona por perfil (checagem rápida do cookie de sessão)
 - `src/lib/session.ts`, `src/lib/dal.ts` — sessão (JWT em cookie httpOnly) e verificação de acesso
-- `src/lib/repo/*` — **camada de dados (mock em memória)**: usuários, clientes, temas, participantes, CBO, visitas, relatórios, arquivos
+- `src/lib/repo/*` — **camada de dados (mock em memória)**: usuários, clientes, temas, equipes, participantes, CBO, visitas, relatórios, arquivos
+- `src/lib/treinamento.ts` — temas mínimos pendentes de cada participante
 - `src/lib/emissao.tsx`, `src/lib/pdf/` — geração do PDF e envio (simulado) dos e-mails do relatório
 - `src/lib/email.ts` — envio de e-mail (simulado; trocar pelo provedor real)
 - `src/app/admin/*` — Administração (gestor)

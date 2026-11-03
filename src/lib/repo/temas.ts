@@ -19,6 +19,12 @@ function seed(): Tema[] {
     t("t7", "Agendamento de consultas", "Saúde", "Recepção"),
     t("t8", "Dispensação de medicamentos", "Saúde", "Farmácia"),
     t("t9", "Relatórios gerenciais (versão antiga)", "Saúde", "Relatórios", false),
+    t("t10", "Prontuário eletrônico", "Saúde", "Atendimento"),
+    t("t11", "Prescrição médica", "Saúde", "Atendimento"),
+    t("t12", "Evolução de enfermagem", "Saúde", "Enfermagem"),
+    t("t13", "Checagem de medicação", "Saúde", "Enfermagem"),
+    t("t14", "Requisição ao almoxarifado", "Saúde", "Almoxarifado"),
+    t("t15", "Faturamento de convênios", "Saúde", "Faturamento"),
   ];
 }
 

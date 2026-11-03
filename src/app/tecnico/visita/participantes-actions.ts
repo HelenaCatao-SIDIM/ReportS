@@ -6,6 +6,7 @@ import { cpfValido, mascararCpf, normalizar, soDigitos } from "@/lib/format";
 import { ehPresencial } from "@/lib/visitas";
 import { buscarCliente } from "@/lib/repo/clientes";
 import { buscarCbo } from "@/lib/repo/cbo";
+import { buscarEquipe, listarEquipes } from "@/lib/repo/equipes";
 import { salvarImagem } from "@/lib/repo/arquivos";
 import { buscarParticipante, cpfEmUso, criarParticipante, homonimo, listarParticipantes } from "@/lib/repo/participantes";
 import { adicionarPresenca, buscarVisita, removerPresenca } from "@/lib/repo/visitas";
@@ -28,6 +29,7 @@ export interface SugestaoParticipante {
   cargo: string;
   cbo: Cbo;
   setor: string;
+  equipe: string;
   cpfMascarado: string;
 }
 
@@ -37,15 +39,24 @@ export async function sugerirParticipantes(visitaId: string, termo: string): Pro
   if (normalizar(termo).length < 2) return [];
   const presentes = new Set(v.presencas.map((p) => p.participanteId));
   const n = normalizar(termo);
-  return (await listarParticipantes(v.clienteId))
+  const [participantes, equipes] = await Promise.all([listarParticipantes(v.clienteId), listarEquipes()]);
+  return participantes
     .filter((p) => !presentes.has(p.id) && normalizar(p.nome).includes(n))
     .slice(0, 8)
-    .map((p) => ({ id: p.id, nome: p.nome, cargo: p.cargo, cbo: p.cbo, setor: p.setor, cpfMascarado: p.cpf ? mascararCpf(p.cpf) : "" }));
+    .map((p) => ({
+      id: p.id,
+      nome: p.nome,
+      cargo: p.cargo,
+      cbo: p.cbo,
+      setor: p.setor,
+      equipe: equipes.find((e) => e.id === p.equipeId)?.nome ?? "",
+      cpfMascarado: p.cpf ? mascararCpf(p.cpf) : "",
+    }));
 }
 
 export interface PresencaState {
   ok?: boolean;
-  erros?: Partial<Record<"nome" | "cargo" | "cbo" | "setor" | "cpf" | "assinatura" | "geral", string>>;
+  erros?: Partial<Record<"nome" | "cargo" | "cbo" | "setor" | "equipe" | "cpf" | "assinatura" | "geral", string>>;
   pedirHomonimo?: boolean;
 }
 
@@ -75,6 +86,7 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
     const setor = String(fd.get("setor") ?? "").trim();
     const cpf = soDigitos(String(fd.get("cpf") ?? ""));
     const cbo = await buscarCbo(String(fd.get("cbo") ?? ""));
+    const equipe = await buscarEquipe(String(fd.get("equipeId") ?? ""));
 
     if (nome.length < 3) erros.nome = "Informe o nome completo.";
     else if (fd.get("homonimo") === null && (await homonimo(cliente.id, nome))) {
@@ -83,13 +95,14 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
     if (!cargo) erros.cargo = "Informe o cargo.";
     if (!cbo) erros.cbo = "Escolha a ocupação (CBO) na lista.";
     if (!setor) erros.setor = "Informe o setor.";
+    if (!equipe?.ativo) erros.equipe = "Escolha a equipe.";
     if (cliente.exigeCpf) {
       if (!cpfValido(cpf)) erros.cpf = "CPF inválido.";
       else if (await cpfEmUso(cliente.id, cpf)) erros.cpf = "Este CPF já está cadastrado. Busque a pessoa pelo nome.";
     }
     if (Object.keys(erros).length) return { erros, pedirHomonimo: erros.nome?.startsWith("Já existe") };
 
-    participante = await criarParticipante(cliente.id, { nome, cargo, cbo: cbo!, setor, cpf: cliente.exigeCpf ? cpf : null }, true);
+    participante = await criarParticipante(cliente.id, { nome, cargo, cbo: cbo!, setor, equipeId: equipe!.id, cpf: cliente.exigeCpf ? cpf : null }, true);
   } else if (Object.keys(erros).length) {
     return { erros };
   }

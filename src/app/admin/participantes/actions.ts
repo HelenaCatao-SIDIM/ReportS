@@ -5,15 +5,16 @@ import { exigirGestorAcao } from "@/lib/dal";
 import { cpfValido, normalizar, soDigitos } from "@/lib/format";
 import { buscarCliente } from "@/lib/repo/clientes";
 import { buscarCbo } from "@/lib/repo/cbo";
+import { buscarEquipe } from "@/lib/repo/equipes";
 import { atualizarParticipante, buscarParticipante, cpfEmUso, criarParticipante, homonimo } from "@/lib/repo/participantes";
 import type { Cbo } from "@/lib/types";
 
 export interface ParticipanteFormState {
   ok?: boolean;
-  erros?: Partial<Record<"nome" | "cargo" | "cbo" | "setor" | "cpf", string>>;
+  erros?: Partial<Record<"nome" | "cargo" | "cbo" | "setor" | "equipe" | "cpf", string>>;
   /** Já existe alguém com o mesmo nome: o formulário pede confirmação de que é outra pessoa. */
   pedirHomonimo?: boolean;
-  valores?: { nome: string; cargo: string; cbo: Cbo | null; setor: string; cpf: string };
+  valores?: { nome: string; cargo: string; cbo: Cbo | null; setor: string; equipeId: string; cpf: string };
 }
 
 /** Cria (participanteId null) ou edita um participante do cliente. */
@@ -30,6 +31,7 @@ export async function salvarParticipante(
   const nome = String(fd.get("nome") ?? "").trim();
   const cargo = String(fd.get("cargo") ?? "").trim();
   const setor = String(fd.get("setor") ?? "").trim();
+  const equipeId = String(fd.get("equipeId") ?? "");
   const cpf = soDigitos(String(fd.get("cpf") ?? ""));
   // O título vem da tabela, não do navegador.
   const cbo = await buscarCbo(String(fd.get("cbo") ?? ""));
@@ -49,13 +51,16 @@ export async function salvarParticipante(
   if (!cargo) erros.cargo = "Informe o cargo.";
   if (!cbo) erros.cbo = "Escolha a ocupação (CBO) na lista.";
   if (!setor) erros.setor = "Informe o setor.";
+  // Na edição, aceita manter uma equipe que foi inativada.
+  const equipe = await buscarEquipe(equipeId);
+  if (!equipe || (!equipe.ativo && atual?.equipeId !== equipe.id)) erros.equipe = "Escolha a equipe.";
   if (cliente.exigeCpf) {
     if (!cpfValido(cpf)) erros.cpf = "CPF inválido.";
     else if (await cpfEmUso(clienteId, cpf, excetoId)) erros.cpf = "Já existe um participante com este CPF neste cliente.";
   }
-  if (Object.keys(erros).length) return { erros, pedirHomonimo, valores: { nome, cargo, cbo, setor, cpf } };
+  if (Object.keys(erros).length) return { erros, pedirHomonimo, valores: { nome, cargo, cbo, setor, equipeId, cpf } };
 
-  const dados = { nome, cargo, cbo: cbo!, setor, cpf: cliente.exigeCpf ? cpf : null };
+  const dados = { nome, cargo, cbo: cbo!, setor, equipeId, cpf: cliente.exigeCpf ? cpf : null };
   if (participanteId) await atualizarParticipante(participanteId, dados);
   else await criarParticipante(clienteId, dados);
   revalidatePath("/admin/participantes");

@@ -2,12 +2,14 @@
 
 /* eslint-disable @next/next/no-img-element -- imagem da assinatura */
 import { useEffect, useRef, useState, useTransition } from "react";
-import { AlertCircle, Info, Loader2, PenLine, Plus, Search, ShieldCheck, Trash2, UserPlus, X } from "lucide-react";
+import { AlertCircle, CircleAlert, CircleCheck, Info, Loader2, PenLine, Plus, Search, ShieldCheck, Trash2, UserPlus, X } from "lucide-react";
 import type { PresencaVisita } from "@/lib/types";
 import { formatarCbo, formatarCpf, mascararCpf } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { registrarPresenca, retirarPresenca, sugerirParticipantes, type PresencaState, type SugestaoParticipante } from "../participantes-actions";
 import { useAcao } from "@/components/form/use-acao";
 import { CboCampo } from "@/components/form/cbo-campo";
+import { selectClass } from "@/components/form/campo";
 import { AssinaturaCampo } from "@/components/tecnico/assinatura-campo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +25,11 @@ interface Config {
   exigeAssinatura: boolean;
   exigeCpf: boolean;
   setores: string[];
+  equipes: { id: string; nome: string }[];
 }
+
+/** Equipe da pessoa e os temas mínimos que ela ainda não recebeu (contando esta visita). */
+export type TreinamentoPresenca = Record<string, { equipe: string | null; faltam: string[] }>;
 
 function AvisoLgpd({ clienteNome, exigeCpf, exigeAssinatura }: Pick<Config, "clienteNome" | "exigeCpf" | "exigeAssinatura">) {
   const dados = ["nome", "cargo", "ocupação (CBO)", "setor", ...(exigeCpf ? ["CPF"] : []), ...(exigeAssinatura ? ["assinatura"] : [])];
@@ -40,7 +46,7 @@ function AvisoLgpd({ clienteNome, exigeCpf, exigeAssinatura }: Pick<Config, "cli
 
 const Erro = ({ msg }: { msg?: string }) => (msg ? <p className="mt-1 text-xs text-destructive">{msg}</p> : null);
 
-function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setores, onFeito }: Config & { onFeito: () => void }) {
+function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setores, equipes, onFeito }: Config & { onFeito: () => void }) {
   const [state, onSubmit, pending] = useAcao<PresencaState>(registrarPresenca.bind(null, visitaId), {});
   const e = state.erros ?? {};
   const [modo, setModo] = useState<"busca" | "existente" | "novo">("busca");
@@ -118,6 +124,7 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
                     <span className="block text-sm font-medium">{s.nome}</span>
                     <span className="block text-xs text-muted-foreground">
                       {s.cargo} · {s.setor}
+                      {s.equipe && ` · ${s.equipe}`}
                     </span>
                   </button>
                 </li>
@@ -141,6 +148,7 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
               <div className="font-medium">{escolhido.nome}</div>
               <div className="text-muted-foreground">
                 {escolhido.cargo} · {escolhido.setor}
+                {escolhido.equipe && ` · ${escolhido.equipe}`}
               </div>
               <div className="text-xs text-muted-foreground">
                 <span className="font-mono">{formatarCbo(escolhido.cbo.codigo)}</span> {escolhido.cbo.titulo}
@@ -209,6 +217,20 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
             </datalist>
             <Erro msg={e.setor} />
           </div>
+          <div>
+            <Label htmlFor="n-equipe" className="mb-1.5">
+              Equipe
+            </Label>
+            <select id="n-equipe" name="equipeId" defaultValue="" className={cn(selectClass, "h-11 bg-background text-base")} aria-invalid={!!e.equipe}>
+              <option value="">Escolha a equipe</option>
+              {equipes.map((eq) => (
+                <option key={eq.id} value={eq.id}>
+                  {eq.nome}
+                </option>
+              ))}
+            </select>
+            <Erro msg={e.equipe} />
+          </div>
           {exigeCpf && (
             <div>
               <Label htmlFor="n-cpf" className="mb-1.5">
@@ -248,7 +270,7 @@ function AdicionarForm({ visitaId, clienteNome, exigeAssinatura, exigeCpf, setor
   );
 }
 
-function LinhaPresenca({ visitaId, p }: { visitaId: string; p: PresencaVisita }) {
+function LinhaPresenca({ visitaId, p, treino }: { visitaId: string; p: PresencaVisita; treino?: TreinamentoPresenca[string] }) {
   const [pending, start] = useTransition();
   return (
     <li className="flex items-center gap-3 py-2.5">
@@ -256,8 +278,21 @@ function LinhaPresenca({ visitaId, p }: { visitaId: string; p: PresencaVisita })
         <div className="truncate text-sm font-medium">{p.nome}</div>
         <div className="truncate text-xs text-muted-foreground">
           {p.cargo} · {p.setor}
+          {treino?.equipe && ` · ${treino.equipe}`}
           {p.cpf && ` · ${mascararCpf(p.cpf)}`}
         </div>
+        {treino?.equipe &&
+          (treino.faltam.length ? (
+            <div className="flex items-start gap-1 text-xs text-amber-700">
+              <CircleAlert className="mt-px size-3.5 shrink-0" />
+              <span>Falta: {treino.faltam.join(", ")}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 text-xs text-emerald-700">
+              <CircleCheck className="size-3.5 shrink-0" />
+              Temas mínimos em dia
+            </div>
+          ))}
       </div>
       {p.confirmacao === "assinatura" && p.assinatura ? (
         <img src={p.assinatura} alt={`Assinatura de ${p.nome}`} className="h-9 w-20 shrink-0 rounded border bg-white object-contain" />
@@ -278,7 +313,12 @@ function LinhaPresenca({ visitaId, p }: { visitaId: string; p: PresencaVisita })
 }
 
 /** Lista de presença da visita em andamento. */
-export function ParticipantesVisita({ presencas, ehTreinamento, ...config }: Config & { presencas: PresencaVisita[]; ehTreinamento: boolean }) {
+export function ParticipantesVisita({
+  presencas,
+  ehTreinamento,
+  treinamento,
+  ...config
+}: Config & { presencas: PresencaVisita[]; ehTreinamento: boolean; treinamento?: TreinamentoPresenca }) {
   const [aberto, setAberto] = useState(false);
 
   return (
@@ -301,7 +341,7 @@ export function ParticipantesVisita({ presencas, ehTreinamento, ...config }: Con
         {presencas.length > 0 ? (
           <ul className="divide-y">
             {presencas.map((p) => (
-              <LinhaPresenca key={p.participanteId} visitaId={config.visitaId} p={p} />
+              <LinhaPresenca key={p.participanteId} visitaId={config.visitaId} p={p} treino={treinamento?.[p.participanteId]} />
             ))}
           </ul>
         ) : (

@@ -1,8 +1,9 @@
 import "server-only";
 import { formatarDataHora } from "@/lib/datas";
 import { rotuloTipo } from "@/lib/visitas";
-import type { AlteracaoVisita, Foto, MudancaCampo, PresencaVisita, Tema, TipoVisita, UsuarioPublico, Visita, VisitaDetalhada } from "@/lib/types";
+import type { AlteracaoVisita, Equipe, Foto, MudancaCampo, PresencaVisita, Tema, TipoVisita, UsuarioPublico, Visita, VisitaDetalhada } from "@/lib/types";
 import { buscarCliente, buscarUnidade, buscarSetor } from "./clientes";
+import { listarEquipes } from "./equipes";
 import { listarTemas } from "./temas";
 import { buscarPorId as buscarUsuario } from "./usuarios";
 import { relatorioAprovado } from "./relatorios-dados";
@@ -26,11 +27,13 @@ const presenca = (p: Omit<PresencaVisita, "assinatura" | "confirmacao">, assinad
 const LUCIANA = { participanteId: "p1", nome: "Luciana Ferraz", cargo: "Assistente administrativa", cbo: { codigo: "411010", titulo: "Assistente administrativo" }, setor: "Protocolo", cpf: "12345678909" };
 const PATRICIA = { participanteId: "p3", nome: "Patrícia Gomes", cargo: "Analista de RH", cbo: { codigo: "252405", titulo: "Analista de recursos humanos" }, setor: "Recursos Humanos", cpf: "11144477735" };
 const SANDRA = { participanteId: "p4", nome: "Sandra Moura", cargo: "Enfermeira", cbo: { codigo: "223505", titulo: "Enfermeiro" }, setor: "Recepção", cpf: "52998224725" };
+const MARCELO = { participanteId: "p7", nome: "Marcelo Teixeira", cargo: "Médico clínico", cbo: { codigo: "225125", titulo: "Médico clínico" }, setor: "Ambulatório", cpf: null };
+const JULIANA = { participanteId: "p8", nome: "Juliana Prado", cargo: "Enfermeira", cbo: { codigo: "223505", titulo: "Enfermeiro" }, setor: "Ambulatório", cpf: null };
 
 function base(v: Partial<Visita> & Pick<Visita, "id" | "tecnicoId" | "clienteId" | "unidadeId" | "tipo" | "status" | "entrada">): Visita {
   return {
     setorId: null, setorOutro: null, saida: null, checkin: null, checkout: null, fotoAmbiente: null, printTela: null, linkReuniao: null,
-    temaIds: [], temaAdicional: "", fotosExtras: [], presencas: [], observacoes: "", pendencias: "", proximosPassos: "",
+    equipeIds: [], temaIds: [], temaAdicional: "", fotosExtras: [], presencas: [], observacoes: "", pendencias: "", proximosPassos: "",
     encerradaPorGestor: false, relatorioId: null, historico: [],
     ...v,
   };
@@ -96,6 +99,14 @@ function seed(): Visita[] {
       entrada: "2026-09-15T12:30:00.000Z", saida: "2026-09-15T15:00:00.000Z", checkin: coords, checkout: coords, fotoAmbiente: foto(4),
       temaIds: ["t2", "t3"], observacoes: "Suporte na emissão de guias.", relatorioId: "r-2026-09-c1",
     }),
+    base({
+      id: "v9", tecnicoId: "u3", clienteId: "c2", unidadeId: "un3", setorOutro: "Ambulatório", tipo: "implantacao", status: "encerrada",
+      entrada: "2026-10-23T12:00:00.000Z", saida: "2026-10-23T16:00:00.000Z", checkin: coords, checkout: coords, fotoAmbiente: foto(3),
+      equipeIds: ["e1", "e2"], temaIds: ["t10", "t12"], presencas: [presenca(MARCELO, false), presenca(JULIANA, false)],
+      observacoes: "Implantação do prontuário eletrônico com médicos e enfermagem do ambulatório.",
+      pendencias: "Renato Dias (técnico de enfermagem) faltou.",
+      proximosPassos: "Treinar prescrição médica e checagem de medicação.",
+    }),
   ];
 }
 
@@ -107,13 +118,14 @@ const visitas = (g.__visitas ??= seed());
 
 export type { VisitaDetalhada };
 
-async function detalhar(v: Visita, temas?: Tema[]): Promise<VisitaDetalhada> {
-  const [tecnico, cliente, unidade, setor, todos] = await Promise.all([
+async function detalhar(v: Visita, temas?: Tema[], equipes?: Equipe[]): Promise<VisitaDetalhada> {
+  const [tecnico, cliente, unidade, setor, todos, todasEquipes] = await Promise.all([
     buscarUsuario(v.tecnicoId),
     buscarCliente(v.clienteId),
     buscarUnidade(v.unidadeId),
     v.setorId ? buscarSetor(v.setorId) : null,
     temas ?? listarTemas(),
+    equipes ?? listarEquipes(),
   ]);
   return {
     ...v,
@@ -121,14 +133,15 @@ async function detalhar(v: Visita, temas?: Tema[]): Promise<VisitaDetalhada> {
     clienteNome: cliente?.nome ?? "—",
     unidadeNome: unidade?.nome ?? "—",
     setorNome: setor?.nome ?? v.setorOutro ?? "—",
+    equipes: todasEquipes.filter((e) => v.equipeIds.includes(e.id)).map((e) => e.nome),
     temas: todos.filter((t) => v.temaIds.includes(t.id)),
     travada: relatorioAprovado(v.relatorioId),
   };
 }
 
 async function detalharTodas(lista: Visita[]) {
-  const temas = await listarTemas();
-  return Promise.all(lista.map((v) => detalhar(v, temas)));
+  const [temas, equipes] = await Promise.all([listarTemas(), listarEquipes()]);
+  return Promise.all(lista.map((v) => detalhar(v, temas, equipes)));
 }
 
 /** Em andamento, da mais antiga para a mais recente (as esquecidas aparecem primeiro). */
@@ -161,6 +174,22 @@ export async function listarEncerradas(f: FiltroVisitas = {}): Promise<VisitaDet
 export async function buscarVisita(id: string): Promise<VisitaDetalhada | null> {
   const v = visitas.find((x) => x.id === id);
   return v ? detalhar(v) : null;
+}
+
+/**
+ * Temas que cada participante do cliente já recebeu (participanteId → temaIds): estava na lista
+ * de presença de uma visita não cancelada com o tema marcado.
+ */
+export async function temasRecebidos(clienteId: string): Promise<Map<string, Set<string>>> {
+  const recebidos = new Map<string, Set<string>>();
+  for (const v of visitas.filter((x) => x.clienteId === clienteId && x.status !== "cancelada")) {
+    for (const p of v.presencas) {
+      const temas = recebidos.get(p.participanteId) ?? new Set<string>();
+      v.temaIds.forEach((t) => temas.add(t));
+      recebidos.set(p.participanteId, temas);
+    }
+  }
+  return recebidos;
 }
 
 // ---------- Alterações pelo gestor ----------
@@ -291,6 +320,10 @@ function abertaDe(id: string, tecnicoId: string): Visita {
   if (!v || v.tecnicoId !== tecnicoId) throw new Error("Visita não encontrada");
   if (v.status !== "em_andamento") throw new Error("A visita já foi encerrada");
   return v;
+}
+
+export async function definirEquipes(id: string, tecnicoId: string, equipeIds: string[]) {
+  abertaDe(id, tecnicoId).equipeIds = [...new Set(equipeIds)];
 }
 
 export async function definirTemas(id: string, tecnicoId: string, temaIds: string[]) {
