@@ -26,7 +26,7 @@ As regras com código `RN-PL-xx` são da Plataforma SIDIM e estão na Especifica
 | `reports.tecnico` | App do Técnico: check-in, visita, presenças, check-out e o próprio histórico |
 | `reports.clientes.cadastrar` | Criar cliente à mão; editar nome, CNPJ e nomes no Fortics; estabelecimentos e setores |
 | `reports.contratos.gerenciar` | Contratos, tipo de comprovação, exigência de CPF e aprovadores |
-| `reports.temas.gerenciar` | Temas das visitas |
+| `reports.temas.gerenciar` | Temas das visitas e equipes com os temas mínimos |
 | `reports.participantes.gerenciar` | Ver e editar participantes (CPF, CBO, setor) e criar provisórios fora de uma visita |
 | `reports.participantes.revisar` | Reservada para a junção de participantes (Fase 5); ainda sem tela |
 | `reports.visitas.gerenciar` | Ver todas as visitas; corrigir, encerrar e cancelar |
@@ -81,6 +81,15 @@ Onde: `src/app/admin/clientes/actions.ts`, `src/app/admin/clientes/geo-actions.t
 
 Onde: `src/app/admin/temas/actions.ts`, `src/lib/repo/temas.ts`.
 
+### Equipes
+
+- Uma equipe (médica, enfermagem, administrativa…) é um **cadastro único da SIDIM**, que vale para todos os clientes, com os seus **temas mínimos**. Quem gerencia temas gerencia equipes (`reports.temas.gerenciar`).
+- O nome é obrigatório (até 80 caracteres) e não pode repetir outro, sem diferenciar acento nem maiúsculas. É preciso marcar **pelo menos um tema mínimo**, entre os temas ativos (ou os que a equipe já tinha, mesmo inativados depois).
+- Os temas mínimos podem ser de **sistemas diferentes**: na visita, só os do sistema do contrato são sugeridos.
+- Não há exclusão: a equipe é **inativada**. Equipe inativa não aparece para o técnico, mas continua nas visitas em que já foi marcada.
+
+Onde: `src/app/admin/equipes/actions.ts`, `src/lib/repo/equipes.ts`.
+
 ### Participantes
 
 - Ficam na tabela de participantes da plataforma (comum com o SINC), **por sistema do cliente**. Há dois tipos: o **confirmado**, que vem do ERP pelo painel do SINC (o nome vem do ERP e o telefone é editado no SINC), e o **provisório**, criado no ReportS sem usuário do ERP, pelo técnico em campo ou pela Administração. Os já unidos (Fase 5) ficam de fora.
@@ -133,6 +142,7 @@ Onde: `src/app/tecnico/actions.ts`, `src/components/tecnico/use-gps.ts`, `src/li
 Só o próprio técnico altera a visita, e só enquanto ela está em andamento:
 
 - **Temas**: marca os temas ativos **do sistema do contrato** da visita (ou os que já estavam marcados, mesmo inativados depois);
+- **Equipes treinadas** (só na implantação, no treinamento e no treinamento online): marca as equipes ativas (ou as já marcadas, mesmo inativadas depois). O ReportS mostra os **temas mínimos** delas que são do sistema do contrato, como sugestão; o técnico marca os que trabalhou, e os demais temas continuam em "Outros temas". Marcar a equipe não marca nenhum tema sozinho. As equipes treinadas aparecem no detalhe da visita, no relatório (PDF) e na página do aprovador;
 - **Tema adicional**: texto livre de até 300 caracteres;
 - **Fotos extras**: adiciona e remove.
 
@@ -175,7 +185,7 @@ Aparecem da mais antiga para a mais recente, para que as esquecidas fiquem no to
 ### Correção de visita encerrada
 
 - Campos que podem ser corrigidos: entrada, saída (depois da entrada e não no futuro), tipo, estabelecimento (do mesmo cliente), setor, temas (só do sistema do contrato da visita; os já marcados continuam aceitos), tema adicional, observações, pendências e próximos passos. Também dá para **retirar** participantes da lista e fotos extras.
-- Cliente, técnico, sistema, localizações, foto do ambiente e print não mudam.
+- Cliente, técnico, sistema, localizações, foto do ambiente, print e equipes treinadas não mudam.
 - O **motivo** é obrigatório (pelo menos 5 caracteres). Se nada mudou, nada é gravado.
 - Visita em **relatório aprovado** fica **travada**: ninguém altera.
 
@@ -256,5 +266,6 @@ Onde: `src/lib/imagem.ts`, `src/lib/repo/arquivos.ts`, `src/app/arquivos/[id]/ro
 - Aviso de visita aberta por WhatsApp (Fortics): existe só o campo de telefone no SINC; faltam o envio e as regras do aviso.
 - Marcação de implantação e check-list (ficam para quando a função existir).
 - Junção de participantes (provisório com confirmado): Fase 5 do plano da plataforma.
+- Temas mínimos por pessoa: a visita não mostra quem já recebeu cada tema, e o participante não tem equipe. Um relatório de temas mínimos ainda não treinados, por cliente e equipe, está em análise.
 - Contrato e relatório quando o cliente tem dois tenants do mesmo sistema (QA-043 do SINC, decidida: pode): hoje cada contrato mostra o mesmo número de chamados do cliente naquele sistema.
 - Envio real de e-mail depende das credenciais do SMTP da SIDIM e do SPF/DKIM do remetente; os chamados de suporte dependem do fluxo do n8n.

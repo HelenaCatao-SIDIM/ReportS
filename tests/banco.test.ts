@@ -21,6 +21,8 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
   let relatorios: typeof import("@/lib/repo/relatorios");
   let contratos: typeof import("@/lib/repo/contratos");
   let aprovadores: typeof import("@/lib/repo/aprovadores");
+  let equipes: typeof import("@/lib/repo/equipes");
+  let temas: typeof import("@/lib/repo/temas");
   let tecnico: { id: string; nome: string; email: string; ativo: boolean; telefone: null; papelIds: string[] };
   let sistemaDoClienteId: string;
   let clienteId: string;
@@ -36,6 +38,8 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     relatorios = await import("@/lib/repo/relatorios");
     contratos = await import("@/lib/repo/contratos");
     aprovadores = await import("@/lib/repo/aprovadores");
+    equipes = await import("@/lib/repo/equipes");
+    temas = await import("@/lib/repo/temas");
 
     const sdc = await db.plataforma.clients.findFirst({ where: { customer_id: { not: null }, estado: { in: ["em_implantacao", "vinculado"] } } });
     const usuario = await db.plataforma.users.findFirst({ where: { active: true } });
@@ -152,6 +156,38 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     assert.ok("relatorio" in criado);
     await relatorios.excluirRascunho(criado.relatorio.id);
     assert.equal((await visitas.buscarVisita(v.id))?.relatorioId, null);
+  });
+
+  test("equipes: nome sem repetir (acento e maiúsculas), temas mínimos trocados na edição e inativação", async () => {
+    const t1 = await temas.criarTema({ nome: "Prontuário eletrônico", sistema: "saude", modulo: "Atendimento" });
+    const t2 = await temas.criarTema({ nome: "Prescrição médica", sistema: "saude", modulo: "Atendimento" });
+    const e = await equipes.criarEquipe({ nome: "Equipe médica", temaIds: [t1.id, t1.id] });
+    assert.deepEqual(e.temaIds, [t1.id]);
+    assert.equal(await equipes.equipeDuplicada("EQUIPE MEDICA"), true);
+    assert.equal(await equipes.equipeDuplicada("Equipe médica", e.id), false, "a própria equipe não conta como repetida");
+
+    await equipes.atualizarEquipe(e.id, { nome: "Equipe médica", temaIds: [t2.id] });
+    assert.deepEqual((await equipes.buscarEquipe(e.id))?.temaIds, [t2.id]);
+    await equipes.definirEquipeAtiva(e.id, false);
+    assert.equal((await equipes.listarEquipes())[0].ativo, false);
+  });
+
+  test("equipes treinadas ficam na visita e aparecem pelo nome, mesmo depois de inativadas", async () => {
+    const t = await temas.criarTema({ nome: "Evolução de enfermagem", sistema: "saude", modulo: "Enfermagem" });
+    const enfermagem = await equipes.criarEquipe({ nome: "Equipe de enfermagem", temaIds: [t.id] });
+    const administrativa = await equipes.criarEquipe({ nome: "Equipe administrativa", temaIds: [t.id] });
+    const v = await checkin();
+    await visitas.definirEquipes(v.id, tecnico.id, [enfermagem.id, administrativa.id, enfermagem.id]);
+    await equipes.definirEquipeAtiva(enfermagem.id, false);
+
+    const lida = (await visitas.buscarVisita(v.id))!;
+    assert.deepEqual(lida.equipeIds.sort(), [administrativa.id, enfermagem.id].sort());
+    assert.deepEqual(lida.equipes, ["Equipe administrativa", "Equipe de enfermagem"]);
+
+    await visitas.definirEquipes(v.id, tecnico.id, [administrativa.id]);
+    assert.deepEqual((await visitas.buscarVisita(v.id))?.equipes, ["Equipe administrativa"]);
+    await encerrar(v.id);
+    await assert.rejects(visitas.definirEquipes(v.id, tecnico.id, []), /já foi encerrada/);
   });
 
   test("o banco recusa período invertido e código CBO fora do formato", async () => {

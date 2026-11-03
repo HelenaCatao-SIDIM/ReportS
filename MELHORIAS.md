@@ -302,10 +302,14 @@ Situação em 03/11/2026: banco, armazenamento, CBO e publicação com https est
 
 ## Sugestões a avaliar
 
+- [ ] **Média** — Relatório de **temas mínimos ainda não treinados**, por cliente e equipe: os temas mínimos de cada equipe que ainda não foram marcados em nenhuma visita do cliente. Fica fora do registro da visita e sem detalhar por pessoa (o participante não tem equipe). Origem: Helena, junto com as equipes (03/11/2026). Ainda não é o momento de fazer.
+
 - [ ] **Baixa** — Acesso pelo GitHub Codespaces (navegador, com https). **Não testado.** O login usa Server Action, e a documentação do Next.js 16 indica que acesso por túnel ou proxy pode exigir `allowedOrigins` (em `experimental.serverActions`) e `allowedDevOrigins` no `next.config.ts`, liberando `*.app.github.dev`. Avaliar também um `devcontainer`. Em Codespaces, o `APP_URL` precisa ser o endereço público, senão os links de aprovação apontam para `localhost`.
 - [ ] **Baixa** — Padronizar a versão do npm da equipe. O `npm install` com npm 10.9 remove campos `libc` do `package-lock.json`, gerando um diff sem significado. Enquanto não padronizar, não commitar esse diff.
 
 ## Concluído
+
+- [x] **Equipes com temas mínimos sugeridos na visita** (03/11/2026): cadastro em Administração → Equipes (permissão de temas), tabelas novas no banco `reports` (`equipes`, `equipe_temas`, `visita_equipes`), sugestão dos temas mínimos do sistema do contrato na implantação e nos treinamentos, e equipes treinadas no detalhe, no PDF e na página do aprovador. Refeita sobre a versão com banco; substitui a PR #17, que tinha partido da versão em memória de 26/10.
 
 - [x] Mockup completo das três interfaces (Administração, App do Técnico e Aprovação), com dados em memória — `745a349`.
 - [x] README com como rodar, acessos de teste e situação atual — `c085435`.

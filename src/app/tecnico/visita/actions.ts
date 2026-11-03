@@ -3,9 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { exigirPermissaoAcao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
+import { listarEquipes } from "@/lib/repo/equipes";
 import { listarTemas } from "@/lib/repo/temas";
+import { sugereTemasPorEquipe } from "@/lib/regras-visita";
 import { salvarImagem } from "@/lib/repo/arquivos";
-import { adicionarFotoExtra, buscarVisita, definirTemaAdicional, definirTemas, removerFotoExtra } from "@/lib/repo/visitas";
+import { adicionarFotoExtra, buscarVisita, definirEquipes, definirTemaAdicional, definirTemas, removerFotoExtra } from "@/lib/repo/visitas";
 
 /** Resultado simples das ações salvas na hora: null = ok; texto = erro para mostrar. */
 type Resultado = string | null;
@@ -31,6 +33,17 @@ export async function salvarTemas(visitaId: string, temaIds: string[]): Promise<
     (await listarTemas()).filter((t) => t.sistema === v.sistema && (t.ativo || v.temaIds.includes(t.id))).map((t) => t.id),
   );
   await definirTemas(visitaId, tecnico.id, temaIds.filter((id) => validos.has(id)));
+  atualizar(visitaId);
+  return null;
+}
+
+export async function salvarEquipes(visitaId: string, equipeIds: string[]): Promise<Resultado> {
+  const { tecnico, v, erro } = await visitaAberta(visitaId);
+  if (erro) return erro;
+  if (!sugereTemasPorEquipe(v.tipo)) return "Este tipo de visita não registra equipes.";
+  // Mesma regra dos temas: equipes ativas, ou já marcadas antes de serem inativadas.
+  const validas = new Set((await listarEquipes()).filter((e) => e.ativo || v.equipeIds.includes(e.id)).map((e) => e.id));
+  await definirEquipes(visitaId, tecnico.id, equipeIds.filter((id) => validas.has(id)));
   atualizar(visitaId);
   return null;
 }
