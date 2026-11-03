@@ -176,22 +176,6 @@ export async function buscarVisita(id: string): Promise<VisitaDetalhada | null> 
   return v ? detalhar(v) : null;
 }
 
-/**
- * Temas que cada participante do cliente já recebeu (participanteId → temaIds): estava na lista
- * de presença de uma visita não cancelada com o tema marcado.
- */
-export async function temasRecebidos(clienteId: string): Promise<Map<string, Set<string>>> {
-  const recebidos = new Map<string, Set<string>>();
-  for (const v of visitas.filter((x) => x.clienteId === clienteId && x.status !== "cancelada")) {
-    for (const p of v.presencas) {
-      const temas = recebidos.get(p.participanteId) ?? new Set<string>();
-      v.temaIds.forEach((t) => temas.add(t));
-      recebidos.set(p.participanteId, temas);
-    }
-  }
-  return recebidos;
-}
-
 // ---------- Alterações pelo gestor ----------
 
 function registrar(v: Visita, autor: UsuarioPublico, acao: AlteracaoVisita["acao"], motivo: string, mudancas: MudancaCampo[]) {

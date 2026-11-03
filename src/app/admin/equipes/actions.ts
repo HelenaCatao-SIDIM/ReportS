@@ -11,11 +11,6 @@ export interface EquipeFormState {
   valores?: { nome: string; temaIds: string[] };
 }
 
-const atualizar = () => {
-  revalidatePath("/admin/equipes");
-  revalidatePath("/admin/participantes");
-};
-
 /** Cria (equipeId null) ou edita uma equipe e seus temas mínimos. */
 export async function salvarEquipe(equipeId: string | null, _: EquipeFormState, fd: FormData): Promise<EquipeFormState> {
   await exigirGestorAcao();
@@ -31,12 +26,12 @@ export async function salvarEquipe(equipeId: string | null, _: EquipeFormState, 
 
   if (equipeId) await atualizarEquipe(equipeId, { nome, temaIds });
   else await criarEquipe({ nome, temaIds });
-  atualizar();
+  revalidatePath("/admin/equipes");
   return { ok: true };
 }
 
 export async function alternarEquipe(id: string, ativo: boolean) {
   await exigirGestorAcao();
   await definirEquipeAtiva(id, ativo);
-  atualizar();
+  revalidatePath("/admin/equipes");
 }

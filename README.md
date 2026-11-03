@@ -72,16 +72,13 @@ entre como gestor → **Relatórios → Novo relatório** → emita → **Caixa 
 
 ### Equipes e temas mínimos
 
-Cada equipe (médica, enfermagem, administrativa…) tem seus **temas mínimos**, em **Administração → Equipes** (vale para todos os clientes),
-e cada participante pertence a uma equipe. Na **implantação** e nos **treinamentos**, o técnico marca as equipes treinadas e o ReportS
-sugere os temas mínimos, mostrando quem da equipe ainda não recebeu cada um. A visita aceita vários temas, e o técnico ainda pode buscar
-qualquer outro tema do catálogo.
+Cada equipe (médica, enfermagem, administrativa…) tem seus **temas mínimos**, em **Administração → Equipes** (vale para todos os clientes).
+Na **implantação** e nos **treinamentos**, o técnico marca as equipes treinadas e o ReportS sugere os temas mínimos delas para ele marcar.
+A visita aceita vários temas, e o técnico ainda pode buscar qualquer outro tema do catálogo. As equipes treinadas saem no relatório.
 
-O tema só sai da pendência de uma pessoa quando ela está na lista de presença de uma visita com o tema marcado: quem faltou continua
-pendente. O gestor vê as pendências em **Participantes** (filtro "Só com treinamento pendente").
+Não há controle por pessoa: o registro da visita não mostra quem já recebeu cada tema.
 
 Para testar: entre como `carlos@sidim.com.br` → a implantação aberta na Clínica Bem Viver → marque "Equipe médica" e "Equipe de enfermagem".
-Na implantação de 23/10, Renato Dias (enfermagem) faltou e aparece com os temas pendentes.
 
 Para ver o check-in do técnico, ele não pode ter visita aberta: faça o check-out da visita de exemplo
 (ou, como gestor, cancele-a em **Visitas → Em andamento**).
@@ -97,7 +94,6 @@ nesse endereço — use um treinamento online para testar sem GPS.
 - `src/proxy.ts` — redireciona por perfil (checagem rápida do cookie de sessão)
 - `src/lib/session.ts`, `src/lib/dal.ts` — sessão (JWT em cookie httpOnly) e verificação de acesso
 - `src/lib/repo/*` — **camada de dados (mock em memória)**: usuários, clientes, temas, equipes, participantes, CBO, visitas, relatórios, arquivos
-- `src/lib/treinamento.ts` — temas mínimos pendentes de cada participante
 - `src/lib/emissao.tsx`, `src/lib/pdf/` — geração do PDF e envio (simulado) dos e-mails do relatório
 - `src/lib/email.ts` — envio de e-mail (simulado; trocar pelo provedor real)
 - `src/app/admin/*` — Administração (gestor)
@@ -112,3 +108,8 @@ nesse endereço — use um treinamento online para testar sem GPS.
 3. Envio real de e-mail (Resend) com o domínio da SIDIM.
 4. Importar a tabela CBO oficial do Ministério do Trabalho.
 5. Publicar (Vercel) e testar em celular com https.
+
+## Em análise
+
+- **Temas mínimos ainda não treinados:** um relatório, por cliente e equipe, dos temas mínimos que ainda não foram marcados em nenhuma
+  visita. Fica fora do registro da visita e sem detalhar por pessoa. Ainda não é o momento de fazer.

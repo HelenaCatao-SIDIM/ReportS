@@ -7,7 +7,6 @@ import { getUsuarioAtual } from "@/lib/dal";
 import { buscarVisita, type VisitaDetalhada } from "@/lib/repo/visitas";
 import { listarTemas } from "@/lib/repo/temas";
 import { listarEquipes } from "@/lib/repo/equipes";
-import { situacaoTreinamento } from "@/lib/treinamento";
 import { buscarCliente, listarUnidades } from "@/lib/repo/clientes";
 import { formatarData, formatarDataHora, formatarHora } from "@/lib/datas";
 import { ehPresencial, rotuloTipo } from "@/lib/visitas";
@@ -20,7 +19,7 @@ import { SelosVisita } from "@/components/visita/selos";
 import { Card } from "@/components/ui/card";
 import { TemasVisita, type PorEquipe } from "./temas-visita";
 import { FotosExtras } from "./fotos-extras";
-import { ParticipantesVisita, type TreinamentoPresenca } from "./participantes-visita";
+import { ParticipantesVisita } from "./participantes-visita";
 
 export default function VisitaTecnicoPage({ params, searchParams }: PageProps<"/tecnico/visita/[id]">) {
   return (
@@ -67,35 +66,15 @@ function Cabecalho({ v }: { v: VisitaDetalhada }) {
 }
 
 async function EmAndamento({ v }: { v: VisitaDetalhada }) {
-  const [todosTemas, cliente, unidades, equipes, situacao] = await Promise.all([
-    listarTemas(),
-    buscarCliente(v.clienteId),
-    listarUnidades(v.clienteId),
-    listarEquipes(),
-    situacaoTreinamento(v.clienteId),
-  ]);
+  const [todosTemas, cliente, unidades, equipes] = await Promise.all([listarTemas(), buscarCliente(v.clienteId), listarUnidades(v.clienteId), listarEquipes()]);
   const temas = todosTemas.filter((t) => t.ativo || v.temaIds.includes(t.id));
   const setores = [...new Set(unidades.flatMap((u) => u.setores.map((s) => s.nome)))].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  const equipesAtivas = equipes.filter((e) => e.ativo);
-
   // Implantação e treinamentos: o técnico escolhe as equipes e recebe os temas mínimos como sugestão.
-  const porEquipe = sugereTemasPorEquipe(v.tipo);
-  const sugestoes: PorEquipe | undefined = porEquipe
+  const porEquipe: PorEquipe | undefined = sugereTemasPorEquipe(v.tipo)
     ? {
         equipes: equipes.filter((e) => e.ativo || v.equipeIds.includes(e.id)).map(({ id, nome, temaIds }) => ({ id, nome, temaIds })),
         inicial: v.equipeIds,
-        pessoas: [...situacao.values()].flatMap((s) =>
-          s.equipe ? [{ id: s.participante.id, nome: s.participante.nome, equipeId: s.equipe.id, faltam: s.pendentes.map((t) => t.id) }] : [],
-        ),
       }
-    : undefined;
-  const treinamento: TreinamentoPresenca | undefined = porEquipe
-    ? Object.fromEntries(
-        v.presencas.map((p) => {
-          const s = situacao.get(p.participanteId);
-          return [p.participanteId, { equipe: s?.equipe?.nome ?? null, faltam: s?.pendentes.map((t) => t.nome) ?? [] }];
-        }),
-      )
     : undefined;
   return (
     <div className="space-y-4">
@@ -104,7 +83,7 @@ async function EmAndamento({ v }: { v: VisitaDetalhada }) {
         Início
       </Link>
       <Cabecalho v={v} />
-      <TemasVisita visitaId={v.id} temas={temas} inicial={v.temaIds} adicionalInicial={v.temaAdicional} porEquipe={sugestoes} />
+      <TemasVisita visitaId={v.id} temas={temas} inicial={v.temaIds} adicionalInicial={v.temaAdicional} porEquipe={porEquipe} />
       <FotosExtras visitaId={v.id} fotos={v.fotosExtras} />
       <ParticipantesVisita
         visitaId={v.id}
@@ -113,9 +92,7 @@ async function EmAndamento({ v }: { v: VisitaDetalhada }) {
         exigeAssinatura={cliente?.nivel === "assinado" && ehPresencial(v.tipo)}
         exigeCpf={!!cliente?.exigeCpf}
         setores={setores}
-        equipes={equipesAtivas.map(({ id, nome }) => ({ id, nome }))}
         ehTreinamento={v.tipo === "treinamento" || v.tipo === "treinamento_online"}
-        treinamento={treinamento}
       />
       <div className="space-y-2 pb-2">
         <Button nativeButton={false} render={<Link href={`/tecnico/visita/${v.id}/checkout`} />} className="h-12 w-full text-base">

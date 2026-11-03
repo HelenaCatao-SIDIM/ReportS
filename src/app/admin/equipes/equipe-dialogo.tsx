@@ -66,7 +66,7 @@ function EquipeForm({ equipe, temas, onSalvo }: { equipe?: Equipe; temas: Tema[]
         {e.temas ? (
           <p className="text-xs text-destructive">{e.temas}</p>
         ) : (
-          <p className="text-xs text-muted-foreground">O ReportS sugere estes temas na visita e cobra cada pessoa da equipe até ela participar de todos.</p>
+          <p className="text-xs text-muted-foreground">Quando o técnico marca esta equipe na visita, o ReportS sugere estes temas.</p>
         )}
       </div>
       <DialogFooter>
@@ -99,7 +99,7 @@ export function EquipeDialogo({ equipe, temas }: { equipe?: Equipe; temas: Tema[
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{equipe ? "Editar equipe" : "Nova equipe"}</DialogTitle>
-            <DialogDescription>Vale para todos os clientes. Cada participante pertence a uma equipe.</DialogDescription>
+            <DialogDescription>Vale para todos os clientes.</DialogDescription>
           </DialogHeader>
           {/* Remonta a cada abertura para começar sem erros antigos */}
           {aberto && <EquipeForm equipe={equipe} temas={temas} onSalvo={() => setAberto(false)} />}

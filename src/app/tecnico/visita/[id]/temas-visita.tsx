@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, CircleAlert, CircleCheck, CloudCheck, Loader2, Search, X } from "lucide-react";
+import { Check, CloudCheck, Loader2, Search, X } from "lucide-react";
 import type { Tema } from "@/lib/types";
 import { normalizar } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -30,15 +30,13 @@ function Indicador({ s }: { s: Situacao }) {
   return null;
 }
 
-/** Equipes e pessoas do cliente, para sugerir os temas mínimos (implantação e treinamentos). */
+/** Equipes que o técnico pode marcar, para sugerir os temas mínimos (implantação e treinamentos). */
 export interface PorEquipe {
   equipes: { id: string; nome: string; temaIds: string[] }[];
   inicial: string[];
-  /** Pessoas do cliente com equipe; `faltam` = temas mínimos ainda não recebidos, já contando esta visita. */
-  pessoas: { id: string; nome: string; equipeId: string; faltam: string[] }[];
 }
 
-function LinhaTema({ t, marcado, onClick, children }: { t: Tema; marcado: boolean; onClick: () => void; children?: React.ReactNode }) {
+function LinhaTema({ t, marcado, onClick }: { t: Tema; marcado: boolean; onClick: () => void }) {
   return (
     <li>
       <button type="button" onClick={onClick} aria-pressed={marcado} className={cn("flex w-full items-center gap-3 px-3 py-2.5 text-left", marcado && "bg-primary/5")}>
@@ -55,32 +53,9 @@ function LinhaTema({ t, marcado, onClick, children }: { t: Tema; marcado: boolea
           <span className="block text-xs text-muted-foreground">
             {t.sistema} · {t.modulo}
           </span>
-          {children}
         </span>
       </button>
     </li>
-  );
-}
-
-const nomes = (xs: { nome: string }[]) => (xs.length > 3 ? `${xs.slice(0, 3).map((p) => p.nome).join(", ")} e mais ${xs.length - 3}` : xs.map((p) => p.nome).join(", "));
-
-/** Quantas pessoas das equipes escolhidas ainda não receberam o tema. */
-function SituacaoTema({ daEquipe, faltam }: { daEquipe: { nome: string }[]; faltam: { nome: string }[] }) {
-  if (!daEquipe.length) return <span className="block text-xs text-muted-foreground">Ninguém desta equipe cadastrado no cliente.</span>;
-  if (!faltam.length)
-    return (
-      <span className="flex items-center gap-1 text-xs text-emerald-700">
-        <CircleCheck className="size-3.5 shrink-0" />
-        Todos da equipe já receberam ({daEquipe.length})
-      </span>
-    );
-  return (
-    <span className="flex items-start gap-1 text-xs text-amber-700">
-      <CircleAlert className="mt-px size-3.5 shrink-0" />
-      <span>
-        Falta para {faltam.length} de {daEquipe.length}: {nomes(faltam)}
-      </span>
-    </span>
   );
 }
 
@@ -128,10 +103,6 @@ export function TemasVisita({
   // Temas mínimos das equipes escolhidas, na ordem do catálogo.
   const escolhidas = porEquipe?.equipes.filter((e) => equipeIds.includes(e.id)) ?? [];
   const sugeridos = temas.filter((t) => escolhidas.some((e) => e.temaIds.includes(t.id)));
-  const situacaoDoTema = (temaId: string) => {
-    const daEquipe = (porEquipe?.pessoas ?? []).filter((p) => escolhidas.some((e) => e.id === p.equipeId && e.temaIds.includes(temaId)));
-    return { daEquipe, faltam: daEquipe.filter((p) => p.faltam.includes(temaId)) };
-  };
 
   const b = normalizar(busca);
   const outros = temas.filter((t) => !sugeridos.includes(t));
@@ -193,14 +164,12 @@ export function TemasVisita({
                 <div className="pt-1 text-sm font-medium">Temas mínimos sugeridos</div>
                 <ul className="divide-y rounded-lg border bg-background">
                   {sugeridos.map((t) => (
-                    <LinhaTema key={t.id} t={t} marcado={selecionados.includes(t.id)} onClick={() => alternar(t.id)}>
-                      <SituacaoTema {...situacaoDoTema(t.id)} />
-                    </LinhaTema>
+                    <LinhaTema key={t.id} t={t} marcado={selecionados.includes(t.id)} onClick={() => alternar(t.id)} />
                   ))}
                 </ul>
               </>
             ) : (
-              <p className="text-xs text-muted-foreground">Escolha as equipes para ver os temas mínimos que elas precisam receber.</p>
+              <p className="text-xs text-muted-foreground">Escolha as equipes para ver os temas mínimos sugeridos.</p>
             )}
           </div>
         )}

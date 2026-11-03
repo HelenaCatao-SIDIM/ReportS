@@ -2,10 +2,10 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { Loader2, Plus } from "lucide-react";
-import type { Equipe, Participante } from "@/lib/types";
+import type { Participante } from "@/lib/types";
 import { formatarCpf } from "@/lib/format";
 import { salvarParticipante, type ParticipanteFormState } from "./actions";
-import { Campo, selectClass } from "@/components/form/campo";
+import { Campo } from "@/components/form/campo";
 import { CboCampo } from "@/components/form/cbo-campo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,11 +15,10 @@ interface Props {
   clienteId: string;
   exigeCpf: boolean;
   setores: string[];
-  equipes: Equipe[];
   participante?: Participante;
 }
 
-function ParticipanteForm({ clienteId, exigeCpf, setores, equipes, participante, onSalvo }: Props & { onSalvo: () => void }) {
+function ParticipanteForm({ clienteId, exigeCpf, setores, participante, onSalvo }: Props & { onSalvo: () => void }) {
   const [state, action, pending] = useActionState<ParticipanteFormState, FormData>(
     salvarParticipante.bind(null, clienteId, participante?.id ?? null),
     {},
@@ -56,18 +55,6 @@ function ParticipanteForm({ clienteId, exigeCpf, setores, equipes, participante,
           <option key={s} value={s} />
         ))}
       </datalist>
-      <Campo id="p-equipe" label="Equipe" erro={e.equipe} dica="Define os temas mínimos que a pessoa precisa receber.">
-        <select id="p-equipe" name="equipeId" defaultValue={v?.equipeId ?? ""} className={selectClass} aria-invalid={!!e.equipe}>
-          <option value="">Escolha a equipe</option>
-          {equipes
-            .filter((eq) => eq.ativo || eq.id === participante?.equipeId)
-            .map((eq) => (
-              <option key={eq.id} value={eq.id}>
-                {eq.ativo ? eq.nome : `${eq.nome} (inativa)`}
-              </option>
-            ))}
-        </select>
-      </Campo>
       <Campo id="p-cbo" label="Ocupação (CBO)" erro={e.cbo} dica="Busque pelo nome do cargo na tabela CBO.">
         <CboCampo id="p-cbo" name="cbo" inicial={v?.cbo ?? null} invalido={!!e.cbo} />
       </Campo>

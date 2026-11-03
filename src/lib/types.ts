@@ -61,7 +61,7 @@ export interface Tema {
 
 /**
  * Equipe do cliente (médica, enfermagem, administrativa…). Cadastro único da SIDIM, vale para todos os clientes.
- * Os temas mínimos são sugeridos na visita e cobrados de cada participante da equipe.
+ * Os temas mínimos são sugeridos na visita quando o técnico marca a equipe.
  */
 export interface Equipe {
   id: string;
@@ -84,8 +84,6 @@ export interface Participante {
   cargo: string;
   cbo: Cbo;
   setor: string;
-  /** Define os temas mínimos que a pessoa precisa receber. Null nos cadastros antigos, sem equipe. */
-  equipeId: string | null;
   /** Somente dígitos; preenchido só quando o cliente exige CPF. */
   cpf: string | null;
   /** Cadastrado pelo técnico durante uma visita. */

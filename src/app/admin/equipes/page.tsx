@@ -11,7 +11,7 @@ import { EquipeDialogo } from "./equipe-dialogo";
 import { alternarEquipe } from "./actions";
 
 const TITULO = "Equipes";
-const DESCRICAO = "Temas mínimos de cada equipe. Na implantação e nos treinamentos, o ReportS sugere esses temas e mostra quem ainda não os recebeu.";
+const DESCRICAO = "Temas mínimos de cada equipe. Na implantação e nos treinamentos, o técnico marca as equipes e o ReportS sugere esses temas.";
 
 export default function EquipesPage() {
   return (
@@ -79,7 +79,7 @@ async function Conteudo() {
                     <EquipeDialogo equipe={e} temas={temas} />
                     <BotaoAtivo
                       ativo={e.ativo}
-                      confirmacao={`Inativar a "${e.nome}"? Ela deixa de aparecer para o técnico e os temas mínimos deixam de ser cobrados de quem é dela.`}
+                      confirmacao={`Inativar a "${e.nome}"? Ela deixa de aparecer para o técnico, mas continua nas visitas já registradas.`}
                       acao={alternarEquipe.bind(null, e.id, !e.ativo)}
                     />
                   </TableCell>
@@ -90,7 +90,7 @@ async function Conteudo() {
         </div>
       </Card>
       <p className="mt-3 text-xs text-muted-foreground">
-        {equipes.length} {equipes.length === 1 ? "equipe" : "equipes"} ({ativas} {ativas === 1 ? "ativa" : "ativas"}). Temas riscados estão inativos e não são cobrados.
+        {equipes.length} {equipes.length === 1 ? "equipe" : "equipes"} ({ativas} {ativas === 1 ? "ativa" : "ativas"}). Temas riscados estão inativos e não são sugeridos.
       </p>
     </>
   );
