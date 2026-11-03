@@ -6,7 +6,9 @@ import { exigirPermissaoAcao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
 import { deInputLocal } from "@/lib/datas";
 import { TIPOS_VISITA } from "@/lib/visitas";
+import { equipesDaVisita, sugereTemasPorEquipe } from "@/lib/regras-visita";
 import { buscarSetor, buscarUnidade } from "@/lib/repo/clientes";
+import { listarEquipes } from "@/lib/repo/equipes";
 import { listarTemas } from "@/lib/repo/temas";
 import { buscarVisita, cancelarPelaAdministracao, corrigirPelaAdministracao, encerrarPelaAdministracao } from "@/lib/repo/visitas";
 import type { TipoVisita } from "@/lib/types";
@@ -93,18 +95,23 @@ export async function corrigirVisita(id: string, _: CorrecaoState, fd: FormData)
   if (motivo.length < 5) erros.motivo = "Informe o motivo da correção (fica no histórico).";
   if (Object.keys(erros).length) return { erros };
 
+  const [temas, equipes] = await Promise.all([listarTemas(), listarEquipes()]);
   // Só temas do sistema do contrato da visita (os que já estavam marcados continuam aceitos).
-  const permitidos = new Set((await listarTemas()).filter((t) => t.sistema === v.sistema && (t.ativo || v.temaIds.includes(t.id))).map((t) => t.id));
+  const permitidos = new Set(temas.filter((t) => t.sistema === v.sistema && (t.ativo || v.temaIds.includes(t.id))).map((t) => t.id));
+  // Equipes: só nos tipos que registram equipes, entre as que a visita aceita; com outro tipo, elas saem da visita.
+  const tipoFinal = TIPOS_VISITA.some((t) => t.valor === tipo) ? tipo : v.tipo;
+  const equipesPermitidas = new Set(equipesDaVisita(equipes, temas, v.sistema, v.equipeIds).map((e) => e.id));
 
   const mudancas = await corrigirPelaAdministracao(
     id,
     {
       entrada: entrada!,
       saida: saida!,
-      tipo: TIPOS_VISITA.some((t) => t.valor === tipo) ? tipo : v.tipo,
+      tipo: tipoFinal,
       unidadeId,
       setorId,
       setorOutro: setorId ? null : setorOutro,
+      equipeIds: sugereTemasPorEquipe(tipoFinal) ? fd.getAll("equipeIds").map(String).filter((id) => equipesPermitidas.has(id)) : [],
       temaIds: fd.getAll("temaIds").map(String).filter((id) => permitidos.has(id)),
       temaAdicional: String(fd.get("temaAdicional") ?? "").trim(),
       observacoes: String(fd.get("observacoes") ?? "").trim(),
