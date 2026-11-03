@@ -234,7 +234,11 @@ export async function removerUnidade(id: string): Promise<void> {
   if (await reports.visita.count({ where: { estabelecimentoId: id } })) {
     throw new EmUsoError("Este estabelecimento tem visitas registradas e não pode ser removido.");
   }
-  await reports.estabelecimento.deleteMany({ where: { id } });
+  if (await reports.itemCronograma.count({ where: { estabelecimentoId: id, cancelado: false } })) {
+    throw new EmUsoError("Este estabelecimento tem itens ativos no cronograma de implantação e não pode ser removido. Cancele esses itens no cronograma.");
+  }
+  // Os itens já cancelados são só histórico do plano e saem junto.
+  await reports.$transaction([reports.itemCronograma.deleteMany({ where: { estabelecimentoId: id } }), reports.estabelecimento.deleteMany({ where: { id } })]);
 }
 
 // ---------- Setores ----------
@@ -263,5 +267,8 @@ export async function removerSetor(id: string): Promise<void> {
   if (await reports.visita.count({ where: { setorId: id } })) {
     throw new EmUsoError("Este setor tem visitas registradas e não pode ser removido.");
   }
-  await reports.setor.deleteMany({ where: { id } });
+  if (await reports.itemCronograma.count({ where: { setorId: id, cancelado: false } })) {
+    throw new EmUsoError("Este setor tem itens ativos no cronograma de implantação e não pode ser removido. Mude ou cancele esses itens no cronograma.");
+  }
+  await reports.$transaction([reports.itemCronograma.deleteMany({ where: { setorId: id } }), reports.setor.deleteMany({ where: { id } })]);
 }

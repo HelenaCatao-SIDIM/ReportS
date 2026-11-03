@@ -24,6 +24,7 @@ model Estabelecimento {
   atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em")
   setores     Setor[]
   visitas     Visita[]
+  cronograma  ItemCronograma[]
 
   @@index([clienteId])
   @@map("estabelecimentos")
@@ -35,6 +36,7 @@ model Setor {
   nome              String
   estabelecimento   Estabelecimento @relation(fields: [estabelecimentoId], references: [id], onDelete: Cascade)
   visitas           Visita[]
+  cronograma        ItemCronograma[]
 
   @@index([estabelecimentoId])
   @@map("setores")
@@ -67,6 +69,7 @@ model Contrato {
   aprovadores        ContratoAprovador[]
   visitas            Visita[]
   relatorios         Relatorio[]
+  cronograma         ItemCronograma[]
 
   @@index([clienteId])
   @@map("contratos")
@@ -282,4 +285,28 @@ model Email {
 
   @@index([enviadoEm])
   @@map("emails")
+}
+
+/// Item do cronograma de implantação: um estabelecimento (ou um setor dele, a "equipe") que deve receber uma atividade
+/// (tipo de visita) até o prazo. A situação nunca é gravada: sai das visitas encerradas do contrato.
+model ItemCronograma {
+  id                String          @id
+  clienteId         BigInt          @map("cliente_id")
+  contratoId        String          @map("contrato_id")
+  estabelecimentoId String          @map("estabelecimento_id")
+  setorId           String?         @map("setor_id")
+  tipo              String
+  prazo             DateTime        @db.Date
+  observacao        String          @default("")
+  cancelado         Boolean         @default(false)
+  criadoEm          DateTime        @default(now()) @map("criado_em")
+  atualizadoEm      DateTime        @default(now()) @updatedAt @map("atualizado_em")
+  contrato          Contrato        @relation(fields: [contratoId], references: [id])
+  estabelecimento   Estabelecimento @relation(fields: [estabelecimentoId], references: [id])
+  setor             Setor?          @relation(fields: [setorId], references: [id], onDelete: Restrict)
+
+  @@index([contratoId, prazo])
+  @@index([clienteId])
+  @@index([estabelecimentoId])
+  @@map("cronograma_itens")
 }

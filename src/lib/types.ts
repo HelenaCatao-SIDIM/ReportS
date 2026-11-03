@@ -364,6 +364,54 @@ export interface ConteudoCongelado {
   minutosOnline: number;
   /** Chamados de suporte no período. Opcional: versões emitidas antes desta funcionalidade não têm. */
   suporte?: ResumoSuporte | null;
+  /** Cronograma de implantação do contrato. Opcional: versões emitidas antes desta funcionalidade não têm. */
+  cronograma?: CronogramaCongelado | null;
+}
+
+/**
+ * Item do cronograma de implantação: um estabelecimento (ou um setor dele, a "equipe") que deve receber uma atividade
+ * (treinamento, implantação…) até um prazo. É sempre de um contrato (cliente + sistema).
+ */
+export interface ItemCronograma {
+  id: string;
+  clienteId: string;
+  contratoId: string;
+  unidadeId: string;
+  /** Nulo = qualquer setor do estabelecimento. */
+  setorId: string | null;
+  /** Tipo de visita que cumpre o item. */
+  tipo: TipoVisita;
+  /** Prazo (AAAA-MM-DD, horário de Brasília), inclusive. */
+  prazo: string;
+  observacao: string;
+  cancelado: boolean;
+}
+
+/** Situação do item, calculada pelas visitas encerradas do contrato (nunca digitada). */
+export type SituacaoCronograma = "cumprido" | "cumprido_com_atraso" | "no_prazo" | "a_vencer" | "atrasado" | "cancelado";
+
+export interface ItemCronogramaComSituacao extends ItemCronograma {
+  unidadeNome: string;
+  setorNome: string | null;
+  situacao: SituacaoCronograma;
+  /** Data (AAAA-MM-DD) da primeira visita encerrada que cumpriu o item. */
+  cumpridoEm: string | null;
+  /** Dias de hoje até o prazo; negativo = prazo vencido. */
+  diasParaPrazo: number;
+}
+
+/** Cronograma do contrato como o cliente o vê no relatório: congelado na emissão (sem observação interna). */
+export interface CronogramaCongelado {
+  /** Data (AAAA-MM-DD, horário de Brasília) em que a situação foi calculada. */
+  em: string;
+  itens: {
+    unidadeNome: string;
+    setorNome: string | null;
+    tipo: TipoVisita;
+    prazo: string;
+    situacao: SituacaoCronograma;
+    cumpridoEm: string | null;
+  }[];
 }
 
 /** Link de aprovação: um por aprovador e por versão; vale até a primeira decisão ou uma nova versão. */

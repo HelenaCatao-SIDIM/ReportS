@@ -21,6 +21,8 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
   let relatorios: typeof import("@/lib/repo/relatorios");
   let contratos: typeof import("@/lib/repo/contratos");
   let aprovadores: typeof import("@/lib/repo/aprovadores");
+  let cronograma: typeof import("@/lib/repo/cronograma");
+  let clientes: typeof import("@/lib/repo/clientes");
   let tecnico: { id: string; nome: string; email: string; ativo: boolean; telefone: null; papelIds: string[] };
   let sistemaDoClienteId: string;
   let clienteId: string;
@@ -36,6 +38,8 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     relatorios = await import("@/lib/repo/relatorios");
     contratos = await import("@/lib/repo/contratos");
     aprovadores = await import("@/lib/repo/aprovadores");
+    cronograma = await import("@/lib/repo/cronograma");
+    clientes = await import("@/lib/repo/clientes");
 
     const sdc = await db.plataforma.clients.findFirst({ where: { customer_id: { not: null }, estado: { in: ["em_implantacao", "vinculado"] } } });
     const usuario = await db.plataforma.users.findFirst({ where: { active: true } });
@@ -107,6 +111,87 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     assert.equal(lida?.checkin?.latitude, -22.9);
     assert.equal(lida?.checkin?.endereco?.cep, "87020000");
     assert.equal((await visitas.locaisSemCep(10)).length, 0);
+  });
+
+  // ---------- Cronograma de implantação ----------
+
+  const hojeLocal = () => new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
+  const somarDias = (data: string, n: number) => new Date(Date.parse(`${data}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+  const treinoNo = async (setorId: string | null) => {
+    const v = await visitas.abrirVisita({
+      tecnicoId: tecnico.id, clienteId, contratoId, unidadeId: estabelecimentoId, setorId, setorOutro: null, tipo: "treinamento",
+      checkin: { latitude: -22.9, longitude: -47.06 }, meio: "celular", distanciaCheckinM: 10, raioCheckinM: 50,
+      fotoAmbiente: { id: "f1", url: "/arquivos/f1" }, printTela: null, linkReuniao: null,
+    });
+    return v;
+  };
+
+  test("cronograma: só a visita encerrada, do setor, do tipo e do estabelecimento do item cumpre", async () => {
+    const setor = await db.reports.setor.create({ data: { id: crypto.randomUUID(), estabelecimentoId, nome: "Recepção" } });
+    const outro = await db.reports.setor.create({ data: { id: crypto.randomUUID(), estabelecimentoId, nome: "Farmácia" } });
+    const hoje = hojeLocal();
+    const base = { contratoId, unidadeId: estabelecimentoId, tipo: "treinamento" as const, observacao: "" };
+    await cronograma.criarItemCronograma({ ...base, setorId: setor.id, prazo: somarDias(hoje, 10) });
+    await cronograma.criarItemCronograma({ ...base, setorId: outro.id, prazo: somarDias(hoje, -1) });
+    await cronograma.criarItemCronograma({ ...base, setorId: null, tipo: "implantacao", prazo: somarDias(hoje, 3) });
+
+    const situacao = async () => Object.fromEntries((await cronograma.listarCronograma(hoje, { contratoId })).map((i) => [`${i.setorNome ?? "todos"}/${i.tipo}`, i.situacao]));
+    assert.deepEqual(await situacao(), { "Recepção/treinamento": "no_prazo", "Farmácia/treinamento": "atrasado", "todos/implantacao": "a_vencer" });
+
+    // Em andamento não conta.
+    const v = await treinoNo(setor.id);
+    assert.equal((await situacao())["Recepção/treinamento"], "no_prazo");
+    // Encerrada conta, só para o setor dela.
+    await encerrar(v.id);
+    assert.deepEqual(await situacao(), { "Recepção/treinamento": "cumprido", "Farmácia/treinamento": "atrasado", "todos/implantacao": "a_vencer" });
+
+    // Visita cancelada não conta.
+    const c = await treinoNo(outro.id);
+    await visitas.cancelarPelaAdministracao(c.id, tecnico, "Check-in feito por engano");
+    assert.equal((await situacao())["Farmácia/treinamento"], "atrasado");
+    // Depois do prazo, cumpre com atraso.
+    const d = await treinoNo(outro.id);
+    await encerrar(d.id);
+    assert.equal((await situacao())["Farmácia/treinamento"], "cumprido_com_atraso");
+
+    const pendentes = await cronograma.listarPendentesDosContratos([contratoId], hoje);
+    assert.deepEqual(pendentes.map((i) => i.tipo), ["implantacao"], "no check-in só aparece o que falta");
+  });
+
+  test("cronograma: duplicado, cancelar, e o relatório recebe o cronograma sem a observação interna", async () => {
+    const hoje = hojeLocal();
+    const d = { contratoId, unidadeId: estabelecimentoId, setorId: null, tipo: "treinamento" as const, prazo: somarDias(hoje, 20), observacao: "Combinado por telefone com o prefeito" };
+    assert.equal(await cronograma.itemCronogramaDuplicado(d), false);
+    await cronograma.criarItemCronograma(d);
+    assert.equal(await cronograma.itemCronogramaDuplicado(d), true);
+
+    const [item] = await cronograma.listarCronograma(hoje, { contratoId });
+    await cronograma.atualizarItemCronograma(item.id, { unidadeId: estabelecimentoId, setorId: null, tipo: "treinamento", prazo: somarDias(hoje, 30), observacao: "Novo prazo" });
+    assert.equal((await cronograma.buscarItemCronograma(item.id))?.prazo, somarDias(hoje, 30));
+
+    const congelado = await cronograma.congelarCronograma(contratoId, hoje);
+    assert.equal(congelado?.itens.length, 1);
+    assert.equal(congelado?.em, hoje);
+    assert.ok(!JSON.stringify(congelado).includes("Novo prazo"), "a observação interna não vai para o cliente");
+
+    await cronograma.definirItemCronogramaCancelado(item.id, true);
+    assert.equal(await cronograma.itemCronogramaDuplicado(d), false, "item cancelado não conta como duplicado");
+    assert.equal(await cronograma.congelarCronograma(contratoId, hoje), null, "sem itens ativos, o relatório não mostra cronograma");
+    await cronograma.definirItemCronogramaCancelado(item.id, false);
+  });
+
+  test("cronograma: item ativo impede remover setor e estabelecimento; o cancelado sai junto", async () => {
+    const setor = await db.reports.setor.create({ data: { id: crypto.randomUUID(), estabelecimentoId, nome: "Protocolo" } });
+    const d = { contratoId, unidadeId: estabelecimentoId, setorId: setor.id, tipo: "treinamento" as const, prazo: somarDias(hojeLocal(), 5), observacao: "" };
+    await cronograma.criarItemCronograma(d);
+    await assert.rejects(clientes.removerSetor(setor.id), /itens ativos no cronograma/);
+    await assert.rejects(clientes.removerUnidade(estabelecimentoId), /itens ativos no cronograma/);
+
+    const [item] = await cronograma.listarCronograma(hojeLocal(), { contratoId });
+    await cronograma.definirItemCronogramaCancelado(item.id, true);
+    await clientes.removerSetor(setor.id);
+    assert.equal(await cronograma.buscarItemCronograma(item.id), null, "o item cancelado saiu com o setor");
+    assert.equal(await db.reports.setor.count({ where: { id: setor.id } }), 0);
   });
 
   test("relatório: rascunho, emissão, primeira decisão vale e as visitas travam", async () => {
