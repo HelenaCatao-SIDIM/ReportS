@@ -385,7 +385,7 @@ export interface ConteudoCongelado {
 }
 
 /**
- * Item do cronograma de implantação: um estabelecimento (ou um setor dele, a "equipe") que deve receber uma atividade
+ * Item do cronograma de implantação: um estabelecimento (ou um setor dele) que deve receber uma atividade
  * (treinamento, implantação…) até um prazo. É sempre de um contrato (cliente + sistema).
  */
 export interface ItemCronograma {

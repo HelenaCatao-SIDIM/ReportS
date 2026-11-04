@@ -228,7 +228,7 @@ export function CronogramaPdf({ c }: { c: CronogramaCongelado }) {
       <View style={s.tabela}>
         <View style={[s.linha, s.cabecalho]}>
           <Text style={{ width: "28%" }}>Estabelecimento</Text>
-          <Text style={{ width: "22%" }}>Equipe (setor)</Text>
+          <Text style={{ width: "22%" }}>Setor</Text>
           <Text style={{ width: "18%" }}>Atividade</Text>
           <Text style={{ width: "14%" }}>Prazo</Text>
           <Text style={{ width: "18%" }}>Situação</Text>

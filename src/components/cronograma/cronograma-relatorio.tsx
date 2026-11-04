@@ -25,7 +25,7 @@ export function CronogramaRelatorio({ cronograma: c }: { cronograma: CronogramaC
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-4">Estabelecimento</TableHead>
-                <TableHead>Equipe (setor)</TableHead>
+                <TableHead>Setor</TableHead>
                 <TableHead>Atividade</TableHead>
                 <TableHead>Prazo</TableHead>
                 <TableHead className="pr-4">Situação</TableHead>

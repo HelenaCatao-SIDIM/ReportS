@@ -109,7 +109,7 @@ function ItemForm({ item, rotuloContrato, opcoes, onSalvo }: { item?: ItemCronog
             ))}
           </select>
         </Campo>
-        <Campo id="c-setor" label="Equipe (setor)" erro={e.setorId} dica="Sem setor, vale qualquer setor do estabelecimento.">
+        <Campo id="c-setor" label="Setor" erro={e.setorId} dica="Sem setor, vale qualquer setor do estabelecimento.">
           <select id="c-setor" name="setorId" value={setorId} onChange={(ev) => setSetorId(ev.target.value)} disabled={!unidadeId} className={selectClass} aria-invalid={!!e.setorId}>
             <option value="">Todos os setores</option>
             {setores.map((s) => (
@@ -167,7 +167,7 @@ export function ItemDialogo({ item, rotuloContrato, opcoes }: { item?: ItemCrono
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{item ? "Editar item do cronograma" : "Novo item do cronograma"}</DialogTitle>
-            <DialogDescription>Estabelecimento (e equipe) que deve receber a atividade até o prazo. O cumprimento é conferido pelas visitas encerradas.</DialogDescription>
+            <DialogDescription>Estabelecimento (e setor) que deve receber a atividade até o prazo. O cumprimento é conferido pelas visitas encerradas.</DialogDescription>
           </DialogHeader>
           {aberto && <ItemForm item={item} rotuloContrato={rotuloContrato} opcoes={opcoes} onSalvo={() => setAberto(false)} />}
         </DialogContent>

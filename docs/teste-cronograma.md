@@ -17,7 +17,7 @@ Use abas anônimas ou dois navegadores para estar logado com duas contas ao mesm
 2. **Novo item** → clique em **Criar item** sem preencher nada: devem aparecer os erros do contrato, do estabelecimento e do prazo.
 3. Crie três itens, sempre no contrato **Prefeitura de Vale Verde — SCA** e no estabelecimento **Sede**:
 
-   | Equipe (setor) | Atividade | Prazo | Esperado |
+   | Setor | Atividade | Prazo | Esperado |
    |---|---|---|---|
    | Protocolo | Treinamento | daqui a 10 dias | No prazo, "faltam 10 dias" |
    | Recursos Humanos | Treinamento | ontem | Atrasado, "venceu há 1 dia" |

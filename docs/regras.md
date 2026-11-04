@@ -250,7 +250,7 @@ Onde: `src/lib/repo/relatorios.ts`, `src/lib/emissao.tsx`, `src/lib/email.ts`, `
 
 Planeja **onde e até quando** cada atividade deve acontecer. Exemplo: "no Posto Central, o setor Recepção recebe o treinamento até 20/11". Fica em Administração → Cronograma.
 
-- Um **item** é de um **contrato** (cliente + sistema) e traz: **estabelecimento**, **equipe** (o **setor** do estabelecimento; em branco vale qualquer setor), **atividade** (um dos tipos de visita, como Treinamento ou Implantação), **prazo** (data, vale até o fim do dia, no horário de Brasília) e uma **observação interna**.
+- Um **item** é de um **contrato** (cliente + sistema) e traz: **estabelecimento**, **setor** (do estabelecimento; em branco vale qualquer setor), **atividade** (um dos tipos de visita, como Treinamento ou Implantação), **prazo** (data, vale até o fim do dia, no horário de Brasília) e uma **observação interna**.
 - Só o contrato **ativo** de cliente ativo recebe item novo. O contrato de um item não muda: para outro contrato, cancele e crie outro. Não pode haver dois itens ativos iguais (mesmo contrato, estabelecimento, setor e atividade).
 - A **situação nunca é digitada**: o sistema calcula pelas **visitas encerradas** do mesmo contrato, estabelecimento e tipo (e do mesmo setor, quando o item pede um). Visita em andamento ou cancelada não conta. Vale a primeira visita que bate:
   - **Cumprido**: a visita foi até o prazo. **Cumprido com atraso**: foi depois.
@@ -261,7 +261,7 @@ Planeja **onde e até quando** cada atividade deve acontecer. Exemplo: "no Posto
 - **Relatório:** o relatório do contrato traz o cronograma dele (sem os cancelados e **sem a observação interna**): no rascunho, na situação de hoje; na **emissão**, **congelado** junto com a versão, como os chamados. A página do aprovador e o PDF mostram o mesmo, e uma mudança no cronograma depois da emissão não altera a versão enviada. Relatório de contrato sem cronograma não mostra o bloco, e versões emitidas antes desta função continuam sem ele.
 - **Remover** um estabelecimento ou setor com **item ativo** no cronograma é barrado; os itens já cancelados saem junto.
 
-**Atenção ao nome:** aqui "equipe" é o **setor** do estabelecimento. Não é o cadastro **Equipes** (médica, enfermagem…, com temas mínimos, que o técnico marca como "equipes treinadas" na visita). Se o cronograma passar a usar o cadastro Equipes, o cumprimento deve vir das visitas em que a equipe foi marcada; isso está em aberto (ver `MELHORIAS.md`).
+**Setor e Equipes são coisas diferentes.** O cronograma usa o **setor** do estabelecimento. O cadastro **Equipes** (médica, enfermagem…, com temas mínimos, que o técnico marca como "equipes treinadas" na visita) **não entra no cronograma por enquanto**: o item não guarda equipe, e marcar uma equipe na visita não cumpre item. A ligação entre os dois fica para ser especificada depois (ver `MELHORIAS.md`).
 
 Limites desta versão: visita **antes** da criação do item também o cumpre; visita com setor digitado à mão ("Outro") não cumpre item de setor específico; o treinamento online é um tipo à parte do presencial; não há aviso automático de prazo vencendo (a lista e os contadores são a forma de acompanhar).
 

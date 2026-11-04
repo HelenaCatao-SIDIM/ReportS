@@ -18,7 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ItemDialogo, type UnidadeOpcao } from "./item-dialogo";
 import { alternarItemCronograma } from "./actions";
 
-const DESCRICAO = "Prazos de treinamento e implantação por estabelecimento e equipe. O cumprimento vem das visitas encerradas.";
+const DESCRICAO = "Prazos de treinamento e implantação por estabelecimento e setor. O cumprimento vem das visitas encerradas.";
 
 const FILTROS_SITUACAO = [
   { valor: "", rotulo: "Todos (sem cancelados)" },
@@ -124,7 +124,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/cronograma">, "
               <TableRow>
                 <TableHead className="pl-4">Contrato</TableHead>
                 <TableHead>Estabelecimento</TableHead>
-                <TableHead>Equipe (setor)</TableHead>
+                <TableHead>Setor</TableHead>
                 <TableHead>Atividade</TableHead>
                 <TableHead>Prazo</TableHead>
                 <TableHead>Situação</TableHead>
