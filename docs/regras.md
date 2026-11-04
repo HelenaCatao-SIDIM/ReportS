@@ -263,9 +263,22 @@ Planeja **onde e até quando** cada atividade deve acontecer. Exemplo: "no Posto
 
 **Setor e Equipes são coisas diferentes.** O cronograma usa o **setor** do estabelecimento. O cadastro **Equipes** (médica, enfermagem…, com temas mínimos, que o técnico marca como "equipes treinadas" na visita) **não entra no cronograma por enquanto**: o item não guarda equipe, e marcar uma equipe na visita não cumpre item. A ligação entre os dois fica para ser especificada depois (ver `MELHORIAS.md`).
 
+### Importação por planilha (`reports.contratos.gerenciar`)
+
+Cronograma → **Importar planilha** cadastra vários itens de uma vez a partir de um arquivo do Excel. Nada é gravado antes de você conferir a prévia.
+
+- **Arquivo:** `.xlsx`, até 2 MB e 500 linhas, só a **primeira aba** é lida. Há um **modelo para baixar** na própria tela. A primeira linha é o cabeçalho; as colunas podem estar em qualquer ordem, sem diferenciar acento nem maiúsculas: **Cliente**, **Sistema**, **Estabelecimento**, **Setor** (opcional; em branco vale qualquer setor), **Atividade**, **Prazo** e **Observação** (opcional). Colunas que não são essas, como "Equipe", são **ignoradas com aviso**: o cronograma usa o setor.
+- **Prazo:** data do Excel, número de série ou texto (`20/11/2026`, `20-11-26`, `2026-11-20`). **Atividade:** o nome ou o código do tipo de visita (Treinamento, Implantação, Treinamento online…).
+- **Como cada linha é reconhecida:** o contrato é o **ativo** do cliente para o sistema (pelo nome do cliente e pelo nome ou código do sistema); o estabelecimento e o setor, **pelo nome** dentro desse cliente. Se houver dois contratos do mesmo cliente e sistema (dois tenants), a tela pede para escolher.
+- **O que não existe vira pergunta:** estabelecimento ou setor que não está no cadastro aparece em "O que não existe no cadastro", e você escolhe **cadastrar como novo** ou **alterar para um existente** (com sugestão do mais parecido). A escolha vale para todas as linhas que usam o nome e **pode ser mudada até confirmar**. Estabelecimento novo nasce **só com o nome** (raio de 50 m, sem endereço nem coordenadas): complete depois em Clientes. Um setor novo de um estabelecimento novo é criado junto, sem outra pergunta.
+- **Erros na própria tela:** atividade ou prazo inválido pode ser corrigido ali; cliente ou contrato que não bate se resolve escolhendo um contrato; ou **pule** a linha. Quem não puder resolver pula.
+- **Duplicados:** item que já existe (ativo) e linha repetida na planilha ficam de fora ("Ignorada"), então **reimportar a mesma planilha não duplica**.
+- **Confirmar:** só libera quando não há pergunta nem erro pendente, e mostra o que será criado (itens, estabelecimentos e setores novos). O servidor **confere tudo de novo** antes de gravar e é **tudo ou nada**: se algo estiver errado, nada é gravado. Estabelecimentos, setores e itens entram numa só transação.
+- **Permissões:** importar exige `reports.contratos.gerenciar`. **Cadastrar** estabelecimento ou setor novo exige também `reports.clientes.cadastrar`; sem ela, o botão "Cadastrar" fica travado e só vale alterar para um existente.
+
 Limites desta versão: visita **antes** da criação do item também o cumpre; visita com setor digitado à mão ("Outro") não cumpre item de setor específico; o treinamento online é um tipo à parte do presencial; não há aviso automático de prazo vencendo (a lista e os contadores são a forma de acompanhar).
 
-Onde: `src/lib/cronograma.ts` (regras), `src/lib/repo/cronograma.ts`, `src/app/admin/cronograma/`, `src/components/cronograma/`, `src/app/tecnico/page.tsx`, `src/lib/emissao.tsx`. Migração: `prisma/reports/migrations/*_cronograma`.
+Onde: `src/lib/cronograma.ts` (regras), `src/lib/repo/cronograma.ts`, `src/lib/importar-cronograma.ts` e `src/lib/repo/importar-cronograma.ts` (importação), `src/app/admin/cronograma/`, `src/components/cronograma/`, `src/app/tecnico/page.tsx`, `src/lib/emissao.tsx`. Migração: `prisma/reports/migrations/*_cronograma`.
 
 ## Datas e horas
 

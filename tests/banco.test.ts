@@ -22,6 +22,7 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
   let contratos: typeof import("@/lib/repo/contratos");
   let aprovadores: typeof import("@/lib/repo/aprovadores");
   let cronograma: typeof import("@/lib/repo/cronograma");
+  let importacao: typeof import("@/lib/repo/importar-cronograma");
   let clientes: typeof import("@/lib/repo/clientes");
   let equipes: typeof import("@/lib/repo/equipes");
   let temas: typeof import("@/lib/repo/temas");
@@ -41,6 +42,7 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     contratos = await import("@/lib/repo/contratos");
     aprovadores = await import("@/lib/repo/aprovadores");
     cronograma = await import("@/lib/repo/cronograma");
+    importacao = await import("@/lib/repo/importar-cronograma");
     clientes = await import("@/lib/repo/clientes");
     equipes = await import("@/lib/repo/equipes");
     temas = await import("@/lib/repo/temas");
@@ -196,6 +198,70 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     await clientes.removerSetor(setor.id);
     assert.equal(await cronograma.buscarItemCronograma(item.id), null, "o item cancelado saiu com o setor");
     assert.equal(await db.reports.setor.count({ where: { id: setor.id } }), 0);
+  });
+
+  // ---------- Importação do cronograma por planilha ----------
+
+  const linhaPedido = (o: Record<string, unknown>) => ({ linha: 2, contratoId, unidade: { tipo: "existente", id: estabelecimentoId }, setor: null, atividade: "treinamento", prazo: "2026-12-01", observacao: "", ...o }) as Parameters<typeof importacao.gravarImportacao>[0][number];
+
+  test("importação: grava estabelecimento e setores novos e os itens de uma vez, sem repetir", async () => {
+    const novoPosto = { tipo: "nova", nome: "Posto Novo" } as const;
+    const r = await importacao.gravarImportacao(
+      [
+        linhaPedido({ linha: 2, unidade: novoPosto, setor: { tipo: "novo", nome: "Triagem" } }),
+        linhaPedido({ linha: 3, unidade: { tipo: "existente", id: estabelecimentoId }, setor: { tipo: "novo", nome: "Recepção" }, atividade: "implantacao", observacao: "  combinado  " }),
+        linhaPedido({ linha: 4, unidade: { tipo: "nova", nome: "posto novo" }, setor: { tipo: "novo", nome: "TRIAGEM" } }), // mesmo item da linha 2
+      ],
+      true,
+    );
+    assert.deepEqual(r, { ok: true, criados: 2, ignorados: 1, estabelecimentosCriados: 1, setoresCriados: 2 });
+    const posto = await db.reports.estabelecimento.findFirst({ where: { nome: "Posto Novo" }, include: { setores: true } });
+    assert.equal(posto?.endereco, "");
+    assert.equal(posto?.raioMetros, 50);
+    assert.equal(posto?.latitude, null);
+    assert.deepEqual(posto?.setores.map((x) => x.nome), ["Triagem"]);
+    const itens = await cronograma.listarCronograma("2026-11-01", { contratoId });
+    assert.equal(itens.length, 2);
+    assert.equal(itens.find((i) => i.tipo === "implantacao")?.observacao, "combinado");
+    assert.equal(itens.find((i) => i.unidadeNome === "Posto Novo")?.setorNome, "Triagem");
+  });
+
+  test("importação: sem permissão de cadastrar, só vale o que já existe, e nada é gravado", async () => {
+    const r = await importacao.gravarImportacao([linhaPedido({ unidade: { tipo: "nova", nome: "Posto Proibido" } })], false);
+    assert.equal(r.ok, false);
+    assert.match(!r.ok ? r.erros[0].mensagem : "", /permissão para cadastrar/);
+    assert.equal(await db.reports.estabelecimento.count({ where: { nome: "Posto Proibido" } }), 0);
+    assert.equal((await cronograma.listarCronograma("2026-11-01", { contratoId })).length, 0);
+    // O que já existe passa, mesmo sem a permissão.
+    const ok = await importacao.gravarImportacao([linhaPedido({ unidade: { tipo: "nova", nome: "sede" } })], false);
+    assert.equal(ok.ok && ok.criados, 1, "um nome que já existe vira o existente e não exige cadastrar");
+    assert.equal(await db.reports.estabelecimento.count({ where: { nome: { equals: "sede", mode: "insensitive" } } }), 1);
+  });
+
+  test("importação: é tudo ou nada", async () => {
+    const r = await importacao.gravarImportacao([linhaPedido({ linha: 2 }), linhaPedido({ linha: 3, prazo: "2026-02-30", atividade: "implantacao" })], true);
+    assert.equal(r.ok, false);
+    assert.deepEqual(!r.ok && r.erros.map((e) => e.linha), [3]);
+    assert.equal((await cronograma.listarCronograma("2026-11-01", { contratoId })).length, 0, "a linha boa também não foi gravada");
+  });
+
+  test("importação: item que já existe é ignorado, e o pedido do navegador é conferido de novo", async () => {
+    await cronograma.criarItemCronograma({ contratoId, unidadeId: estabelecimentoId, setorId: null, tipo: "treinamento", prazo: "2026-12-01", observacao: "" });
+    const dup = await importacao.gravarImportacao([linhaPedido({})], true);
+    assert.deepEqual(dup, { ok: true, criados: 0, ignorados: 1, estabelecimentosCriados: 0, setoresCriados: 0 });
+
+    const outroCliente = await db.reports.estabelecimento.create({ data: { id: crypto.randomUUID(), clienteId: BigInt(clienteId) + BigInt(987654), nome: "De outro cliente", raioMetros: 50 } });
+    const invalidos = [
+      linhaPedido({ contratoId: "não-existe" }),
+      linhaPedido({ unidade: { tipo: "existente", id: outroCliente.id } }),
+      linhaPedido({ unidade: { tipo: "nova", nome: "   " } }),
+      linhaPedido({ setor: { tipo: "existente", id: "setor-de-ninguém" } }),
+      linhaPedido({ atividade: "churrasco" }),
+      linhaPedido({ observacao: "x".repeat(501) }),
+    ];
+    for (const l of invalidos) assert.equal((await importacao.gravarImportacao([l], true)).ok, false, JSON.stringify(l).slice(0, 80));
+    assert.equal((await importacao.gravarImportacao([], true)).ok, false);
+    assert.equal((await cronograma.listarCronograma("2026-11-01", { contratoId })).length, 1, "só o item que já existia");
   });
 
   test("relatório: rascunho, emissão, primeira decisão vale e as visitas travam", async () => {

@@ -47,6 +47,7 @@ export const PERMISSOES_DA_TELA: Record<string, CodigoPermissao[]> = {
   "/admin/equipes": [PERMISSOES.temasGerenciar],
   "/admin/participantes": [PERMISSOES.participantesGerenciar],
   "/admin/cronograma": [PERMISSOES.contratosGerenciar, PERMISSOES.visitasGerenciar],
+  "/admin/cronograma/importar": [PERMISSOES.contratosGerenciar],
   "/admin/visitas": [PERMISSOES.visitasGerenciar],
   "/admin/relatorios": [PERMISSOES.relatoriosGerenciar],
   "/admin/emails": [PERMISSOES.relatoriosGerenciar],

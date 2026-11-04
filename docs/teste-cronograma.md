@@ -54,6 +54,25 @@ Use abas anônimas ou dois navegadores para estar logado com duas contas ao mesm
 1. Com `coord@teste.local`: **Cronograma** abre, mas sem "Novo item", "Editar" nem "Cancelar".
 2. Com `tecnico@teste.local`, abrir `/admin/cronograma` volta para o App do Técnico.
 
+## 6. Importar o cronograma por planilha
+
+1. Em **Cronograma**, clique em **Importar planilha** e depois em **Baixar o modelo**. Abra o arquivo no Excel: a primeira aba tem o cabeçalho e dois exemplos; a segunda explica as colunas.
+2. Preencha algumas linhas com o cliente **Prefeitura de Vale Verde** e o sistema **SCA**. Misture de propósito:
+   - uma linha certa (estabelecimento **Sede**, setor **Protocolo**);
+   - uma com um **estabelecimento que não existe** (por exemplo, "Posto Norte") e um setor novo;
+   - uma com um **setor que não existe** na Sede (por exemplo, "Arquivo Geral");
+   - uma com **erro de digitação** no estabelecimento ("Sedee");
+   - uma **repetida**, e uma com a atividade ou o prazo inválido (por exemplo, "Churrasco" e "amanhã");
+   - uma com um **cliente que não existe**.
+   Salve como `.xlsx`.
+3. **Escolha o arquivo** e clique em **Analisar planilha**. Confira os quatro contadores e a tabela: cada linha mostra se está pronta, se falta decidir, se tem erro ou se será ignorada.
+4. Em **"O que não existe no cadastro"**, responda cada pergunta: **Cadastrar “…”** ou **Alterar para um existente** (a sugestão "parecido" aparece primeiro). Mude de ideia pelo menos uma vez: a resposta continua na tela até você confirmar.
+5. Corrija na tabela a atividade e o prazo inválidos, e **pule** a linha do cliente que não existe.
+6. Quando os contadores mostrarem 0 em "Falta decidir" e em "Com erro", leia **"O que vai acontecer"** e clique em **Confirmar importação**. Nada foi gravado até aqui.
+7. Abra **Cronograma**: os itens estão lá. O estabelecimento novo foi criado só com o nome (veja em **Clientes**: falta o endereço e as coordenadas).
+8. **Importe a mesma planilha de novo**: o que já existe aparece como "Ignorada" ("Já existe no cronograma"), e nada é duplicado.
+9. Com `coord@teste.local` (só visitas), o botão **Importar planilha** não aparece.
+
 ## Para recomeçar do zero
 
 Apague os dois bancos, crie de novo e repita os comandos do README (`db:migrate`, `db:ambiente-teste`, `db:exemplo`):

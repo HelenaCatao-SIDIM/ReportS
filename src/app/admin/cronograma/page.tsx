@@ -15,6 +15,9 @@ import { selectClass } from "@/components/form/campo";
 import { SituacaoBadge } from "@/components/cronograma/situacao-badge";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import Link from "next/link";
+import { Upload } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { ItemDialogo, type UnidadeOpcao } from "./item-dialogo";
 import { alternarItemCronograma } from "./actions";
 
@@ -83,7 +86,15 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/cronograma">, "
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <PageHeader titulo="Cronograma" descricao={DESCRICAO} />
-        {podeEditar && <ItemDialogo opcoes={opcoes} />}
+        {podeEditar && (
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" className="h-9" nativeButton={false} render={<Link href="/admin/cronograma/importar" />}>
+              <Upload />
+              Importar planilha
+            </Button>
+            <ItemDialogo opcoes={opcoes} />
+          </div>
+        )}
       </div>
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
