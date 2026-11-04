@@ -87,10 +87,10 @@ Só para quem vai testar a função de entrar com o usuário do Saúde antes de 
    ```
 2. No `.env.local` da pasta, acrescente (o endereço é o da API do tenant; a senha de cada pessoa **não** vai para o arquivo):
    ```
-   SAUDE_API_SAUDE_PARADEMINAS_URL=http://sidim.no-ip.net/api_parademinas
+   SAUDE_API_SAUDE_PARADEMINAS_URL=https://sidim.no-ip.net/api_parademinas
    SAUDE_API_SAUDE_PARADEMINAS_LOGIN_PARTICIPANTE=true
    ```
-   Pare e suba o `npm run dev` de novo. Com `npm run dev`, `http://` é aceito; **em produção só com `https://`**.
+   Pare e suba o `npm run dev` de novo. Use o endereço `https://`: em produção o `http://` é recusado (com `npm run dev` ele ainda é aceito, só para testar).
 3. Check-in de **Treinamento** na **Clínica Bem Viver**, sistema **Saúde**. Na tela de presença, busque o nome do participante e toque nele.
 4. Deve aparecer **"Entre com o seu usuário do Saúde"** (usuário e senha), **sem** o quadro de assinatura. A instrução do topo diz "Busque seu nome, entre com seu usuário do Saúde e assine".
 5. Senha errada: "Usuário ou senha incorretos.". Usuário e senha de **outra pessoa** do Saúde: "Este usuário não é o da pessoa escolhida.". Depois de 5 erros: "Muitas tentativas. Chame o técnico.".

@@ -5,7 +5,7 @@ Passo a passo para quem tem acesso ao servidor do ReportS (usuário `reports`, e
 O que esta publicação traz:
 - **Cronograma de implantação:** a tabela nova `cronograma_itens` (migração `*_cronograma`), as telas na Administração, no App do Técnico e no relatório ao cliente, e a importação por planilha do Excel. Regras: `docs/regras.md`, "Cronograma de implantação". Roteiro: `docs/teste-cronograma.md`.
 - **Presença em autoatendimento e setores acrescentados à visita:** a tela em que os próprios participantes buscam o nome e assinam, as anotações durante a visita e os setores acrescentados até o check-out. Duas migrações que **só acrescentam** (a tabela `visita_setores` e a coluna `presencas.validacao`). Regras: `docs/regras.md`, "Lista de presença" e "Durante a visita". Roteiro: `docs/teste-presenca-setores.md`.
-- **Login do participante no Saúde (na tela de presença):** vem **desligado** e **não deve ser configurado agora**: em produção só liga com `https://`, e a API de Pará de Minas ainda é `http://`. Sem as variáveis `SAUDE_API_…` nada muda para o usuário.
+- **Login do participante no Saúde (na tela de presença):** o código sobe **desligado**. Para ligar no cliente de Pará de Minas, depois do deploy e da conferência, veja a seção "Ligar o login do participante no Saúde" abaixo. Em produção só funciona com `https://` (`http://` é recusado). Sem as variáveis `SAUDE_API_…` nada muda para o usuário.
 
 ## 1. Antes de rodar (2 minutos)
 
@@ -65,7 +65,26 @@ O `permissoes:registrar` do deploy atualiza a descrição das permissões `contr
 
 ## 6. Configuração
 
-Nada novo: não há variável de ambiente nova. O limite de upload do nginx no modelo do repositório (`deploy/nginx-reports.conf`) é 6 MB, e a planilha tem teto de 2 MB. Se o envio do arquivo falhar no servidor, confira se o `client_max_body_size` do nginx de lá é de pelo menos 3 MB.
+Nada novo é **obrigatório**: não há variável de ambiente nova para o deploy. O limite de upload do nginx no modelo do repositório (`deploy/nginx-reports.conf`) é 6 MB, e a planilha tem teto de 2 MB. Se o envio do arquivo falhar no servidor, confira se o `client_max_body_size` do nginx de lá é de pelo menos 3 MB.
+
+### Ligar o login do participante no Saúde (opcional, depois do deploy)
+
+Só para o cliente de Pará de Minas, e só **depois** de conferir o resto da publicação.
+
+1. **Confira o certificado a partir do servidor** (o Node, que é o que o ReportS usa, não completa sozinho a cadeia de certificados como o navegador faz). Não envia usuário nem senha:
+   ```bash
+   node -e "fetch('https://sidim.no-ip.net/api_parademinas/api/login',{method:'POST'}).then(async r=>console.log(r.status, await r.text())).catch(e=>console.log('ERRO', e.cause?.code||e.message))"
+   ```
+   Esperado: `400 {"error":"invalid_grant"...}`. Se aparecer `ERRO UNABLE_TO_VERIFY_LEAF_SIGNATURE` (ou parecido), o certificado não está completo para o Node: peça ao time do Saúde para incluir o certificado intermediário. **Não** desligue a verificação.
+2. No `.env.local` do servidor (dono `reports`, modo 600), acrescente **só** estas duas linhas (a senha de cada pessoa nunca vai para o arquivo):
+   ```
+   SAUDE_API_SAUDE_PARADEMINAS_URL=https://sidim.no-ip.net/api_parademinas
+   SAUDE_API_SAUDE_PARADEMINAS_LOGIN_PARTICIPANTE=true
+   ```
+   Reinicie: `sudo systemctl restart reports-web`. Com `http://` em produção o login fica desligado e o aviso vai para o log do servidor.
+3. Condições para aparecer na tela: o sistema **Saúde** do cliente precisa ter o tenant `saude_parademinas` (vem do SINC) e o participante precisa ter o **id do Saúde** (`external_user_id`) igual ao `userId` do login.
+4. Teste com **uma pessoa de verdade**, em um treinamento de teste: busque o nome, entre com o usuário e a senha dela e assine. Se a pessoa certa for recusada ("este usuário não é o da pessoa escolhida"), o `userId` do login pode ser diferente do id guardado no participante: avise o time de desenvolvimento. Roteiro: `docs/teste-presenca-setores.md`, seção 7.
+5. Para desligar a qualquer momento: remova a linha `..._LOGIN_PARTICIPANTE` (ou troque por `false`) e reinicie. A presença volta a ser só busca e assinatura.
 
 ## 7. Se algo der errado
 
