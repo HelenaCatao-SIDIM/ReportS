@@ -85,7 +85,7 @@ export type DadosParticipante = { nome: string; cbo: NonNullable<Participante["c
 export async function criarProvisorio(
   sistemaDoClienteId: string,
   d: DadosParticipante,
-  origem: Exclude<OrigemParticipante, "painel_sinc">,
+  origem: Exclude<OrigemParticipante, "painel_sinc" | "importacao_saude">,
   criadoPor: string,
 ): Promise<Participante> {
   const [{ id }] = await plataforma.$queryRaw<{ id: bigint }[]>`
