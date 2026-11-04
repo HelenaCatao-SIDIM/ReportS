@@ -76,7 +76,7 @@ Só para o cliente de Pará de Minas, e só **depois** de conferir o resto da pu
    node -e "fetch('https://sidim.no-ip.net/api_parademinas/api/login',{method:'POST'}).then(async r=>console.log(r.status, await r.text())).catch(e=>console.log('ERRO', e.cause?.code||e.message))"
    ```
    Esperado: `400 {"error":"invalid_grant"...}`. Se aparecer `ERRO UNABLE_TO_VERIFY_LEAF_SIGNATURE` (ou parecido), o certificado não está completo para o Node: peça ao time do Saúde para incluir o certificado intermediário. **Não** desligue a verificação.
-2. No `.env.local` do servidor (dono `reports`, modo 600), acrescente **só** estas duas linhas (a senha de cada pessoa nunca vai para o arquivo):
+2. No `.env.local` do servidor (dono `reports`, modo 600), acrescente **só** estas duas linhas (a senha de cada pessoa nunca vai para o arquivo). O endereço de cada cliente está no diretório de servidores do Saúde e **não segue um padrão fixo** (muda a pasta e, às vezes, o servidor); pode ser colado com ou sem o `/api/` do fim:
    ```
    SAUDE_API_SAUDE_PARADEMINAS_URL=https://sidim.no-ip.net/api_parademinas
    SAUDE_API_SAUDE_PARADEMINAS_LOGIN_PARTICIPANTE=true
