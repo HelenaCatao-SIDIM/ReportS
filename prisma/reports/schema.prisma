@@ -20,8 +20,6 @@ model Estabelecimento {
   latitude    Float?
   longitude   Float?
   raioMetros  Int      @map("raio_metros")
-  /// Id do estabelecimento no ERP (SIDIM Saúde), quando veio da importação. Liga a importação seguinte ao mesmo registro.
-  idErp       String?  @map("id_erp")
   criadoEm    DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em")
   setores     Setor[]
@@ -29,7 +27,6 @@ model Estabelecimento {
   cronograma  ItemCronograma[]
 
   @@index([clienteId])
-  @@unique([clienteId, idErp])
   @@map("estabelecimentos")
 }
 

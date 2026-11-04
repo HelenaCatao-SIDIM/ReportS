@@ -151,11 +151,8 @@ export interface Cbo {
  */
 export type EstadoParticipante = "confirmado" | "provisorio";
 
-/**
- * De onde veio o registro: captura do painel do SINC, técnico em campo, cadastro na Administração do ReportS ou
- * importação do SIDIM Saúde (confirmado, pelo botão na tela do cliente).
- */
-export type OrigemParticipante = "painel_sinc" | "campo_reports" | "cadastro_reports" | "importacao_saude";
+/** De onde veio o registro: captura do painel do SINC, técnico em campo ou cadastro na Administração do ReportS. */
+export type OrigemParticipante = "painel_sinc" | "campo_reports" | "cadastro_reports";
 
 /** Pessoa que participa dos treinamentos, identificada dentro de um sistema do cliente (o mesmo cliente tem listas diferentes por sistema). */
 export interface Participante {

@@ -11,8 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Unidades } from "./unidades";
-import { ImportarSaude } from "./importar-saude";
-import { acessoDoTenant } from "@/lib/saude-api";
 import { buscaCoordenadas } from "@/lib/config";
 import { chamadosSuporte } from "@/lib/config-suporte";
 import { exigirAdministracao } from "@/lib/dal";
@@ -52,8 +50,6 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/cliente
   // O cliente é visto por quem cadastra clientes ou gerencia contratos; cada botão segue a sua permissão.
   const podeCadastrar = usuario.permissoes.includes(PERMISSOES.clientesCadastrar);
   const podeContratos = usuario.permissoes.includes(PERMISSOES.contratosGerenciar);
-  // A importação grava estabelecimentos e participantes: exige as duas permissões.
-  const podeImportar = podeCadastrar && usuario.permissoes.includes(PERMISSOES.participantesGerenciar);
   const [cliente, unidades, sistemas, contratos] = await Promise.all([
     buscarCliente(id),
     listarUnidades(id),
@@ -163,15 +159,12 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/cliente
                       Contrato pendente. Enquanto não for cadastrado, o técnico não consegue escolher este sistema no check-in.
                     </p>
                   )}
-                  <div className="flex flex-wrap gap-2">
-                    {podeContratos && (
-                      <Button variant={contrato ? "outline" : "default"} size="sm" nativeButton={false} render={<Link href={`/admin/clientes/${id}/contratos/${x.id}`} />}>
-                        <FileSignature />
-                        {contrato ? "Editar contrato" : "Cadastrar contrato"}
-                      </Button>
-                    )}
-                    {podeImportar && acessoDoTenant(x.tenantId) && <ImportarSaude clienteId={id} sistemaDoClienteId={x.id} />}
-                  </div>
+                  {podeContratos && (
+                    <Button variant={contrato ? "outline" : "default"} size="sm" nativeButton={false} render={<Link href={`/admin/clientes/${id}/contratos/${x.id}`} />}>
+                      <FileSignature />
+                      {contrato ? "Editar contrato" : "Cadastrar contrato"}
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             );
