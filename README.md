@@ -113,7 +113,7 @@ npm run dev
 ```
 
 Depois abra http://localhost:3000. O contrato do **SCA** é "nominal" e sem CPF, o mais simples para testar uma visita (os de SERP e Saúde exigem
-assinatura e CPF). O GPS funciona em `localhost`; sem permissão de localização, use "Treinamento online". Roteiro do cronograma: `docs/teste-cronograma.md`.
+assinatura e CPF). O GPS funciona em `localhost`; sem permissão de localização, use "Treinamento online". Roteiros: cronograma, `docs/teste-cronograma.md`; presença em autoatendimento e setores acrescentados, `docs/teste-presenca-setores.md`.
 
 Opcional — **localização por CEP** (desligada por padrão; com ela desligada, nada muda):
 
@@ -218,6 +218,7 @@ nesse endereço — use um treinamento online para testar sem GPS.
 
 - `docs/regras.md` — regras de negócio implementadas (o que o sistema exige e permite em cada etapa)
 - `docs/teste-cronograma.md` — roteiro de teste do cronograma de implantação, no ambiente de teste local
+- `docs/teste-presenca-setores.md` — roteiro de teste da presença em autoatendimento (busca e assinatura), das anotações e dos setores acrescentados à visita
 - `docs/deploy-cronograma.md` — passo a passo para publicar o cronograma de implantação no servidor (antes, durante, conferência e como voltar)
 - `src/lib/cronograma.ts`, `src/lib/repo/cronograma.ts`, `src/app/admin/cronograma/` — cronograma de implantação: prazos por estabelecimento e setor, com a situação calculada pelas visitas encerradas; aparece na Administração, no check-in do técnico e no relatório ao cliente. Também se cadastra em lote por **planilha do Excel** (`src/lib/importar-cronograma.ts`, `src/lib/planilha-cronograma.ts`), com prévia e perguntas "cadastrar ou alterar" antes de gravar
 - `AGENTS.md` — convenções do código, para quem for programar (pessoas ou agentes de IA)
