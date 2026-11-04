@@ -10,7 +10,7 @@ export default function ImportarCronogramaPage() {
         <ArrowLeft className="size-4" />
         Cronograma
       </Link>
-      <PageHeader titulo="Importar cronograma" descricao="Suba uma planilha do Excel com os prazos. Você confere tudo antes de gravar: o que não existir no cadastro vira uma pergunta, cadastrar ou alterar." />
+      <PageHeader titulo="Importar cronograma" descricao="Suba uma planilha do Excel com os prazos. A tela mostra só o que precisa de você, um item de cada vez (o que não existir no cadastro vira uma pergunta: cadastrar ou alterar), e nada é gravado até você confirmar." />
       <ImportarCronograma />
     </>
   );

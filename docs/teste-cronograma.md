@@ -65,12 +65,16 @@ Use abas anônimas ou dois navegadores para estar logado com duas contas ao mesm
    - uma **repetida**, e uma com a atividade ou o prazo inválido (por exemplo, "Churrasco" e "amanhã");
    - uma com um **cliente que não existe**.
    Salve como `.xlsx`.
-3. **Escolha o arquivo** e clique em **Analisar planilha**. Confira os quatro contadores e a tabela: cada linha mostra se está pronta, se falta decidir, se tem erro ou se será ignorada.
-4. Em **"O que não existe no cadastro"**, responda cada pergunta: **Cadastrar “…”** ou **Alterar para um existente** (a sugestão "parecido" aparece primeiro). Mude de ideia pelo menos uma vez: a resposta continua na tela até você confirmar.
-5. Corrija na tabela a atividade e o prazo inválidos, e **pule** a linha do cliente que não existe.
-6. Quando os contadores mostrarem 0 em "Falta decidir" e em "Com erro", leia **"O que vai acontecer"** e clique em **Confirmar importação**. Nada foi gravado até aqui.
+3. **Escolha o arquivo** e clique em **Analisar planilha**. A tela abre no **Item 1 de N**: só entram na fila as linhas com pergunta ou erro (as certas e as repetidas entram sozinhas). Os pontos coloridos no topo mostram o estado de cada item.
+4. Em cada item, o primeiro campo que falta aparece sozinho; **os seguintes só aparecem depois que você resolve o atual**:
+   - estabelecimento ou setor que não existe: **Cadastrar “…”** ou **Alterar para um existente** (a sugestão "parecido" vem primeiro). Mude de ideia pelo menos uma vez: a resposta continua na tela, e os campos seguintes somem e voltam conforme a resposta;
+   - cliente que não existe: escolha um contrato, ou **Pular este item**;
+   - atividade inválida: escolha a atividade; só então aparece o prazo, que você corrige;
+   - estabelecimento em branco: a tela diz que só se corrige na planilha, e a saída é **Pular este item**.
+5. **Próximo** só libera com o item resolvido. Se duas linhas usam o mesmo nome que não existe, responder uma resolve a outra: o **Próximo** pula direto o item já resolvido (use **Anterior** para vê-lo).
+6. No fim vem o **Resumo da importação**: leia os contadores e **"O que vai acontecer"**, abra **"Ver todas as linhas da planilha"** (as linhas que já estavam certas só aparecem ali) e clique em **Confirmar importação**. Nada foi gravado até aqui. Se faltar algo, o resumo mostra o botão **Ir ao primeiro item pendente**.
 7. Abra **Cronograma**: os itens estão lá. O estabelecimento novo foi criado só com o nome (veja em **Clientes**: falta o endereço e as coordenadas).
-8. **Importe a mesma planilha de novo**: o que já existe aparece como "Ignorada" ("Já existe no cronograma"), e nada é duplicado.
+8. **Importe a mesma planilha de novo**: o que já existe entra como "Ignorada" ("Já existe no cronograma") e some da fila, e nada é duplicado.
 9. Com `coord@teste.local` (só visitas), o botão **Importar planilha** não aparece.
 
 ## Para recomeçar do zero

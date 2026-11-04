@@ -5,12 +5,16 @@ import {
   chaveEstab,
   chaveSetor,
   decisoesVazias,
+  etapasDaLinha,
   lerAtividade,
   lerLinhas,
   lerPrazo,
+  linhaResolvida,
+  linhasQueExigemVoce,
   montarPedido,
   perguntasDaPlanilha,
   podeConfirmar,
+  proximoDaFila,
   resolverLinhas,
   resumir,
   type ContextoImportacao,
@@ -266,6 +270,7 @@ test("resumo e pedido: só as prontas entram, e o que será cadastrado aparece s
   const r = resumir(rs);
   assert.deepEqual({ total: r.total, prontas: r.prontas, duplicadas: r.duplicadas, erro: r.erro, decidir: r.decidir }, { total: 5, prontas: 3, duplicadas: 1, erro: 1, decidir: 0 });
   assert.equal(r.estabelecimentosNovos.length, 1, "o mesmo estabelecimento novo conta uma vez");
+  assert.equal(r.estabelecimentosNovos[0].nome, "Posto Norte", "e vale o nome da primeira linha (a segunda escreveu em minúsculas)");
   assert.equal(r.setoresNovos.length, 2, "Triagem (no posto novo) e Tributação (na Sede)");
   assert.equal(podeConfirmar(r), false, "a linha com erro impede confirmar até ser corrigida ou pulada");
 
@@ -277,4 +282,105 @@ test("resumo e pedido: só as prontas entram, e o que será cadastrado aparece s
   assert.deepEqual(pedido[0].unidade, { tipo: "nova", nome: "Posto Norte" });
   assert.deepEqual(pedido[2].setor, { tipo: "novo", nome: "Tributação" });
   assert.ok(pedido.every((p) => p.contratoId === "c-sca"));
+});
+
+// ---------- Revisão em etapas: um item por vez ----------
+
+test("etapas: item certo não precisa de ninguém; o que tem pergunta ou erro entra na fila, na ordem da planilha", () => {
+  const rs = resolverLinhas(
+    [
+      linha({ linha: 2 }), // pronta
+      linha({ linha: 3, estabelecimento: "Posto Norte" }), // pergunta
+      linha({ linha: 4, setor: "Protocolo" }), // duplicada de item existente
+      linha({ linha: 5, cliente: "Fulano" }), // erro de contrato
+    ],
+    ctx(),
+    decisoesVazias(),
+  );
+  assert.deepEqual(rs.map(linhaResolvida), [true, false, true, false]);
+  assert.deepEqual(linhasQueExigemVoce(rs).map((l) => l.bruta.linha), [3, 5]);
+});
+
+test("etapas: o item para no primeiro campo sem resposta e só mostra até ele", () => {
+  // Estabelecimento novo + atividade e prazo ruins: pergunta o estabelecimento antes de qualquer outra coisa.
+  const ruim = linha({ estabelecimento: "Posto Norte", setor: "Triagem", atividadeTexto: "churrasco", atividade: null, prazoTexto: "amanhã", prazo: null });
+  const [a] = resolverLinhas([ruim], ctx(), decisoesVazias());
+  let e = etapasDaLinha(a);
+  assert.equal(e.atual, "estabelecimento");
+  assert.deepEqual(e.visiveis, ["contrato", "estabelecimento"]);
+
+  // Cadastrar o estabelecimento resolve o setor junto (nasce novo) e a tela passa para a atividade.
+  const dec = decisoesVazias();
+  dec.estab[chaveEstab("1", "Posto Norte")] = { acao: "cadastrar" };
+  e = etapasDaLinha(resolverLinhas([ruim], ctx(), dec)[0]);
+  assert.equal(e.atual, "atividade");
+  assert.deepEqual(e.visiveis, ["contrato", "estabelecimento", "setor", "atividade"]);
+
+  // Corrigida a atividade, aparece o prazo; corrigido o prazo, nada falta e todos os campos ficam visíveis.
+  dec.atividade[2] = "implantacao";
+  e = etapasDaLinha(resolverLinhas([ruim], ctx(), dec)[0]);
+  assert.equal(e.atual, "prazo");
+  dec.prazo[2] = "2026-12-01";
+  const [pronta] = resolverLinhas([ruim], ctx(), dec);
+  e = etapasDaLinha(pronta);
+  assert.equal(e.atual, null);
+  assert.equal(e.visiveis.length, 5);
+  assert.equal(pronta.situacao, "pronta");
+});
+
+test("etapas: contrato sem correspondência vem primeiro; setor que não existe só é perguntado depois de resolver o estabelecimento", () => {
+  const [semContrato] = resolverLinhas([linha({ cliente: "Fulano", estabelecimento: "Posto Norte" })], ctx(), decisoesVazias());
+  assert.equal(etapasDaLinha(semContrato).atual, "contrato");
+  assert.deepEqual(etapasDaLinha(semContrato).visiveis, ["contrato"]);
+  assert.match(semContrato.problemaDoCampo.contrato ?? "", /não foi encontrado/);
+
+  const dec = decisoesVazias();
+  dec.estab[chaveEstab("1", "Posto Centrall")] = { acao: "usar", id: "u-posto" };
+  const [setorNovo] = resolverLinhas([linha({ estabelecimento: "Posto Centrall", setor: "Protocolo" })], ctx(), dec);
+  assert.equal(etapasDaLinha(setorNovo).atual, "setor", "no Posto Central não existe o setor Protocolo");
+});
+
+test("etapas: nome em branco ou grande demais não tem conserto na tela, só pulando", () => {
+  const [semNome] = resolverLinhas([linha({ estabelecimento: "" })], ctx(), decisoesVazias());
+  assert.equal(semNome.situacao, "erro");
+  assert.deepEqual(semNome.semConserto, ["Estabelecimento em branco."]);
+  assert.deepEqual(semNome.problemaDoCampo, {}, "não há campo para corrigir");
+  assert.equal(etapasDaLinha(semNome).atual, "estabelecimento");
+
+  const [obsGrande] = resolverLinhas([linha({ observacao: "x".repeat(501) })], ctx(), decisoesVazias());
+  assert.equal(obsGrande.situacao, "erro");
+  assert.equal(etapasDaLinha(obsGrande).atual, null, "todos os campos estão resolvidos, mas a observação impede");
+  assert.equal(etapasDaLinha(obsGrande).semConserto.length, 1);
+
+  const dec = decisoesVazias();
+  dec.pular[2] = true;
+  assert.equal(linhaResolvida(resolverLinhas([linha({ estabelecimento: "" })], ctx(), dec)[0]), true, "pular resolve");
+});
+
+test("etapas: a resposta de um item resolve os outros que usam o mesmo nome, e o próximo pula os já resolvidos", () => {
+  const brutas = [
+    linha({ linha: 2, estabelecimento: "Posto Norte" }),
+    linha({ linha: 3, estabelecimento: "posto norte", atividade: "implantacao", atividadeTexto: "Implantação" }),
+    linha({ linha: 4, cliente: "Fulano" }),
+    linha({ linha: 5, setor: "Tributação" }),
+  ];
+  const inicial = resolverLinhas(brutas, ctx(), decisoesVazias());
+  const fila = linhasQueExigemVoce(inicial).map((l) => l.bruta.linha);
+  assert.deepEqual(fila, [2, 3, 4, 5]);
+
+  const dec = decisoesVazias();
+  dec.estab[chaveEstab("1", "Posto Norte")] = { acao: "cadastrar" };
+  const agora = resolverLinhas(brutas, ctx(), dec);
+  const filaAgora = fila.map((n) => agora.find((l) => l.bruta.linha === n)!);
+  assert.deepEqual(filaAgora.map((l) => l.situacao), ["pronta", "pronta", "erro", "decidir"], "as linhas 2 e 3 usam o mesmo nome");
+  assert.equal(proximoDaFila(filaAgora, 0), 2, "do item 1 vai direto ao 3º: o 2º já foi resolvido pela mesma resposta");
+  assert.equal(proximoDaFila(filaAgora, 2), 3);
+  assert.equal(proximoDaFila(filaAgora, 3), 4, "depois do último pendente vem o resumo (índice = tamanho da fila)");
+
+  dec.pular[4] = true;
+  dec.setor[chaveSetor("u-sede", "Tributação")] = { acao: "cadastrar" };
+  const tudo = resolverLinhas(brutas, ctx(), dec);
+  const filaTudo = fila.map((n) => tudo.find((l) => l.bruta.linha === n)!);
+  assert.equal(proximoDaFila(filaTudo, 0), 4, "nada pendente: direto ao resumo");
+  assert.equal(podeConfirmar(resumir(tudo)), true);
 });

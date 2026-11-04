@@ -241,6 +241,10 @@ export interface Pergunta {
 
 export type SituacaoLinha = "pronta" | "decidir" | "erro" | "duplicada" | "pulada";
 
+/** Os campos de um item, na ordem em que a revisão os mostra (um aparece quando o anterior está resolvido). */
+export type CampoItem = "contrato" | "estabelecimento" | "setor" | "atividade" | "prazo";
+export const ORDEM_CAMPOS: readonly CampoItem[] = ["contrato", "estabelecimento", "setor", "atividade", "prazo"];
+
 export interface LinhaResolvida {
   bruta: LinhaBruta;
   situacao: SituacaoLinha;
@@ -252,10 +256,25 @@ export interface LinhaResolvida {
   atividade: TipoVisita | null;
   prazo: string | null;
   observacao: string;
+  /** Todos os problemas da linha (os que se corrigem na tela e os que não). */
   problemas: string[];
+  /** Os problemas que se corrigem na tela, por campo (escolher o contrato, a atividade ou o prazo). */
+  problemaDoCampo: Partial<Record<CampoItem, string>>;
+  /** Os que não têm conserto na tela (nome em branco ou grande demais, observação grande): só pulando a linha. */
+  semConserto: string[];
   perguntas: Pergunta[];
   /** Por que não será importada, quando `duplicada`. */
   motivoDuplicada?: string;
+}
+
+/** Problemas da planilha que a tela não consegue corrigir: o texto vem do Excel e só se muda lá. */
+function problemasSemConserto(b: LinhaBruta): string[] {
+  const p: string[] = [];
+  if (b.observacao.length > LIMITE_OBSERVACAO) p.push(`Observação com mais de ${LIMITE_OBSERVACAO} caracteres.`);
+  if (!b.estabelecimento) p.push("Estabelecimento em branco.");
+  else if (b.estabelecimento.length > LIMITE_NOME) p.push(`Estabelecimento com mais de ${LIMITE_NOME} caracteres.`);
+  if (b.setor.length > LIMITE_NOME) p.push(`Setor com mais de ${LIMITE_NOME} caracteres.`);
+  return p;
 }
 
 function melhorParecido(nome: string, opcoes: { id: string; nome: string }[]): string | null {
@@ -305,19 +324,22 @@ export function resolverLinhas(linhas: LinhaBruta[], ctx: ContextoImportacao, de
 
   for (const b of linhas) {
     const problemas: string[] = [];
+    const problemaDoCampo: Partial<Record<CampoItem, string>> = {};
+    const falha = (campo: CampoItem, mensagem: string) => {
+      problemas.push(mensagem);
+      problemaDoCampo[campo] = mensagem;
+    };
     const perguntas: Pergunta[] = [];
     const { contrato, opcoes, problema } = acharContrato(b, ctx, dec);
     const pulada = !!dec.pular[b.linha];
-    if (!contrato && problema) problemas.push(problema);
+    if (!contrato && problema) falha("contrato", problema);
 
     const atividade = dec.atividade[b.linha] ?? b.atividade;
-    if (!atividade) problemas.push(b.atividadeTexto ? `Atividade não reconhecida: “${b.atividadeTexto}”.` : "Atividade em branco.");
+    if (!atividade) falha("atividade", b.atividadeTexto ? `Atividade não reconhecida: “${b.atividadeTexto}”.` : "Atividade em branco.");
     const prazo = dec.prazo[b.linha] ?? b.prazo;
-    if (!prazo || !prazoValido(prazo)) problemas.push(b.prazoTexto ? `Prazo inválido: “${b.prazoTexto}”.` : "Prazo em branco.");
-    if (b.observacao.length > LIMITE_OBSERVACAO) problemas.push(`Observação com mais de ${LIMITE_OBSERVACAO} caracteres.`);
-    if (!b.estabelecimento) problemas.push("Estabelecimento em branco.");
-    else if (b.estabelecimento.length > LIMITE_NOME) problemas.push(`Estabelecimento com mais de ${LIMITE_NOME} caracteres.`);
-    if (b.setor.length > LIMITE_NOME) problemas.push(`Setor com mais de ${LIMITE_NOME} caracteres.`);
+    if (!prazo || !prazoValido(prazo)) falha("prazo", b.prazoTexto ? `Prazo inválido: “${b.prazoTexto}”.` : "Prazo em branco.");
+    const semConserto = problemasSemConserto(b);
+    problemas.push(...semConserto);
 
     let unidade: RefUnidade | null = null;
     let setor: RefSetor | undefined = undefined;
@@ -392,9 +414,56 @@ export function resolverLinhas(linhas: LinhaBruta[], ctx: ContextoImportacao, de
       }
     }
 
-    resolvidas.push({ bruta: b, situacao, contrato, contratoOpcoes: opcoes, unidade, setor, atividade, prazo, observacao: b.observacao, problemas, perguntas, motivoDuplicada });
+    resolvidas.push({ bruta: b, situacao, contrato, contratoOpcoes: opcoes, unidade, setor, atividade, prazo, observacao: b.observacao, problemas, problemaDoCampo, semConserto, perguntas, motivoDuplicada });
   }
   return resolvidas;
+}
+
+// ---------- Revisão em etapas: um item por vez ----------
+
+/** Nada mais a perguntar sobre a linha: vai ser criada, não entra (já existe ou repete) ou foi pulada. */
+export const linhaResolvida = (l: LinhaResolvida) => l.situacao === "pronta" || l.situacao === "duplicada" || l.situacao === "pulada";
+
+/** As linhas que precisam do usuário (pergunta ou erro). As outras entram sozinhas e só aparecem no resumo final. */
+export const linhasQueExigemVoce = (resolvidas: LinhaResolvida[]) => resolvidas.filter((l) => l.situacao === "decidir" || l.situacao === "erro");
+
+function campoResolvido(l: LinhaResolvida, c: CampoItem): boolean {
+  switch (c) {
+    case "contrato":
+      return l.contrato !== null;
+    case "estabelecimento":
+      return l.unidade !== null;
+    case "setor":
+      return l.setor !== undefined;
+    case "atividade":
+      return l.atividade !== null;
+    case "prazo":
+      return l.prazo !== null && prazoValido(l.prazo);
+  }
+}
+
+export interface EtapasDaLinha {
+  /** Campo em que o item parou: o primeiro, na ordem, que ainda não está resolvido. Nulo quando nada falta. */
+  atual: CampoItem | null;
+  /** Campos que a tela mostra: os já resolvidos e o atual. Os seguintes aparecem quando este for resolvido. */
+  visiveis: CampoItem[];
+  /** Problemas que a tela não corrige (só pulando a linha). */
+  semConserto: string[];
+}
+
+export function etapasDaLinha(l: LinhaResolvida): EtapasDaLinha {
+  const atual = ORDEM_CAMPOS.find((c) => !campoResolvido(l, c)) ?? null;
+  const visiveis = atual ? ORDEM_CAMPOS.slice(0, ORDEM_CAMPOS.indexOf(atual) + 1) : [...ORDEM_CAMPOS];
+  return { atual, visiveis, semConserto: l.semConserto };
+}
+
+/**
+ * Para onde vai o "Próximo": o próximo item da fila que ainda não está resolvido (um item resolvido pela resposta
+ * de outro não precisa de ninguém). Sem nenhum, é o resumo, que fica depois do último item (índice = tamanho da fila).
+ */
+export function proximoDaFila(fila: LinhaResolvida[], atual: number): number {
+  for (let i = atual + 1; i < fila.length; i++) if (!linhaResolvida(fila[i])) return i;
+  return fila.length;
 }
 
 /**
@@ -432,8 +501,8 @@ export function resumir(resolvidas: LinhaResolvida[]): ResumoImportacao {
   const setores = new Map<string, { nome: string; estabelecimento: string }>();
   for (const l of resolvidas) {
     if (l.situacao !== "pronta") continue;
-    if (l.unidade?.tipo === "nova") estab.set(l.unidade.chave, { nome: l.unidade.nome, cliente: l.contrato!.clienteNome });
-    if (l.setor?.tipo === "novo") setores.set(l.setor.chave, { nome: l.setor.nome, estabelecimento: l.unidade!.nome });
+    if (l.unidade?.tipo === "nova" && !estab.has(l.unidade.chave)) estab.set(l.unidade.chave, { nome: l.unidade.nome, cliente: l.contrato!.clienteNome });
+    if (l.setor?.tipo === "novo" && !setores.has(l.setor.chave)) setores.set(l.setor.chave, { nome: l.setor.nome, estabelecimento: l.unidade!.nome });
   }
   return { total: resolvidas.length, prontas: n("pronta"), decidir: n("decidir"), erro: n("erro"), duplicadas: n("duplicada"), puladas: n("pulada"), estabelecimentosNovos: [...estab.values()], setoresNovos: [...setores.values()] };
 }
