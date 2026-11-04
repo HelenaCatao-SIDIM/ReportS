@@ -72,7 +72,6 @@ Atualizado em 27/10/2026. Aqui está tudo o que **não anda sem uma ação de fo
 | **7 e 8. Implantação e check-list** | Não é bloqueio: adiados por definição | Entram quando a função existir | — |
 | **3 decisões em aberto (2, 6 e 7)** | Decisão | Uma resposta para cada. As decisões 1, 3, 4 e 5 foram respondidas em 27/10/2026. | Quem decide o produto |
 | **Plataforma SIDIM (SINC + ReportS)** | Plano aprovado em 29/10/2026 | Fases 0 a 3 do SINC antes do banco real do ReportS | Helena e desenvolvimento do SINC |
-| **Importação do SIDIM Saúde** | Informação externa + dependência | Usuário de integração aceito pela API de Pará de Minas; rota que liste todos os funcionários com CPF, CBO e estabelecimentos; liberação no SINC | Gestão (acesso), time do Saúde (API), time do SINC (liberação) |
 
 ### Ponto 5 — Coordenadas do estabelecimento sem digitação · feito e testado com o serviço real (28/10/2026)
 
@@ -113,16 +112,6 @@ Atualizado em 27/10/2026. Aqui está tudo o que **não anda sem uma ação de fo
 - **O que falta definir:** de onde vem a base de pessoas do cliente (outro sistema interno, planilha do cliente, integração com o cliente); que dados ela traz (nome, CPF, CBO, setor); como é mantida atualizada; e como tratar os dados pessoais (LGPD, principalmente o CPF).
 - **Por que é "o primeiro a alinhar":** a resposta muda o desenho de vários itens, inclusive o do login único (a base de pessoas pode morar em outro sistema).
 - **Depois de definido:** a seleção passa a ser a forma principal, e a digitação livre vira exceção.
-- **Andamento (04/11/2026):** para os clientes do SIDIM Saúde, a base passa a vir do próprio Saúde (veja o ponto abaixo).
-
-### Importação do SIDIM Saúde · código pronto, aguardando acesso (04/11/2026)
-
-- **Entregue (branch `claude/importar-saude`):** botão **"Importar do Saúde"** no cartão do sistema do cliente. Ele traz os profissionais (e os estabelecimentos, quando a API mandar) e pode ser repetido sem duplicar. Os profissionais entram como confirmados, ligados pelo id do usuário do Saúde. Regras em `docs/regras.md`. Testado com uma API falsa no formato real e contra a API real de Pará de Minas (`http://sidim.no-ip.net/api_parademinas`), que recusou o login do `admin`.
-- **Falta, de fora do código:**
-  1. **Usuário de integração aceito pela API:** o `admin` é recusado (`invalid_grant`); o login funcionou no Postman com o `icoliveira`. Vai para o `.env.local` em `SAUDE_API_SAUDE_PARADEMINAS_USUARIO` e `_SENHA` (o endereço já está lá).
-  2. **Rota com todos os funcionários:** `GET /api/funcionario` devolveu só o funcionário do usuário logado, e sem CPF, código CBO nem estabelecimentos. Falta saber se outro usuário (ou outra rota) traz a lista completa e esses campos.
-  3. **Liberação no SINC (ADR-035):** o usuário de banco do ReportS precisa gravar `external_user_id`, `estado` e `origem` em `client_users`, e a regra da tabela precisa aceitar a origem `importacao_saude`. Sem isso, só os estabelecimentos são importados, e a tela avisa.
-- **Decisões tomadas (03/11/2026):** disparo manual por botão (sem agendador); profissional como confirmado, com o id do ERP; acesso no `.env` por tenant. **A confirmar:** o funcionário sem usuário no Saúde ficou de fora (recomendação), para não duplicar a pessoa se ela ganhar um usuário depois.
 
 ### Pontos 7 e 8 — Marcação de implantação e check-list · adiados, não bloqueados
 

@@ -176,22 +176,6 @@ GEOCODING_USER_AGENT=SIDIM-Visitas/1.0 (contato@sidimsistemas.com.br)
 - Usa o mesmo `GEOCODING_USER_AGENT` e a mesma fila de 1 consulta por segundo da localização por CEP
   (`src/lib/geocodificar.ts`). Roteiro de teste em `docs/teste-busca-coordenadas.md`.
 
-Opcional — **importação do SIDIM Saúde** (desligada por padrão), por tenant:
-
-```bash
-SAUDE_API_SAUDE_PARADEMINAS_URL=http://sidim.no-ip.net/api_parademinas
-SAUDE_API_SAUDE_PARADEMINAS_USUARIO=integracao.reports
-SAUDE_API_SAUDE_PARADEMINAS_SENHA=...
-```
-
-- Com as três variáveis do tenant, o cartão do sistema do cliente ganha o botão **"Importar do Saúde"** (para quem tem
-  `reports.clientes.cadastrar` e `reports.participantes.gerenciar`). O nome é `SAUDE_API_` + o tenant em maiúsculas e sem símbolos.
-- O endereço é o da **API** do tenant (`/api_<cliente>`), não o do sistema web. O login é por formulário (`POST /api/login`, `grant_type=password`) e a lista vem de `GET /api/funcionario`. O usuário precisa entrar pela API; a senha é segredo: só no `.env.local`.
-- Os **profissionais** entram como participantes confirmados com origem `importacao_saude`. Para isso, o usuário de banco do
-  ReportS precisa poder gravar `external_user_id`, `estado` e `origem` em `client_users`, e a regra da tabela precisa aceitar a
-  origem `importacao_saude` (pedido ao SINC). Sem essa liberação, os estabelecimentos são importados e a tela avisa que os
-  profissionais ficaram de fora. Regras em `docs/regras.md`; código em `src/lib/saude-api.ts` e `src/lib/importacao-saude.ts`.
-
 A conversão usa duas APIs gratuitas, sem chave, chamadas só pelo servidor (`src/lib/cep.ts`):
 [Nominatim/OpenStreetMap](https://operations.osmfoundation.org/policies/nominatim/) (no máximo 1 consulta por segundo,
 com cache) e, quando ele não traz o CEP, o [ViaCEP](https://viacep.com.br) pela rua — nesse caso o CEP aparece como
