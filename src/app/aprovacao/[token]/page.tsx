@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mudancas } from "@/components/relatorio/mudancas";
 import { ChamadosSuporte } from "@/components/relatorio/chamados-suporte";
+import { CronogramaRelatorio } from "@/components/cronograma/cronograma-relatorio";
 import { Decisao } from "./decisao";
 
 export const metadata: Metadata = { title: "Relatório de atendimento · SIDIM", robots: { index: false, follow: false } };
@@ -181,6 +182,8 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/aprovacao/[to
       </Card>
 
       {c.suporte && <ChamadosSuporte resumo={c.suporte} publico="aprovador" />}
+
+      {c.cronograma && <CronogramaRelatorio cronograma={c.cronograma} />}
 
       {pdf && (
         <a href={pdf} className="flex items-center justify-center gap-2 rounded-xl border bg-background p-3 text-sm font-medium text-primary hover:bg-muted/50">

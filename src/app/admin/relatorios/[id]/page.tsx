@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Download, Eye, FileText, Lock, Mail, MessageSquareWarning } from "lucide-react";
 import { montarConteudo } from "@/lib/repo/relatorios";
-import { formatarDataHora } from "@/lib/datas";
+import { dataLocal, formatarDataHora } from "@/lib/datas";
 import { formatarDataCurta, formatarMinutos } from "@/lib/visitas";
 import { StatusRelatorioBadge } from "@/components/relatorio/status";
 import { ConteudoRelatorio, type DadosConteudo } from "@/components/relatorio/conteudo";
@@ -14,6 +14,7 @@ import { chamadosSuporte } from "@/lib/config-suporte";
 import { emailReal } from "@/lib/config";
 import { buscarResumoSuporte } from "@/lib/suporte";
 import { buscarSistema } from "@/lib/repo/sistemas";
+import { congelarCronograma } from "@/lib/repo/cronograma";
 import { agendarCepPendente, locaisPendentes } from "@/lib/cep-visitas";
 import { horaDoServidor } from "@/lib/agora";
 import { AtualizarEnquantoPendente } from "@/components/visita/atualizar-enquanto-pendente";
@@ -98,6 +99,8 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
           minutosOnline: c.minutosOnline,
           // Prévia, buscada agora; na emissão estes números são congelados na versão.
           suporte: chamadosSuporte() ? await buscarResumoSuporte(cliente, r.de, r.ate, (await buscarSistema(contrato.sistema))?.nomeFortics) : null,
+          // Cronograma de implantação do contrato, na situação de hoje; na emissão também é congelado.
+          cronograma: await congelarCronograma(contrato.id, dataLocal(agora)),
         };
 
   return (

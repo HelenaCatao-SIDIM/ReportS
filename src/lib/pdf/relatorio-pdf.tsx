@@ -1,11 +1,12 @@
 /* eslint-disable jsx-a11y/alt-text -- Image do react-pdf não tem atributo alt */
 import "server-only";
 import { Document, Font, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
-import type { ContagemSuporte, ConteudoCongelado, ResumoSuporte, VisitaDetalhada } from "@/lib/types";
+import type { ContagemSuporte, ConteudoCongelado, CronogramaCongelado, ResumoSuporte, VisitaDetalhada } from "@/lib/types";
 import { formatarData, formatarDataHora, formatarDuracao, formatarHora } from "@/lib/datas";
 import { formatarCbo, formatarCnpj, mascararCpf } from "@/lib/format";
 import { ROTULO_MEIO } from "@/lib/meio";
 import { ehPresencial, formatarDataCurta, formatarMinutos, rotuloTipo } from "@/lib/visitas";
+import { ROTULO_SITUACAO, resumoCronograma } from "@/lib/cronograma";
 
 // Sem hifenização automática: em colunas estreitas o padrão quebrava palavras ("Recursos Hu-manos").
 Font.registerHyphenationCallback((palavra) => [palavra]);
@@ -216,6 +217,39 @@ function ChamadosSuportePdf({ r }: { r: ResumoSuporte }) {
   );
 }
 
+/** Cronograma de implantação do contrato, na situação congelada da emissão. */
+export function CronogramaPdf({ c }: { c: CronogramaCongelado }) {
+  return (
+    <View style={s.caixa}>
+      <Text style={s.secao}>Cronograma de implantação</Text>
+      <Text style={[s.vazio, { marginBottom: 6 }]}>
+        {resumoCronograma(c)} · situação em {formatarDataCurta(c.em)}
+      </Text>
+      <View style={s.tabela}>
+        <View style={[s.linha, s.cabecalho]}>
+          <Text style={{ width: "28%" }}>Estabelecimento</Text>
+          <Text style={{ width: "22%" }}>Setor</Text>
+          <Text style={{ width: "18%" }}>Atividade</Text>
+          <Text style={{ width: "14%" }}>Prazo</Text>
+          <Text style={{ width: "18%" }}>Situação</Text>
+        </View>
+        {c.itens.map((i, n) => (
+          <View key={n} style={s.linha} wrap={false}>
+            <Text style={{ width: "28%" }}>{i.unidadeNome}</Text>
+            <Text style={{ width: "22%" }}>{i.setorNome ?? "Todos os setores"}</Text>
+            <Text style={{ width: "18%" }}>{rotuloTipo(i.tipo)}</Text>
+            <Text style={{ width: "14%" }}>{formatarDataCurta(i.prazo)}</Text>
+            <Text style={{ width: "18%" }}>
+              {ROTULO_SITUACAO[i.situacao]}
+              {i.cumpridoEm ? ` (${formatarDataCurta(i.cumpridoEm)})` : ""}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 export function RelatorioPdf({
   conteudo,
   versao,
@@ -266,6 +300,8 @@ export function RelatorioPdf({
         </View>
 
         {mostrarSuporte && c.suporte && <ChamadosSuportePdf r={c.suporte} />}
+
+        {c.cronograma && <CronogramaPdf c={c.cronograma} />}
 
         <Text style={s.secao}>Visitas do período</Text>
         <View style={s.tabela}>

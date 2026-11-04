@@ -85,6 +85,36 @@ npm run permissoes:registrar   # grava as permissões reports.* na plataforma
 npm run db:exemplo             # só em desenvolvimento: CBO de amostra, temas, aprovadores, estabelecimentos e contratos
 ```
 
+### Sem o SINC: ambiente de teste no seu computador
+
+Quem não tem o SINC de desenvolvimento pode criar um banco `plataforma` **de teste**, só para rodar e analisar o ReportS. O comando
+`npm run db:ambiente-teste` cria as tabelas (a partir do `prisma/plataforma/schema.prisma`) e dados de exemplo: 4 sistemas, 2 clientes
+(Prefeitura de Vale Verde, com SERP e SCA; Clínica Bem Viver, com Saúde), participantes confirmados e 3 usuários, todos com a senha
+`sidim123`: `admin@teste.local` (Administrador), `coord@teste.local` (só visitas) e `tecnico@teste.local` (só o App do Técnico).
+
+Ele **recusa** rodar se o banco não é do próprio computador, se o nome tem "prod" ou se o banco já tem tabelas (o do SINC tem). Para
+recomeçar, apague o banco e crie de novo. A estrutura verdadeira da plataforma continua sendo do SINC.
+
+No Windows (PowerShell), com o PostgreSQL 16 instalado (anote a senha do usuário `postgres`; ela é pedida nos três primeiros comandos).
+Se o seu PostgreSQL está em outra pasta, ajuste o caminho:
+
+```powershell
+& "C:\Program Files\PostgreSQL\16\bin\psql.exe" -U postgres -c "CREATE ROLE reports LOGIN PASSWORD 'senha-dev'"
+& "C:\Program Files\PostgreSQL\16\bin\createdb.exe" -U postgres -O reports reports_development
+& "C:\Program Files\PostgreSQL\16\bin\createdb.exe" -U postgres -O reports plataforma_development
+
+node -e "const c=require('crypto');require('fs').writeFileSync('.env.local',['SESSION_SECRET='+c.randomBytes(32).toString('base64'),'APP_URL=http://localhost:3000','REPORTS_DATABASE_URL=postgresql://reports:senha-dev@localhost:5432/reports_development','PLATAFORMA_DATABASE_URL=postgresql://reports:senha-dev@localhost:5432/plataforma_development','SINC_URL=http://localhost:3001','ARQUIVOS_DIR=./tmp/arquivos'].join('\n')+'\n')"
+
+npm install
+npm run db:migrate
+npm run db:ambiente-teste
+npm run db:exemplo
+npm run dev
+```
+
+Depois abra http://localhost:3000. O contrato do **SCA** é "nominal" e sem CPF, o mais simples para testar uma visita (os de SERP e Saúde exigem
+assinatura e CPF). O GPS funciona em `localhost`; sem permissão de localização, use "Treinamento online". Roteiro do cronograma: `docs/teste-cronograma.md`.
+
 Opcional — **localização por CEP** (desligada por padrão; com ela desligada, nada muda):
 
 ```bash
@@ -187,6 +217,8 @@ nesse endereço — use um treinamento online para testar sem GPS.
 ## Estrutura
 
 - `docs/regras.md` — regras de negócio implementadas (o que o sistema exige e permite em cada etapa)
+- `docs/teste-cronograma.md` — roteiro de teste do cronograma de implantação, no ambiente de teste local
+- `src/lib/cronograma.ts`, `src/lib/repo/cronograma.ts`, `src/app/admin/cronograma/` — cronograma de implantação: prazos por estabelecimento e setor, com a situação calculada pelas visitas encerradas; aparece na Administração, no check-in do técnico e no relatório ao cliente. Também se cadastra em lote por **planilha do Excel** (`src/lib/importar-cronograma.ts`, `src/lib/planilha-cronograma.ts`), com prévia e perguntas "cadastrar ou alterar" antes de gravar
 - `AGENTS.md` — convenções do código, para quem for programar (pessoas ou agentes de IA)
 - `src/proxy.ts` — só confere se há sessão; a área certa (Administração ou App do Técnico) é decidida pelas permissões, na página `/inicio`
 - `src/lib/session.ts`, `src/lib/dal.ts`, `src/lib/permissoes.ts` — sessão (JWT em cookie httpOnly com só o id do usuário), verificação de permissão (uma para páginas, outra para ações; lida a cada requisição, sem cache) e catálogo de permissões
@@ -213,6 +245,7 @@ nesse endereço — use um treinamento online para testar sem GPS.
 | `npm run permissoes:registrar` | Grava o catálogo `reports.*` na plataforma: inclui, atualiza e inativa o que saiu do código (roda no deploy) |
 | `npm run cbo:importar -- "CBO2002 - Ocupacao.csv"` | Importa a tabela CBO oficial (arquivo do site da CBO, mtecbo.gov.br): inclui e atualiza, nunca apaga |
 | `npm run ceps:preencher` | Converte em CEP as coordenadas que ficaram pendentes (timer `reports-ceps` no servidor) |
+| `npm run db:ambiente-teste` | Cria um banco `plataforma` de teste, com dados de exemplo, **só** em PostgreSQL local e vazio (para quem não tem o SINC) |
 | `npm run db:exemplo` | Dados de exemplo, só em desenvolvimento e com o banco `reports` vazio |
 | `npm test` | Testes (abaixo) |
 

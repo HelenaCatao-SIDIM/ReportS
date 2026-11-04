@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { BookOpen, BadgeCheck, Building2, FileText, ShieldCheck, Timer, Users, TriangleAlert } from "lucide-react";
+import { BookOpen, BadgeCheck, Building2, CalendarClock, FileText, ShieldCheck, Timer, Users, TriangleAlert } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/shell/placeholder";
@@ -13,6 +13,7 @@ const ATALHOS = [
   { href: "/admin/aprovadores", titulo: "Aprovadores", desc: "Quem aprova os relatórios de cada contrato", icon: BadgeCheck },
   { href: "/admin/temas", titulo: "Temas", desc: "Assuntos trabalhados nas visitas", icon: BookOpen },
   { href: "/admin/participantes", titulo: "Participantes", desc: "Pessoas treinadas por cliente", icon: Users },
+  { href: "/admin/cronograma", titulo: "Cronograma", desc: "Prazos de treinamento e implantação por estabelecimento", icon: CalendarClock },
   { href: "/admin/visitas", titulo: "Visitas", desc: "Em andamento, encerramento e correções", icon: Timer },
   { href: "/admin/relatorios", titulo: "Relatórios", desc: "Emissão e aprovação", icon: FileText },
 ];
