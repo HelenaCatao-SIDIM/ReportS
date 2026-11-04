@@ -21,11 +21,22 @@ test("o login do participante vem desligado: precisa do endereço e do 'true' do
   assert.equal(L.configLoginDoTenant(null, { SAUDE_API__URL: url }, true), null, "cliente sem tenant");
 });
 
+test("o endereço aceita a forma do diretório de servidores do Saúde (com /api/ no fim) sem virar .../api/api/login", () => {
+  const liga = (url: string) => L.configLoginDoTenant("t1", { SAUDE_API_T1_URL: url, SAUDE_API_T1_LOGIN_PARTICIPANTE: "true" }, true)?.url;
+  assert.equal(liga("https://sidim.no-ip.net/api_parademinas"), "https://sidim.no-ip.net/api_parademinas");
+  assert.equal(liga("https://sidim.no-ip.net/api_parademinas/"), "https://sidim.no-ip.net/api_parademinas");
+  assert.equal(liga("https://sidim.no-ip.net/api_parademinas/api/"), "https://sidim.no-ip.net/api_parademinas", "como vem do diretório");
+  assert.equal(liga("https://sidim.no-ip.net/api_parademinas/API"), "https://sidim.no-ip.net/api_parademinas");
+  assert.equal(liga("https://sidim.no-ip.net/api_saude_lafaiete/api/"), "https://sidim.no-ip.net/api_saude_lafaiete", "o nome da pasta, que varia de cliente para cliente, não é mexido");
+  assert.equal(L.enderecoBase("  "), undefined);
+  assert.equal(L.enderecoBase(undefined), undefined);
+});
+
 test("em produção o login só liga com https://; em desenvolvimento, http:// também serve para testar", () => {
   const env = (url: string) => ({ SAUDE_API_T1_URL: url, SAUDE_API_T1_LOGIN_PARTICIPANTE: "true" });
   assert.equal(L.configLoginDoTenant("t1", env("http://sidim.no-ip.net/api_parademinas"), true), null, "http em produção: desligado");
   assert.deepEqual(L.configLoginDoTenant("t1", env("http://localhost:3999"), false), { url: "http://localhost:3999" }, "http fora de produção: liga");
-  assert.deepEqual(L.configLoginDoTenant("t1", env("https://x.example/api"), true), { url: "https://x.example/api" });
+  assert.deepEqual(L.configLoginDoTenant("t1", env("https://x.example/api"), true), { url: "https://x.example" }, "o /api do fim sai: o login é {endereço}/api/login");
   assert.equal(L.configLoginDoTenant("t1", env("ftp://x.example"), false), null);
   assert.equal(L.configLoginDoTenant("t1", env("isto não é endereço"), false), null);
   assert.equal(L.urlPermitida("https://x.example", true), true);

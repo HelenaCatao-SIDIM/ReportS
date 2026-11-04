@@ -35,6 +35,16 @@ export interface ConfigLogin {
 
 const avisados = new Set<string>();
 
+/**
+ * Endereço da API do tenant sem a barra do fim e sem o "/api" final. O diretório de servidores do Saúde publica o endereço com
+ * "/api/" no fim (ex.: .../api_parademinas/api/) e o login é "{endereço}/api/login": quem copiar o endereço do diretório não
+ * pode acabar chamando ".../api/api/login".
+ */
+export function enderecoBase(valor: string | undefined): string | undefined {
+  const url = valor?.trim().replace(/\/+$/, "").replace(/\/api$/i, "").replace(/\/+$/, "");
+  return url || undefined;
+}
+
 /** Configuração do login do participante no tenant, ou null se estiver desligado (ou sem endereço, ou http:// em produção). */
 export function configLoginDoTenant(
   tenant: string | null,
@@ -44,7 +54,7 @@ export function configLoginDoTenant(
   if (!tenant?.trim()) return null;
   const p = prefixoDoTenant(tenant);
   if (env[`${p}_LOGIN_PARTICIPANTE`]?.trim().toLowerCase() !== "true") return null;
-  const url = env[`${p}_URL`]?.trim().replace(/\/+$/, "");
+  const url = enderecoBase(env[`${p}_URL`]);
   if (!url) return null;
   if (!urlPermitida(url, producao)) {
     if (!avisados.has(p)) {
