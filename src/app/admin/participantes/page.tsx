@@ -56,7 +56,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/participantes">
   const exigeCpf = contrato?.exigeCpf ?? false;
   const setores = [...new Set(unidades.flatMap((u) => u.setores.map((s) => s.nome)))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   const colunas = exigeCpf ? 7 : 6;
-  const ORIGEM = { painel_sinc: "Painel do SINC", campo_reports: "Em campo", cadastro_reports: "Cadastro no ReportS" } as const;
+  const ORIGEM = { painel_sinc: "Painel do SINC", campo_reports: "Em campo", cadastro_reports: "Cadastro no ReportS", importacao_saude: "Importado do Saúde" } as const;
 
   return (
     <>
@@ -124,7 +124,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/participantes">
                   <TableCell>{p.setor || "—"}</TableCell>
                   {exigeCpf && <TableCell className="font-mono text-xs">{p.cpf ? formatarCpf(p.cpf) : "—"}</TableCell>}
                   <TableCell>
-                    <Badge variant={p.origem === "painel_sinc" ? "outline" : "secondary"}>{ORIGEM[p.origem]}</Badge>
+                    <Badge variant={p.estado === "confirmado" ? "outline" : "secondary"}>{ORIGEM[p.origem]}</Badge>
                   </TableCell>
                   <TableCell className="pr-4 text-right">
                     <ParticipanteDialogo sistemaDoClienteId={sistema.id} exigeCpf={exigeCpf} setores={setores} participante={p} />
