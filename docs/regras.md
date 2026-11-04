@@ -73,6 +73,21 @@ Onde: `src/app/admin/clientes/contrato-actions.ts`, `src/app/admin/aprovadores/a
 
 Onde: `src/app/admin/clientes/actions.ts`, `src/app/admin/clientes/geo-actions.ts`, `src/lib/repo/clientes.ts`.
 
+### Importação do SIDIM Saúde
+
+- Botão **"Importar do Saúde"** no cartão do sistema do cliente. Ele só aparece quando o tenant tem o acesso configurado no servidor (`SAUDE_API_<TENANT>_*`) e a pessoa tem **as duas** permissões: `reports.clientes.cadastrar` e `reports.participantes.gerenciar`. Roda só quando alguém clica, e dá para repetir: **nada duplica e nada é apagado**.
+- Lê os funcionários do Saúde (`GET /api/funcionario`, depois do login em `POST /api/login`). Hoje a API de Pará de Minas devolve `codigo`, `nome`, `cargo`, `cns`, `municipio`, `usuario`, `email` e `idUsuario`: **sem CPF, sem código CBO e sem estabelecimentos**. Assim, a importação traz só o nome e o id do usuário; CPF, CBO e estabelecimentos entram quando a API passar a mandá-los. O `cargo` é texto livre e não vira CBO.
+- **Estabelecimentos** (do cliente): ligados pelo id do Saúde. Na primeira importação, um estabelecimento já cadastrado com o **mesmo nome** (sem acento e sem diferenciar maiúsculas) passa a ser o do Saúde, em vez de nascer repetido. Nome e endereço editados no ReportS ficam; o endereço do Saúde só entra quando o do ReportS está vazio. Os novos entram com o raio padrão e sem setores nem coordenadas.
+- **Profissionais** (do sistema do cliente): entram como participantes **confirmados**, com origem "Importado do Saúde", ligados pelo **id do usuário do Saúde**, o mesmo que o SINC grava quando captura pelo painel. Assim, quem já foi capturado é atualizado, e não duplicado.
+  - Funcionário **sem usuário** ou com **usuário inativo** no Saúde fica de fora.
+  - Do confirmado que já existe, a importação só **preenche CPF e CBO vazios**: nunca troca o que alguém já preencheu.
+  - CPF inválido é descartado. **CPF que já é de outro participante**: a pessoa entra sem CPF, e o resumo mostra o nome.
+  - CBO: vale o primeiro código do funcionário que estiver na tabela oficial. Fora dela, a pessoa entra sem ocupação.
+  - **Nome parecido com um provisório** (mesma regra da busca de semelhantes): entra assim mesmo, e o resumo avisa que pode ser a mesma pessoa. A junção é a Fase 5.
+- Se o banco da plataforma recusar a gravação dos profissionais (falta de liberação no SINC), os estabelecimentos ficam gravados e o resumo avisa.
+
+Onde: `src/app/admin/clientes/importacao-actions.ts`, `src/lib/saude-api.ts`, `src/lib/importacao-saude.ts`, `src/lib/repo/importacao-saude.ts`.
+
 ### Temas
 
 - Um tema é a combinação **nome + sistema + módulo**, todos obrigatórios, e a combinação não pode se repetir. O sistema é um dos cadastrados na plataforma.
@@ -83,7 +98,7 @@ Onde: `src/app/admin/temas/actions.ts`, `src/lib/repo/temas.ts`.
 
 ### Participantes
 
-- Ficam na tabela de participantes da plataforma (comum com o SINC), **por sistema do cliente**. Há dois tipos: o **confirmado**, que vem do ERP pelo painel do SINC (o nome vem do ERP e o telefone é editado no SINC), e o **provisório**, criado no ReportS sem usuário do ERP, pelo técnico em campo ou pela Administração. Os já unidos (Fase 5) ficam de fora.
+- Ficam na tabela de participantes da plataforma (comum com o SINC), **por sistema do cliente**. Há dois tipos: o **confirmado**, que vem do ERP pelo painel do SINC ou pela [importação do SIDIM Saúde](#importação-do-sidim-saúde) (o nome vem do ERP e o telefone é editado no SINC), e o **provisório**, criado no ReportS sem usuário do ERP, pelo técnico em campo ou pela Administração. Os já unidos (Fase 5) ficam de fora.
 - O ReportS grava só **CPF, CBO e setor** (e o nome, no provisório): é o que o banco permite a esse usuário (ADR-035 do SINC).
 - Cadastro de **provisório**: nome com pelo menos 3 caracteres, **ocupação CBO escolhida da tabela**, setor opcional e CPF **só quando o contrato exige** (precisa ser válido). Os confirmados chegam do SINC **sem ocupação**: aparecem com "—" até alguém preenchê-la na Administração.
 - O **CPF é único por sistema do cliente** (entre os não unidos; o banco também garante). Ele pode ser guardado desde a decisão de LGPD de 30/10/2026 (QA-009 do SINC); o SINC nunca o mostra.
@@ -275,5 +290,6 @@ Onde: `src/lib/imagem.ts`, `src/lib/repo/arquivos.ts`, `src/app/arquivos/[id]/ro
 - Aviso de visita aberta por WhatsApp (Fortics): existe só o campo de telefone no SINC; faltam o envio e as regras do aviso.
 - Marcação de implantação e check-list (ficam para quando a função existir).
 - Junção de participantes (provisório com confirmado): Fase 5 do plano da plataforma.
+- Importação do SIDIM Saúde: a API de Pará de Minas (`/api_parademinas`) ainda não manda CPF, código CBO nem estabelecimentos, e o `/api/funcionario` devolveu só o funcionário do usuário logado; o login do `admin` é recusado pela API; a gravação dos profissionais em produção depende da liberação do SINC.
 - Contrato e relatório quando o cliente tem dois tenants do mesmo sistema (QA-043 do SINC, decidida: pode): hoje cada contrato mostra o mesmo número de chamados do cliente naquele sistema.
 - Envio real de e-mail depende das credenciais do SMTP da SIDIM e do SPF/DKIM do remetente; os chamados de suporte dependem do fluxo do n8n.
