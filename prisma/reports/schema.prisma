@@ -234,6 +234,9 @@ model Presenca {
   cpf            String?
   confirmacao    String
   assinatura     String?
+  /// Como a presença foi validada além da assinatura: "login_saude" (o próprio participante entrou no Saúde) ou "sem_login"
+  /// (o técnico registrou sem o login). Nulo quando o login do participante não era exigido (e nas presenças antigas).
+  validacao      String?
   ordem          Int
   visita         Visita  @relation(fields: [visitaId], references: [id], onDelete: Cascade)
 

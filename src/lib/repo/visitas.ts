@@ -47,6 +47,7 @@ const paraPresenca = (p: Linha["presencas"][number]): PresencaVisita => ({
   setor: p.setor,
   cpf: p.cpf,
   confirmacao: p.confirmacao as PresencaVisita["confirmacao"],
+  validacao: (p.validacao as PresencaVisita["validacao"]) ?? null,
   assinatura: p.assinatura,
 });
 
@@ -477,6 +478,7 @@ export async function adicionarPresenca(id: string, tecnicoId: string, p: Presen
         setor: p.setor,
         cpf: p.cpf,
         confirmacao: p.confirmacao,
+        validacao: p.validacao ?? null,
         assinatura: p.assinatura,
         ordem: (ultima._max.ordem ?? -1) + 1,
       },

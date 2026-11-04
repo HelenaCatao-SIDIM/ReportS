@@ -11,6 +11,8 @@ import { buscarCbo } from "@/lib/repo/cbo";
 import { salvarImagem } from "@/lib/repo/arquivos";
 import { buscarParticipante, buscarSemelhantes, criarProvisorio, definirCpfDoParticipante, listarParticipantes } from "@/lib/repo/participantes";
 import { adicionarPresenca, buscarVisita, removerPresenca } from "@/lib/repo/visitas";
+import { configLoginDoSistema } from "@/lib/repo/presenca-login";
+import { assinarProva, bloqueadoPorFalhas, conferirProva, limparFalhas, loginNoSaude, mesmaPessoa, registrarFalha } from "@/lib/saude-login";
 import type { Cbo, EstadoParticipante, Participante } from "@/lib/types";
 
 async function contexto(visitaId: string) {
@@ -32,6 +34,8 @@ export interface SugestaoParticipante {
   cbo: Cbo | null;
   setor: string;
   cpfMascarado: string;
+  /** O cadastro tem o id do Saúde, então dá para validar a presença por login. Só o fato: o id não sai do servidor. */
+  ligadoAoSaude: boolean;
 }
 
 const sugestao = (p: Participante): SugestaoParticipante => ({
@@ -41,6 +45,7 @@ const sugestao = (p: Participante): SugestaoParticipante => ({
   cbo: p.cbo,
   setor: p.setor,
   cpfMascarado: p.cpf ? mascararCpf(p.cpf) : "",
+  ligadoAoSaude: !!p.idErp,
 });
 
 export interface ResultadoBusca {
@@ -80,6 +85,16 @@ export interface PresencaState {
 export async function registrarPresenca(visitaId: string, _: PresencaState, fd: FormData): Promise<PresencaState> {
   const { tecnico, v, sistemaDoClienteId, exigeAssinatura, exigeCpf } = await contexto(visitaId);
   if (v.status !== "em_andamento") return { erros: { geral: "Esta visita já foi encerrada." } };
+
+  // Com o login do participante ligado no tenant, a presença só vale com a prova do login dele (ou com a do técnico, "sem login").
+  // A prova é assinada pelo servidor: o navegador não decide sozinho que o login passou.
+  let validacao: "login_saude" | "sem_login" | null = null;
+  if (await configLoginDoSistema(sistemaDoClienteId)) {
+    const idEscolhido = String(fd.get("participanteId") ?? "");
+    if (idEscolhido && (await conferirProva(String(fd.get("prova") ?? ""), { finalidade: "login_saude", visitaId, participanteId: idEscolhido }))) validacao = "login_saude";
+    else if (await conferirProva(String(fd.get("provaTecnico") ?? ""), { finalidade: "sem_login", visitaId })) validacao = "sem_login";
+    else return { erros: { geral: "Entre com o seu usuário e a senha do Saúde antes de confirmar a presença. Se não conseguir, chame o técnico." } };
+  }
 
   const erros: NonNullable<PresencaState["erros"]> = {};
   const assinaturaArquivo = fd.get("assinatura");
@@ -174,12 +189,57 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
     cpf: participante.cpf,
     confirmacao: exigeAssinatura ? "assinatura" : "nominal",
     assinatura,
+    validacao,
   });
   revalidatePath(`/tecnico/visita/${visitaId}`);
   revalidatePath(`/tecnico/visita/${visitaId}/presenca`);
   revalidatePath("/admin/participantes");
   revalidatePath("/admin/visitas", "layout");
   return { ok: true };
+}
+
+export type ResultadoEntrada = { ok: true; prova: string } | { ok: false; erro: string };
+
+/**
+ * Login do participante no Saúde, antes da assinatura. Confere se o usuário e a senha são da pessoa escolhida (o `userId` da API
+ * é o id do Saúde dela) e devolve uma prova assinada, válida por 10 minutos, que a presença exige. A senha só passa pela memória:
+ * não é gravada nem registrada. Passou de 5 falhas da pessoa (ou 30 da visita) em 10 minutos, manda chamar o técnico.
+ */
+export async function entrarNoSaude(visitaId: string, participanteId: string, fd: FormData): Promise<ResultadoEntrada> {
+  // Usuário e senha chegam num FormData, e não como argumentos soltos: o servidor de desenvolvimento do Next imprime no terminal
+  // os argumentos de cada Server Action, e a senha não pode aparecer lá.
+  const usuario = fd.get("usuario");
+  const senha = fd.get("senha");
+  const { v, sistemaDoClienteId } = await contexto(visitaId);
+  if (v.status !== "em_andamento") return { ok: false, erro: "Esta visita já foi encerrada." };
+  const cfg = await configLoginDoSistema(sistemaDoClienteId);
+  if (!cfg) return { ok: false, erro: "O login do Saúde não está ligado para este cliente." };
+
+  const participante = await buscarParticipante(String(participanteId));
+  if (!participante || participante.sistemaDoClienteId !== sistemaDoClienteId) return { ok: false, erro: "Participante não encontrado." };
+  if (v.presencas.some((p) => p.participanteId === participante.id)) return { ok: false, erro: "Esta presença já foi confirmada." };
+  if (!participante.idErp) return { ok: false, erro: "Seu cadastro ainda não está ligado ao Saúde. Chame o técnico." };
+  if (bloqueadoPorFalhas(visitaId, participante.id)) return { ok: false, erro: "Muitas tentativas. Chame o técnico." };
+
+  const u = typeof usuario === "string" ? usuario.trim() : "";
+  const s = typeof senha === "string" ? senha : "";
+  if (!u || !s) return { ok: false, erro: "Informe o usuário e a senha do Saúde." };
+  if (u.length > 100 || s.length > 200) return { ok: false, erro: "Usuário ou senha incorretos." };
+
+  const r = await loginNoSaude(cfg, u, s);
+  if (!r.ok) {
+    if (r.motivo === "credenciais") {
+      registrarFalha(visitaId, participante.id);
+      return { ok: false, erro: "Usuário ou senha incorretos." };
+    }
+    return { ok: false, erro: "Não foi possível falar com o Saúde agora. Tente de novo ou chame o técnico." };
+  }
+  if (!mesmaPessoa(r.userId, participante.idErp)) {
+    registrarFalha(visitaId, participante.id);
+    return { ok: false, erro: "Este usuário não é o da pessoa escolhida. Confira o nome." };
+  }
+  limparFalhas(visitaId, participante.id);
+  return { ok: true, prova: await assinarProva({ finalidade: "login_saude", visitaId, participanteId: participante.id }, 10) };
 }
 
 export async function retirarPresenca(visitaId: string, participanteId: string): Promise<string | null> {

@@ -244,6 +244,8 @@ export function DetalheVisita({
                       ) : (
                         <Badge variant="outline">Nominal</Badge>
                       )}
+                      {p.validacao === "login_saude" && <div className="mt-1 text-xs text-emerald-700">Login no Saúde validado</div>}
+                      {p.validacao === "sem_login" && <div className="mt-1 text-xs text-amber-700">Sem login (registrado pelo técnico)</div>}
                     </TableCell>
                   </TableRow>
                 ))}

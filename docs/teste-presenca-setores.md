@@ -74,3 +74,28 @@ Se o técnico tiver uma visita em andamento de testes anteriores, encerre-a (che
 
 - A tela de presença não mostra dados de ninguém além do nome buscado. Se aparecer ocupação, setor, CPF ou a lista de quem já assinou, é defeito.
 - Toque e teclado no celular ou tablet de verdade só dá para avaliar passando o aparelho de mão em mão: se o botão do técnico ("Todos assinaram?") for tocado sem querer, é por isso que ele pede a confirmação.
+
+## 7. Login do participante no Saúde (opcional)
+
+Só para quem vai testar a função de entrar com o usuário do Saúde antes de assinar. Ela vem **desligada**; para ligar no ambiente de teste:
+
+1. No banco `plataforma` de teste, ligue o sistema **Saúde** da Clínica Bem Viver a um tenant e crie um participante com o **id do Saúde** de quem vai testar (o `idUsuario` que a API do Saúde manda; por exemplo, `62`):
+   ```sql
+   UPDATE clients SET tenant_id = 'saude_parademinas' WHERE sistema = 'saude';
+   INSERT INTO client_users (client_id, external_user_id, nome, estado, origem)
+   SELECT id, '62', 'NOME DE QUEM VAI TESTAR', 'confirmado', 'painel_sinc' FROM clients WHERE sistema = 'saude';
+   ```
+2. No `.env.local` da pasta, acrescente (o endereço é o da API do tenant; a senha de cada pessoa **não** vai para o arquivo):
+   ```
+   SAUDE_API_SAUDE_PARADEMINAS_URL=http://sidim.no-ip.net/api_parademinas
+   SAUDE_API_SAUDE_PARADEMINAS_LOGIN_PARTICIPANTE=true
+   ```
+   Pare e suba o `npm run dev` de novo. Com `npm run dev`, `http://` é aceito; **em produção só com `https://`**.
+3. Check-in de **Treinamento** na **Clínica Bem Viver**, sistema **Saúde**. Na tela de presença, busque o nome do participante e toque nele.
+4. Deve aparecer **"Entre com o seu usuário do Saúde"** (usuário e senha), **sem** o quadro de assinatura. A instrução do topo diz "Busque seu nome, entre com seu usuário do Saúde e assine".
+5. Senha errada: "Usuário ou senha incorretos.". Usuário e senha de **outra pessoa** do Saúde: "Este usuário não é o da pessoa escolhida.". Depois de 5 erros: "Muitas tentativas. Chame o técnico.".
+6. Usuário e senha certos: "Login confirmado. Agora é só assinar." Assine e confirme. Na tela da visita, a pessoa aparece com o selo **Login Saúde**, e na Administração, "Login no Saúde validado".
+7. Escolha um participante **sem** id do Saúde (provisório): "Seu cadastro ainda não está ligado ao Saúde… Chame o técnico." "Não encontrei meu nome" também manda chamar o técnico.
+8. Na tela da visita, **Registrar sem login (técnico)** abre a presença com um aviso de "modo do técnico": a pessoa assina sem login e fica com o selo **Sem login**.
+
+**Se a pessoa certa for recusada** ("não é o da pessoa escolhida"), o `userId` que a API devolve no login pode ser diferente do `idUsuario` da lista de funcionários. Me avise: é preciso conferir qual id usar. A senha de cada pessoa nunca deve ser colada em conversa nem em arquivo.

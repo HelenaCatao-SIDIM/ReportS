@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, ArrowRight, CircleCheck, Loader2, Search, UserPlus, X } from "lucide-react";
 import type { Cbo } from "@/lib/types";
 import { formatarCpf, normalizar } from "@/lib/format";
-import { registrarPresenca, sugerirParticipantes, type PresencaState, type SugestaoParticipante } from "../../participantes-actions";
+import { entrarNoSaude, registrarPresenca, sugerirParticipantes, type PresencaState, type SugestaoParticipante } from "../../participantes-actions";
 import { useAcao } from "@/components/form/use-acao";
 import { CboCampo } from "@/components/form/cbo-campo";
 import { AssinaturaCampo } from "@/components/tecnico/assinatura-campo";
@@ -22,6 +22,11 @@ interface Config {
   setores: string[];
   /** Setor da visita; já vem preenchido no cadastro de quem não achou o próprio nome. */
   setorVisita: string;
+  /** O tenant do cliente liga o login do participante no Saúde: a presença só vale depois de a pessoa entrar. */
+  exigeLogin: boolean;
+  /** O técnico abriu a presença "sem login" (com o token que a tela da visita gera); as presenças ficam marcadas como tal. */
+  modoTecnico: boolean;
+  tokenTecnico: string | null;
 }
 
 const Erro = ({ msg }: { msg?: string }) => (msg ? <p className="mt-1 text-sm text-destructive">{msg}</p> : null);
@@ -31,7 +36,7 @@ const primeiroNome = (nome: string) => nome.trim().split(/\s+/)[0] ?? "";
  * Uma pessoa por vez: busca o próprio nome, toca nele e assina. A tela não mostra os dados de ninguém (ocupação, setor, CPF,
  * quem já assinou), porque o aparelho passa de mão em mão. Quem não acha o nome pode se cadastrar ali mesmo.
  */
-function Formulario({ visitaId, exigeAssinatura, exigeCpf, setores, setorVisita, onFeito }: Config & { onFeito: (nome: string) => void }) {
+function Formulario({ visitaId, exigeAssinatura, exigeCpf, setores, setorVisita, exigeLogin, modoTecnico, tokenTecnico, onFeito }: Config & { onFeito: (nome: string) => void }) {
   const [state, onSubmit, pending] = useAcao<PresencaState>(registrarPresenca.bind(null, visitaId), {});
   const e = state.erros ?? {};
   const [modo, setModo] = useState<"busca" | "existente" | "novo">("busca");
@@ -45,6 +50,14 @@ function Formulario({ visitaId, exigeAssinatura, exigeCpf, setores, setorVisita,
   const [setor, setSetor] = useState(setorVisita);
   const [cpf, setCpf] = useState("");
   const [assinado, setAssinado] = useState(false);
+  // Login no Saúde (só quando o tenant liga): usuário e senha ficam só aqui, nunca no formulário da presença.
+  const precisaLogin = exigeLogin && !modoTecnico;
+  const [prova, setProva] = useState<string | null>(null);
+  const [usuario, setUsuario] = useState("");
+  const [senha, setSenha] = useState("");
+  const [entrando, setEntrando] = useState(false);
+  const [erroLogin, setErroLogin] = useState<string | null>(null);
+  const [avisoTecnico, setAvisoTecnico] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const seq = useRef(0);
   const quem = useRef("");
@@ -73,9 +86,44 @@ function Formulario({ visitaId, exigeAssinatura, exigeCpf, setores, setorVisita,
     }, 250);
   }
 
+  /** Escolher (ou trocar) a pessoa: o login e a prova de quem estava antes não valem para a nova. */
+  function escolher(p: SugestaoParticipante | null) {
+    setEscolhido(p);
+    setProva(null);
+    setUsuario("");
+    setSenha("");
+    setErroLogin(null);
+    setAssinado(false);
+  }
+
+  async function entrar() {
+    if (!escolhido) return;
+    const u = usuario;
+    const s = senha;
+    setSenha(""); // a senha sai do estado já na chamada
+    setErroLogin(null);
+    setEntrando(true);
+    try {
+      const dados = new FormData();
+      dados.set("usuario", u);
+      dados.set("senha", s);
+      const r = await entrarNoSaude(visitaId, escolhido.id, dados);
+      if (r.ok) {
+        setProva(r.prova);
+        setUsuario("");
+      } else setErroLogin(r.erro);
+    } catch {
+      setErroLogin("Não foi possível entrar agora. Tente de novo ou chame o técnico.");
+    } finally {
+      setEntrando(false);
+    }
+  }
+
   // Dois nomes iguais na lista: só então aparece a ocupação e o setor, para a pessoa saber qual é a dela.
   const repetidos = new Set(sugestoes.map((s) => normalizar(s.nome)).filter((n, i, todos) => todos.indexOf(n) !== i));
-  const podeConfirmar = modo !== "busca" && (!exigeAssinatura || assinado);
+  // Com login exigido, CPF, assinatura e confirmação só aparecem depois de a pessoa entrar (quem não achou o nome fica com o técnico).
+  const liberado = modo !== "busca" && (!precisaLogin || (modo === "existente" && !!prova));
+  const podeConfirmar = liberado && (!exigeAssinatura || assinado);
 
   return (
     <form
@@ -92,6 +140,9 @@ function Formulario({ visitaId, exigeAssinatura, exigeCpf, setores, setorVisita,
           <AlertDescription>{e.geral}</AlertDescription>
         </Alert>
       )}
+
+      {prova && <input type="hidden" name="prova" value={prova} />}
+      {modoTecnico && tokenTecnico && <input type="hidden" name="provaTecnico" value={tokenTecnico} />}
 
       {modo === "busca" && (
         <div className="space-y-3">
@@ -122,7 +173,7 @@ function Formulario({ visitaId, exigeAssinatura, exigeCpf, setores, setorVisita,
                       <button
                         type="button"
                         onClick={() => {
-                          setEscolhido(s);
+                          escolher(s);
                           setCpf("");
                           setModo("existente");
                         }}
@@ -149,6 +200,11 @@ function Formulario({ visitaId, exigeAssinatura, exigeCpf, setores, setorVisita,
                 variant="outline"
                 className="h-12 w-full text-base"
                 onClick={() => {
+                  // Com login exigido, quem não está na lista não tem como entrar: o técnico registra "sem login".
+                  if (precisaLogin) {
+                    setAvisoTecnico(true);
+                    return;
+                  }
                   setNome(termo.trim());
                   setCbo(null);
                   setSetor(setorVisita);
@@ -159,6 +215,11 @@ function Formulario({ visitaId, exigeAssinatura, exigeCpf, setores, setorVisita,
                 <UserPlus />
                 Não encontrei meu nome
               </Button>
+              {avisoTecnico && precisaLogin && (
+                <p className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900" data-testid="aviso-chame-tecnico">
+                  Quem não está na lista não consegue entrar no Saúde por aqui. Chame o técnico para registrar a sua presença.
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -178,8 +239,7 @@ function Formulario({ visitaId, exigeAssinatura, exigeCpf, setores, setorVisita,
               size="icon"
               aria-label="Não sou eu"
               onClick={() => {
-                setEscolhido(null);
-                setAssinado(false);
+                escolher(null);
                 setModo("busca");
               }}
             >
@@ -187,7 +247,62 @@ function Formulario({ visitaId, exigeAssinatura, exigeCpf, setores, setorVisita,
             </Button>
           </div>
 
-          {exigeCpf && !escolhido.cpfMascarado && (
+          {precisaLogin && !prova &&
+            (escolhido.ligadoAoSaude ? (
+              <div className="space-y-3 rounded-xl border bg-background p-4" data-testid="login-saude">
+                <div className="text-base font-medium">Entre com o seu usuário do Saúde</div>
+                <Input
+                  id="login-usuario"
+                  aria-label="Usuário do Saúde"
+                  placeholder="Usuário"
+                  value={usuario}
+                  onChange={(ev) => setUsuario(ev.target.value)}
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  className="h-12 text-lg"
+                />
+                <Input
+                  id="login-senha"
+                  aria-label="Senha do Saúde"
+                  type="password"
+                  placeholder="Senha"
+                  value={senha}
+                  onChange={(ev) => setSenha(ev.target.value)}
+                  onKeyDown={(ev) => {
+                    if (ev.key === "Enter") {
+                      ev.preventDefault();
+                      if (usuario.trim() && senha && !entrando) void entrar();
+                    }
+                  }}
+                  autoComplete="new-password"
+                  className="h-12 text-lg"
+                />
+                {erroLogin && (
+                  <p className="text-sm text-destructive" role="alert">
+                    {erroLogin}
+                  </p>
+                )}
+                <Button type="button" disabled={entrando || !usuario.trim() || !senha} onClick={() => void entrar()} className="h-12 w-full text-base">
+                  {entrando && <Loader2 className="animate-spin" />}
+                  Entrar e continuar
+                </Button>
+                <p className="text-xs text-muted-foreground">A senha só é usada para entrar no Saúde: não fica guardada.</p>
+              </div>
+            ) : (
+              <p className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900" data-testid="sem-id-saude">
+                Seu cadastro ainda não está ligado ao Saúde, então não dá para entrar por aqui. Chame o técnico para registrar a sua presença.
+              </p>
+            ))}
+          {precisaLogin && prova && (
+            <p className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800" data-testid="login-ok">
+              <CircleCheck className="size-4 shrink-0" />
+              Login confirmado. Agora é só assinar.
+            </p>
+          )}
+
+          {liberado && exigeCpf && !escolhido.cpfMascarado && (
             <div>
               <Label htmlFor="e-cpf" className="mb-1.5 text-base">
                 Seu CPF
@@ -211,7 +326,7 @@ function Formulario({ visitaId, exigeAssinatura, exigeCpf, setores, setorVisita,
                     size="sm"
                     onClick={() => {
                       if (!state.existente) return;
-                      setEscolhido(state.existente);
+                      escolher(state.existente);
                       setCpf("");
                     }}
                   >
@@ -251,7 +366,7 @@ function Formulario({ visitaId, exigeAssinatura, exigeCpf, setores, setorVisita,
                       size="sm"
                       variant="outline"
                       onClick={() => {
-                        setEscolhido(s);
+                        escolher(s);
                         setModo("existente");
                       }}
                     >
@@ -308,7 +423,7 @@ function Formulario({ visitaId, exigeAssinatura, exigeCpf, setores, setorVisita,
                     size="sm"
                     onClick={() => {
                       if (!state.existente) return;
-                      setEscolhido(state.existente);
+                      escolher(state.existente);
                       setModo("existente");
                     }}
                   >
@@ -321,7 +436,7 @@ function Formulario({ visitaId, exigeAssinatura, exigeCpf, setores, setorVisita,
         </div>
       )}
 
-      {modo !== "busca" && exigeAssinatura && (
+      {liberado && exigeAssinatura && (
         <div>
           <div className="mb-1.5 text-base font-medium">Assine abaixo</div>
           <AssinaturaCampo name="assinatura" invalido={!!e.assinatura} onMudar={setAssinado} />
@@ -329,7 +444,7 @@ function Formulario({ visitaId, exigeAssinatura, exigeCpf, setores, setorVisita,
         </div>
       )}
 
-      {modo !== "busca" && (
+      {liberado && (
         <div className="space-y-2">
           <Button type="submit" disabled={!podeConfirmar || pending} className="h-14 w-full text-lg">
             {pending && <Loader2 className="animate-spin" />}
@@ -408,9 +523,27 @@ export function PresencaAutoatendimento({
 
   return (
     <div className="space-y-6">
+      {config.modoTecnico && (
+        <div className="space-y-1 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" data-testid="modo-tecnico">
+          <p>Modo do técnico: as presenças registradas aqui ficam marcadas como <b>sem login</b>. Use só para quem não consegue entrar no Saúde.</p>
+          <Link href={`/tecnico/visita/${config.visitaId}/presenca`} className="font-medium underline">
+            Voltar ao modo com login
+          </Link>
+        </div>
+      )}
       <div className="text-center">
         <h1 className="text-2xl font-semibold">Confirme sua presença</h1>
-        {!feito && <p className="mt-1 text-sm text-muted-foreground">{config.exigeAssinatura ? "Busque seu nome e assine." : "Busque seu nome e confirme."}</p>}
+        {!feito && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            {config.exigeLogin && !config.modoTecnico
+              ? config.exigeAssinatura
+                ? "Busque seu nome, entre com seu usuário do Saúde e assine."
+                : "Busque seu nome, entre com seu usuário do Saúde e confirme."
+              : config.exigeAssinatura
+                ? "Busque seu nome e assine."
+                : "Busque seu nome e confirme."}
+          </p>
+        )}
       </div>
       {feito !== null ? <Obrigado nome={feito} onProxima={proxima} /> : <Formulario key={rodada} {...config} onFeito={setFeito} />}
       <AreaDoTecnico presentes={presentes} exigeParticipantes={exigeParticipantes} proximaRota={proximaRota} />

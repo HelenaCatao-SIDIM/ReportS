@@ -21,6 +21,8 @@ import {
   sugereTemasPorEquipe,
 } from "@/lib/regras-visita";
 import { LimparRascunho } from "@/components/tecnico/limpar-rascunho";
+import { configLoginDoSistema } from "@/lib/repo/presenca-login";
+import { assinarProva } from "@/lib/saude-login";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DetalheVisita } from "@/components/visita/detalhe-visita";
@@ -111,6 +113,9 @@ async function EmAndamento({ v }: { v: VisitaDetalhada }) {
         inicial: v.equipeIds,
       }
     : undefined;
+  // Com o login do participante ligado, o técnico tem o atalho "registrar sem login" (link com token assinado, válido por 30 minutos).
+  const loginLigado = contrato ? !!(await configLoginDoSistema(contrato.sistemaDoClienteId)) : false;
+  const semLoginHref = loginLigado ? `/tecnico/visita/${v.id}/presenca?tecnico=${await assinarProva({ finalidade: "sem_login", visitaId: v.id }, 30)}` : null;
   // Setores que ainda podem ser acrescentados: os do estabelecimento da visita que não estão nela.
   const extras = v.setoresExtras ?? [];
   const jaNaVisita = new Set([v.setorId, ...extras.map((s) => s.setorId)].filter((x): x is string => !!x));
@@ -135,6 +140,7 @@ async function EmAndamento({ v }: { v: VisitaDetalhada }) {
         presencas={v.presencas}
         exigeAssinatura={contrato?.nivel === "assinado" && ehPresencial(v.tipo)}
         ehTreinamento={v.tipo === "treinamento" || v.tipo === "treinamento_online"}
+        semLoginHref={semLoginHref}
       />
       <SetoresVisita visitaId={v.id} principal={v.setorNome} extras={extras} disponiveis={disponiveis} />
       <div className="space-y-2 pb-2">

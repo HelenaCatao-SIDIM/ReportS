@@ -29,6 +29,8 @@ function LinhaPresenca({ visitaId, p }: { visitaId: string; p: PresencaVisita })
           {p.cpf && ` · ${mascararCpf(p.cpf)}`}
         </div>
       </div>
+      {p.validacao === "login_saude" && <Badge variant="secondary">Login Saúde</Badge>}
+      {p.validacao === "sem_login" && <Badge variant="outline" className="border-amber-300 text-amber-800">Sem login</Badge>}
       {p.confirmacao === "assinatura" && p.assinatura ? (
         <img src={p.assinatura} alt={`Assinatura de ${p.nome}`} className="h-9 w-20 shrink-0 rounded border bg-white object-contain" />
       ) : (
@@ -56,11 +58,14 @@ export function ParticipantesVisita({
   presencas,
   exigeAssinatura,
   ehTreinamento,
+  semLoginHref,
 }: {
   visitaId: string;
   presencas: PresencaVisita[];
   exigeAssinatura: boolean;
   ehTreinamento: boolean;
+  /** Só com o login do participante ligado: abre a presença no modo do técnico ("sem login"). */
+  semLoginHref?: string | null;
 }) {
   return (
     <Card>
@@ -101,6 +106,14 @@ export function ParticipantesVisita({
           {presencas.length === 0 ? "Abrir a tela de presença" : "Voltar à tela de presença"}
         </Button>
         <p className="text-xs text-muted-foreground">É nela que os participantes buscam o próprio nome e assinam. Chegou mais gente? É só abrir de novo.</p>
+        {semLoginHref && (
+          <>
+            <Button nativeButton={false} render={<Link href={semLoginHref} />} variant="ghost" className="h-10 w-full text-sm">
+              Registrar sem login (técnico)
+            </Button>
+            <p className="text-xs text-muted-foreground">Com o login do Saúde ligado, os participantes entram com o próprio usuário. Para quem não consegue entrar, use este atalho: a presença fica marcada como &ldquo;sem login&rdquo;.</p>
+          </>
+        )}
       </CardContent>
     </Card>
   );

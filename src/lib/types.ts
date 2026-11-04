@@ -232,6 +232,11 @@ export interface PresencaVisita {
   confirmacao: "nominal" | "assinatura";
   /** Imagem da assinatura (data URL ou endereço no storage). */
   assinatura: string | null;
+  /**
+   * Como foi validada além da assinatura: o próprio participante entrou no Saúde (`login_saude`) ou o técnico registrou sem o
+   * login (`sem_login`). Ausente ou nulo quando o login não era exigido e nas presenças antigas.
+   */
+  validacao?: "login_saude" | "sem_login" | null;
 }
 
 /** Uma mudança de campo dentro de uma alteração. */

@@ -204,6 +204,18 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     assert.deepEqual((await visitas.buscarVisita(v.id))!.setoresExtras, []);
   });
 
+  test("a presença guarda como foi validada: login no Saúde, sem login (técnico) ou nada (login não exigido)", async () => {
+    const v = await checkin();
+    const pessoa = (id: string, nome: string, validacao?: "login_saude" | "sem_login" | null) => ({
+      participanteId: id, estado: "confirmado" as const, nome, cbo: null, setor: "", cpf: null, confirmacao: "nominal" as const, assinatura: null, validacao,
+    });
+    await visitas.adicionarPresenca(v.id, tecnico.id, pessoa("101", "Com login", "login_saude"));
+    await visitas.adicionarPresenca(v.id, tecnico.id, pessoa("102", "Sem login", "sem_login"));
+    await visitas.adicionarPresenca(v.id, tecnico.id, pessoa("103", "Login não exigido"));
+    const lista = (await visitas.buscarVisita(v.id))!.presencas;
+    assert.deepEqual(lista.map((p) => [p.nome, p.validacao]), [["Com login", "login_saude"], ["Sem login", "sem_login"], ["Login não exigido", null]]);
+  });
+
   test("cronograma: duplicado, cancelar, e o relatório recebe o cronograma sem a observação interna", async () => {
     const hoje = hojeLocal();
     const d = { contratoId, unidadeId: estabelecimentoId, setorId: null, tipo: "treinamento" as const, prazo: somarDias(hoje, 20), observacao: "Combinado por telefone com o prefeito" };
