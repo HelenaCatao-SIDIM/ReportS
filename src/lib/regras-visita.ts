@@ -1,4 +1,5 @@
 /** Regras de negócio da visita compartilhadas entre telas e servidor. */
+import { nomesParecidos } from "@/lib/similaridade";
 import type { Equipe, Tema, TipoVisita } from "@/lib/types";
 
 /** Tipos em que o check-out exige ao menos um participante na lista. */
@@ -30,6 +31,13 @@ export function equipesDaVisita<E extends Pick<Equipe, "id" | "ativo" | "temaIds
 /** Para onde o técnico vai ao abrir a visita em andamento: a presença, enquanto ninguém assinou; depois, a tela da visita. */
 export const rotaDaVisita = (v: { id: string; tipo: TipoVisita; presencas: unknown[] }) =>
   abrePelaPresenca(v.tipo) && v.presencas.length === 0 ? `/tecnico/visita/${v.id}/presenca` : `/tecnico/visita/${v.id}`;
+
+/**
+ * O CPF digitado já é de alguém do cadastro. O nome do dono só aparece (para a pessoa tocar em "É esta pessoa") quando é
+ * parecido com o de quem está assinando, isto é, provavelmente ela mesma. Senão a tela, que passa de mão em mão, estaria
+ * revelando o nome de quem tem aquele CPF a quem digitou um número qualquer.
+ */
+export const podeMostrarDonoDoCpf = (nomeDeQuemAssina: string, nomeDoDono: string) => nomesParecidos(nomeDeQuemAssina, nomeDoDono);
 
 /** Anotações da visita: escritas durante a visita (tela da visita) e completadas no check-out, que parte delas. */
 export const CAMPOS_ANOTACAO = [

@@ -5,6 +5,7 @@ import { exigirPermissaoAcao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
 import { cpfValido, mascararCpf, normalizar, soDigitos } from "@/lib/format";
 import { ehPresencial } from "@/lib/visitas";
+import { podeMostrarDonoDoCpf } from "@/lib/regras-visita";
 import { buscarContrato } from "@/lib/repo/contratos";
 import { buscarCbo } from "@/lib/repo/cbo";
 import { salvarImagem } from "@/lib/repo/arquivos";
@@ -97,15 +98,21 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
   let cpfNovo: string | null = null;
   if (participante && exigeCpf && !participante.cpf) {
     const informado = soDigitos(String(fd.get("cpf") ?? ""));
-    if (!cpfValido(informado)) {
-      erros.cpf = `O contrato exige CPF e ${participante.nome} ainda não tem CPF cadastrado. Informe o CPF.`;
+    if (!informado) {
+      erros.cpf = "Informe o seu CPF.";
+    } else if (!cpfValido(informado)) {
+      erros.cpf = "CPF inválido. Confira os números.";
     } else {
       const achados = await buscarSemelhantes(sistemaDoClienteId, { nome: participante.nome, cpf: informado }, participante.id);
       if (achados.mesmoCpf) {
-        return {
-          erros: { cpf: `Este CPF já está cadastrado em ${achados.mesmoCpf.nome}. Use essa pessoa em vez de gravar o CPF em ${participante.nome}.` },
-          existente: sugestao(achados.mesmoCpf),
-        };
+        // Quem assina é o próprio participante: o nome do dono do CPF só aparece se for parecido com o dele (veja podeMostrarDonoDoCpf).
+        if (podeMostrarDonoDoCpf(participante.nome, achados.mesmoCpf.nome)) {
+          return {
+            erros: { cpf: `Este CPF já está no cadastro de ${achados.mesmoCpf.nome}. Se é você, toque em “É esta pessoa”.` },
+            existente: sugestao(achados.mesmoCpf),
+          };
+        }
+        return { erros: { cpf: "Este CPF já está em outro cadastro. Confira o número ou chame o técnico." } };
       }
       cpfNovo = informado;
     }
@@ -125,10 +132,13 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
     // Busca antes de criar: CPF igual bloqueia; nome igual ou parecido pede a confirmação de que é outra pessoa.
     const achados = await buscarSemelhantes(sistemaDoClienteId, { nome, cpf: exigeCpf ? cpf : null });
     if (achados.mesmoCpf) {
-      return {
-        erros: { cpf: `Este CPF já está cadastrado em ${achados.mesmoCpf.nome}. Use essa pessoa em vez de cadastrar de novo.` },
-        existente: sugestao(achados.mesmoCpf),
-      };
+      if (podeMostrarDonoDoCpf(nome, achados.mesmoCpf.nome)) {
+        return {
+          erros: { cpf: `Este CPF já está no cadastro de ${achados.mesmoCpf.nome}. Se é você, toque em “É esta pessoa”.` },
+          existente: sugestao(achados.mesmoCpf),
+        };
+      }
+      return { erros: { cpf: "Este CPF já está em outro cadastro. Confira o número ou chame o técnico." } };
     }
     if (achados.nomesParecidos.length && fd.get("homonimo") === null) {
       return { erros: { nome: "Já existe alguém com nome igual ou parecido. Confira se é a mesma pessoa." }, semelhantes: achados.nomesParecidos.map(sugestao) };

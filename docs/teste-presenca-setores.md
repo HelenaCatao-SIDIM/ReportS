@@ -31,7 +31,7 @@ Se o técnico tiver uma visita em andamento de testes anteriores, encerre-a (che
 2. Deve abrir **"Confirme sua presença"**, e só isso: um campo de busca e o contador "0 presenças confirmadas". **Não** devem aparecer o menu do usuário nem a barra de baixo (Visita / Minhas visitas). O botão "Aguardando a primeira presença" está desabilitado.
 3. Digite `luc`: aparece só **Luciana Ferraz**, sem selo, ocupação ou setor. Toque no nome.
 4. Aparece "Presença de Luciana Ferraz", o campo **Seu CPF** e o quadro de assinatura. "Confirmar presença" está desabilitado.
-5. Digite um CPF inválido (`123.456.789-00`), assine com o mouse e confirme: deve recusar. Troque por um CPF válido (`529.982.247-25`) e confirme.
+5. Digite um CPF inválido (`123.456.789-00`), assine com o mouse e confirme: deve recusar com **"CPF inválido. Confira os números."**. Troque por um CPF válido (`529.982.247-25`) e confirme.
 6. Deve aparecer **"Presença confirmada. Obrigado, Luciana!"** e, depois de 4 segundos, a busca de novo, vazia, com o contador em **1**. O nome completo da pessoa não fica na tela.
 7. Digite `luc` de novo: aparece "Luciana Ferraz já assinou. Não precisa assinar de novo."
 8. Digite `Fulano de Teste Silva` e toque em **Não encontrei meu nome**. O cadastro vem com o nome e o setor **Protocolo** já preenchidos; escolha uma ocupação (digite `recepcionista`), informe um CPF válido (`111.444.777-35`), assine e confirme. O contador vai a **2**.

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { abrePelaPresenca, equipesDaVisita, rotaDaVisita, sugereTemasPorEquipe } from "@/lib/regras-visita";
+import { abrePelaPresenca, equipesDaVisita, podeMostrarDonoDoCpf, rotaDaVisita, sugereTemasPorEquipe } from "@/lib/regras-visita";
 import { nomesDosSetores, rotuloSetores } from "@/lib/visitas";
 
 const temas = [
@@ -48,4 +48,12 @@ test("a visita abre pela presença nos tipos com participantes, e a tela da visi
   assert.equal(rotaDaVisita({ id: "v1", tipo: "treinamento", presencas: [] }), "/tecnico/visita/v1/presenca");
   assert.equal(rotaDaVisita({ id: "v1", tipo: "treinamento", presencas: [{}] }), "/tecnico/visita/v1", "já houve assinatura: vai para temas e anotações");
   assert.equal(rotaDaVisita({ id: "v2", tipo: "reuniao", presencas: [] }), "/tecnico/visita/v2", "tipos sem participantes abrem direto na visita");
+});
+
+test("CPF que já é de alguém: o nome do dono só aparece se for parecido com o de quem assina (a tela passa de mão em mão)", () => {
+  assert.equal(podeMostrarDonoDoCpf("Luciana Ferraz", "Luciana Ferraz"), true, "mesmo nome: provavelmente a mesma pessoa");
+  assert.equal(podeMostrarDonoDoCpf("Luciana Ferraz", "LUCIANA FERRAZ"), true, "sem diferenciar caixa");
+  assert.equal(podeMostrarDonoDoCpf("Luciana Ferraz", "Luciana Ferrraz"), true, "erro de digitação");
+  assert.equal(podeMostrarDonoDoCpf("Luciana Ferraz", "Rogério Batista"), false, "outra pessoa: o nome não é revelado");
+  assert.equal(podeMostrarDonoDoCpf("Maria", "Patrícia Gomes"), false);
 });
