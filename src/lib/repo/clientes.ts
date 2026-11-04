@@ -264,7 +264,7 @@ export async function renomearSetor(id: string, nome: string): Promise<void> {
 
 /** Setor com visita registrada não pode ser removido. */
 export async function removerSetor(id: string): Promise<void> {
-  if (await reports.visita.count({ where: { setorId: id } })) {
+  if ((await reports.visita.count({ where: { setorId: id } })) || (await reports.visitaSetor.count({ where: { setorId: id } }))) {
     throw new EmUsoError("Este setor tem visitas registradas e não pode ser removido.");
   }
   if (await reports.itemCronograma.count({ where: { setorId: id, cancelado: false } })) {

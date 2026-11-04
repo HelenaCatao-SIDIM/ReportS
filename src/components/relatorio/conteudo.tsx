@@ -5,7 +5,7 @@ import { ChamadosSuporte } from "@/components/relatorio/chamados-suporte";
 import { CronogramaRelatorio } from "@/components/cronograma/cronograma-relatorio";
 import { formatarData, formatarDuracao, formatarHora } from "@/lib/datas";
 import { formatarCnpj } from "@/lib/format";
-import { formatarDataCurta, formatarMinutos, rotuloTipo } from "@/lib/visitas";
+import { formatarDataCurta, formatarMinutos, rotuloSetores, rotuloTipo } from "@/lib/visitas";
 import { DetalheVisita } from "@/components/visita/detalhe-visita";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -105,7 +105,7 @@ export function ConteudoRelatorio({ c, tituloVisitas, linkVisitas }: { c: DadosC
                   )}
                 </div>
                 <div className="truncate text-xs text-muted-foreground">
-                  {v.unidadeNome} · {v.setorNome} · {v.tecnicoNome} · {formatarHora(v.entrada)}–{v.saida ? formatarHora(v.saida) : "—"} (
+                  {v.unidadeNome} · {rotuloSetores(v)} · {v.tecnicoNome} · {formatarHora(v.entrada)}–{v.saida ? formatarHora(v.saida) : "—"} (
                   {v.saida ? formatarDuracao(v.entrada, v.saida) : "—"}) · {v.presencas.length} participante(s)
                 </div>
               </div>

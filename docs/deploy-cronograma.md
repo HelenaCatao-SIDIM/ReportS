@@ -1,8 +1,11 @@
-# Publicação do cronograma de implantação (PR #20)
+# Publicação: cronograma de implantação, presença em autoatendimento e setores
 
 Passo a passo para quem tem acesso ao servidor do ReportS (usuário `reports`, em `/var/www/reports`). O `bin/deploy` leva para produção **tudo o que está na `main`** desde a última publicação, não só o cronograma. Visão geral da publicação: README, "Publicação".
 
-O que esta publicação traz: a tabela nova `cronograma_itens` (migração `*_cronograma`), as telas do cronograma na Administração, no App do Técnico e no relatório ao cliente, e a importação por planilha do Excel. Regras: `docs/regras.md`, seção "Cronograma de implantação". Roteiro de teste: `docs/teste-cronograma.md`.
+O que esta publicação traz:
+- **Cronograma de implantação:** a tabela nova `cronograma_itens` (migração `*_cronograma`), as telas na Administração, no App do Técnico e no relatório ao cliente, e a importação por planilha do Excel. Regras: `docs/regras.md`, "Cronograma de implantação". Roteiro: `docs/teste-cronograma.md`.
+- **Presença em autoatendimento e setores acrescentados à visita:** a tela em que os próprios participantes buscam o nome e assinam, as anotações durante a visita e os setores acrescentados até o check-out. Duas migrações que **só acrescentam** (a tabela `visita_setores` e a coluna `presencas.validacao`). Regras: `docs/regras.md`, "Lista de presença" e "Durante a visita". Roteiro: `docs/teste-presenca-setores.md`.
+- **Login do participante no Saúde (na tela de presença):** vem **desligado** e **não deve ser configurado agora**: em produção só liga com `https://`, e a API de Pará de Minas ainda é `http://`. Sem as variáveis `SAUDE_API_…` nada muda para o usuário.
 
 ## 1. Antes de rodar (2 minutos)
 
@@ -27,7 +30,7 @@ bin/deploy
 O que deve aparecer, em ordem:
 
 1. `git pull`, `npm ci` (instala `read-excel-file` e `write-excel-file`), a conferência da estrutura da plataforma e o `build`.
-2. Em "migrações do banco reports": `Applying migration 20261103145715_cronograma`. Se Equipes ainda não estava no ar, aparece também `20261103220617_equipes` (as duas funcionam em qualquer ordem).
+2. Em "migrações do banco reports": `20261103145715_cronograma`, `20261104130000_visita_setores` e `20261104190000_presenca_validacao`. Se Equipes ainda não estava no ar, aparece também `20261103220617_equipes` (todas funcionam em qualquer ordem e só acrescentam tabela ou coluna).
 3. `deploy finalizado`, com o `reports-web` ativo (running).
 
 **Se parar em "estrutura do banco plataforma confere?":** o SINC mudou uma tabela que o ReportS lê. O app antigo continua no ar. Rode `npm run db:plataforma:ler`, revise o `git diff` de `prisma/plataforma/schema.prisma` e avise o time de desenvolvimento antes de mexer em qualquer outra coisa.
@@ -46,6 +49,7 @@ curl -sI https://reports.sidim.com.br/login | head -1     # esperado: 200
 3. Envie uma planilha pequena, de 2 ou 3 linhas, de um cliente real, e confira o resumo antes de confirmar. **Isso grava dado de verdade em produção**: combine com a Helena qual cliente usar.
 4. Confirme e veja os itens em **Cronograma**. Estabelecimento novo criado pela importação aparece em **Clientes**, só com o nome (sem endereço nem coordenadas).
 5. (Opcional) No App do Técnico, faça o check-in no estabelecimento que tem item: a tela mostra o que ainda falta ali.
+6. **Presença e setores (App do Técnico, de preferência no celular):** faça o check-in de um **Treinamento** de teste. Depois do check-in deve abrir **"Confirme sua presença"**, só com a busca e o contador, **sem menu e sem barra de baixo**. Busque um nome, assine (ou confirme, se o contrato é nominal) e toque em **Todos assinaram? Continuar**. Na tela da visita confira **Anotações** (salvam sozinhas) e **Setores atendidos** (acrescente um setor). Termine com o check-out, ou cancele a visita de teste em Administração → Visitas. Roteiro completo: `docs/teste-presenca-setores.md`.
 
 ## 5. Permissões
 

@@ -6,7 +6,7 @@ do check-in em campo até o relatório periódico aprovado pelo cliente (que lib
 Três interfaces:
 
 - **Administração** (computador; as telas que cada pessoa vê dependem das permissões): usuários e permissões (aviso do SINC), clientes (sistemas e contratos, estabelecimentos e setores), aprovadores, temas, equipes (com os temas mínimos), participantes, gestão de visitas e relatórios.
-- **App do Técnico** (celular ou computador): check-in com GPS e foto (escolhendo o cliente e o sistema), temas do sistema, fotos extras, lista de presença (com assinatura quando o contrato exige), check-out e histórico.
+- **App do Técnico** (celular ou computador): check-in com GPS e foto (escolhendo o cliente e o sistema), tela de presença em que os próprios participantes buscam o nome e assinam (quando o contrato exige), temas do sistema, anotações durante a visita, setores acrescentados no fim, fotos extras, check-out e histórico.
 - **Aprovação** (cliente, sem login): página aberta pelo link do e-mail para aprovar o relatório ou pedir ajuste.
 
 Tecnologia: Next.js 16 (App Router) + TypeScript + Tailwind CSS 4 + shadcn/ui (Base UI). PDF com `@react-pdf/renderer`.
@@ -113,7 +113,7 @@ npm run dev
 ```
 
 Depois abra http://localhost:3000. O contrato do **SCA** é "nominal" e sem CPF, o mais simples para testar uma visita (os de SERP e Saúde exigem
-assinatura e CPF). O GPS funciona em `localhost`; sem permissão de localização, use "Treinamento online". Roteiro do cronograma: `docs/teste-cronograma.md`.
+assinatura e CPF). O GPS funciona em `localhost`; sem permissão de localização, use "Treinamento online". Login do participante no Saúde (opcional, na tela de presença): variáveis `SAUDE_API_<TENANT>_URL` e `SAUDE_API_<TENANT>_LOGIN_PARTICIPANTE=true`, desligado por padrão e só com `https://` em produção (veja `.env.example` e `docs/regras.md`). Roteiros: cronograma, `docs/teste-cronograma.md`; presença em autoatendimento e setores acrescentados, `docs/teste-presenca-setores.md`.
 
 Opcional — **localização por CEP** (desligada por padrão; com ela desligada, nada muda):
 
@@ -218,6 +218,7 @@ nesse endereço — use um treinamento online para testar sem GPS.
 
 - `docs/regras.md` — regras de negócio implementadas (o que o sistema exige e permite em cada etapa)
 - `docs/teste-cronograma.md` — roteiro de teste do cronograma de implantação, no ambiente de teste local
+- `docs/teste-presenca-setores.md` — roteiro de teste da presença em autoatendimento (busca e assinatura), das anotações e dos setores acrescentados à visita
 - `docs/deploy-cronograma.md` — passo a passo para publicar o cronograma de implantação no servidor (antes, durante, conferência e como voltar)
 - `src/lib/cronograma.ts`, `src/lib/repo/cronograma.ts`, `src/app/admin/cronograma/` — cronograma de implantação: prazos por estabelecimento e setor, com a situação calculada pelas visitas encerradas; aparece na Administração, no check-in do técnico e no relatório ao cliente. Também se cadastra em lote por **planilha do Excel** (`src/lib/importar-cronograma.ts`, `src/lib/planilha-cronograma.ts`), com prévia e perguntas "cadastrar ou alterar" antes de gravar
 - `AGENTS.md` — convenções do código, para quem for programar (pessoas ou agentes de IA)

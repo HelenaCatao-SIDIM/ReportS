@@ -40,9 +40,16 @@ async function comSituacao(itens: ItemComNomes[], hoje: string): Promise<ItemCro
             estabelecimentoId: { in: [...new Set(ativos.map((i) => i.unidadeId))] },
             tipo: { in: [...new Set(ativos.map((i) => i.tipo))] },
           },
-          select: { contratoId: true, estabelecimentoId: true, setorId: true, tipo: true, entrada: true },
+          select: { contratoId: true, estabelecimentoId: true, setorId: true, tipo: true, entrada: true, setoresExtras: { select: { setorId: true } } },
         })
-      ).map((v) => ({ contratoId: v.contratoId, unidadeId: v.estabelecimentoId, setorId: v.setorId, tipo: v.tipo as TipoVisita, entrada: v.entrada.toISOString() }))
+      ).map((v) => ({
+        contratoId: v.contratoId,
+        unidadeId: v.estabelecimentoId,
+        setorId: v.setorId,
+        setoresExtrasIds: v.setoresExtras.flatMap((s) => (s.setorId ? [s.setorId] : [])),
+        tipo: v.tipo as TipoVisita,
+        entrada: v.entrada.toISOString(),
+      }))
     : [];
   return itens
     .map((i) => ({ ...i, ...calcularSituacao(i, visitas, hoje) }))

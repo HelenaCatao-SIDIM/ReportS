@@ -4,7 +4,7 @@ import { CheckCircle2, ChevronDown, ClipboardCheck, Download, History, Info, Lin
 import { buscarPorLink } from "@/lib/repo/relatorios";
 import { formatarData, formatarDataHora, formatarDuracao, formatarHora } from "@/lib/datas";
 import { formatarCnpj } from "@/lib/format";
-import { formatarDataCurta, formatarMinutos, rotuloTipo } from "@/lib/visitas";
+import { formatarDataCurta, formatarMinutos, rotuloSetores, rotuloTipo } from "@/lib/visitas";
 import type { Foto, VisitaDetalhada } from "@/lib/types";
 import { DetalheVisita } from "@/components/visita/detalhe-visita";
 import { Badge } from "@/components/ui/badge";
@@ -209,7 +209,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/aprovacao/[to
                   )}
                 </div>
                 <div className="truncate text-xs text-muted-foreground">
-                  {v.unidadeNome} · {v.setorNome} · {formatarHora(v.entrada)}–{v.saida ? formatarHora(v.saida) : "—"} ({v.saida ? formatarDuracao(v.entrada, v.saida) : "—"})
+                  {v.unidadeNome} · {rotuloSetores(v)} · {formatarHora(v.entrada)}–{v.saida ? formatarHora(v.saida) : "—"} ({v.saida ? formatarDuracao(v.entrada, v.saida) : "—"})
                 </div>
               </div>
             </summary>

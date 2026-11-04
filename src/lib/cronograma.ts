@@ -26,6 +26,8 @@ export interface VisitaParaCronograma {
   contratoId: string;
   unidadeId: string;
   setorId: string | null;
+  /** Setores cadastrados acrescentados à visita depois do check-in (só contam os que têm cadastro, não os digitados). */
+  setoresExtrasIds?: string[];
   tipo: TipoVisita;
   /** ISO (UTC). */
   entrada: string;
@@ -41,9 +43,15 @@ export function prazoValido(prazo: string): boolean {
 /** Dias de `de` até `ate` (AAAA-MM-DD); negativo se `ate` é anterior. */
 export const diasEntre = (de: string, ate: string) => Math.round((Date.parse(`${ate}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / 86_400_000);
 
-/** A visita cumpre o item: mesmo contrato, estabelecimento e tipo; o setor só importa se o item pede um setor. */
+/**
+ * A visita cumpre o item: mesmo contrato, estabelecimento e tipo; o setor só importa se o item pede um setor, e aí vale o setor
+ * do check-in ou qualquer um dos acrescentados à visita (uma visita com os setores A, B e C cumpre os itens de A, B e C).
+ */
 export const visitaCumpre = (item: ItemCronograma, v: VisitaParaCronograma) =>
-  v.contratoId === item.contratoId && v.unidadeId === item.unidadeId && v.tipo === item.tipo && (item.setorId === null || v.setorId === item.setorId);
+  v.contratoId === item.contratoId &&
+  v.unidadeId === item.unidadeId &&
+  v.tipo === item.tipo &&
+  (item.setorId === null || v.setorId === item.setorId || (v.setoresExtrasIds ?? []).includes(item.setorId));
 
 /**
  * Situação do item em `hoje` (AAAA-MM-DD, horário de Brasília). Cumpre o item a primeira visita encerrada que bate com ele;

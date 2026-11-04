@@ -232,6 +232,11 @@ export interface PresencaVisita {
   confirmacao: "nominal" | "assinatura";
   /** Imagem da assinatura (data URL ou endereço no storage). */
   assinatura: string | null;
+  /**
+   * Como foi validada além da assinatura: o próprio participante entrou no Saúde (`login_saude`) ou o técnico registrou sem o
+   * login (`sem_login`). Ausente ou nulo quando o login não era exigido e nas presenças antigas.
+   */
+  validacao?: "login_saude" | "sem_login" | null;
 }
 
 /** Uma mudança de campo dentro de uma alteração. */
@@ -318,6 +323,14 @@ export interface VersaoRelatorio {
   decisao: DecisaoRelatorio | null;
 }
 
+/** Setor acrescentado à visita depois do check-in (o técnico treinou mais gente do que previa). */
+export interface SetorExtraVisita {
+  id: string;
+  /** Setor cadastrado do estabelecimento; null quando foi digitado ("outro"). */
+  setorId: string | null;
+  nome: string;
+}
+
 /** Visita com os nomes resolvidos (cliente, técnico, estabelecimento, setor, temas). */
 export interface VisitaDetalhada extends Visita {
   tecnicoNome: string;
@@ -326,7 +339,10 @@ export interface VisitaDetalhada extends Visita {
   sistema: string;
   sistemaNome: string;
   unidadeNome: string;
+  /** Setor do check-in. */
   setorNome: string;
+  /** Setores acrescentados depois. Opcional: as versões de relatório emitidas antes disso não têm. */
+  setoresExtras?: SetorExtraVisita[];
   /** Nomes das equipes treinadas. Opcional: as versões de relatório emitidas antes das equipes não têm. */
   equipes?: string[];
   temas: Tema[];

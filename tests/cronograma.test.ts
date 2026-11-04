@@ -27,6 +27,16 @@ test("visita encerrada que bate com o item cumpre; depois do prazo, cumpre com a
   assert.equal(calcularSituacao(item(), [visita({ entrada: "2026-11-22T13:00:00.000Z" })], "2026-11-25").situacao, "cumprido_com_atraso");
 });
 
+test("setor acrescentado à visita cumpre o item do setor; setor digitado (sem cadastro) e outro estabelecimento não", () => {
+  const doRh = item({ setorId: "s-rh" });
+  assert.equal(calcularSituacao(doRh, [visita()], "2026-11-25").situacao, "atrasado", "a visita só do setor s1 não cumpre o item do RH");
+  assert.equal(calcularSituacao(doRh, [visita({ setoresExtrasIds: ["s-rh"] })], "2026-11-12").situacao, "cumprido", "com o RH acrescentado, cumpre");
+  assert.equal(calcularSituacao(item({ setorId: "s1" }), [visita({ setoresExtrasIds: ["s-rh"] })], "2026-11-12").situacao, "cumprido", "e o setor do check-in continua valendo");
+  assert.equal(calcularSituacao(doRh, [visita({ setoresExtrasIds: ["s-rh"], unidadeId: "u2" })], "2026-11-25").situacao, "atrasado", "outro estabelecimento não cumpre");
+  assert.equal(calcularSituacao(doRh, [visita({ setoresExtrasIds: ["s-rh"], tipo: "implantacao" })], "2026-11-25").situacao, "atrasado", "outro tipo não cumpre");
+  assert.equal(calcularSituacao(item({ setorId: null }), [visita({ setoresExtrasIds: [] })], "2026-11-12").situacao, "cumprido", "item de todos os setores segue valendo com qualquer setor");
+});
+
 test("o dia do prazo vale até o fim do dia em Brasília (23h30 de 20/11 = 21/11 em UTC)", () => {
   const tarde = visita({ entrada: "2026-11-21T02:30:00.000Z" });
   const r = calcularSituacao(item(), [tarde], "2026-11-25");

@@ -7,7 +7,18 @@ import { listarEquipes } from "@/lib/repo/equipes";
 import { listarTemas } from "@/lib/repo/temas";
 import { equipesDaVisita, sugereTemasPorEquipe } from "@/lib/regras-visita";
 import { salvarImagem } from "@/lib/repo/arquivos";
-import { adicionarFotoExtra, buscarVisita, definirEquipes, definirTemaAdicional, definirTemas, removerFotoExtra } from "@/lib/repo/visitas";
+import { buscarSetor } from "@/lib/repo/clientes";
+import {
+  adicionarFotoExtra,
+  adicionarSetorExtra,
+  buscarVisita,
+  definirAnotacoes,
+  definirEquipes,
+  definirTemaAdicional,
+  definirTemas,
+  removerFotoExtra,
+  removerSetorExtra,
+} from "@/lib/repo/visitas";
 
 /** Resultado simples das ações salvas na hora: null = ok; texto = erro para mostrar. */
 type Resultado = string | null;
@@ -73,6 +84,47 @@ export async function apagarFotoExtra(visitaId: string, fotoId: string): Promise
   const { tecnico, erro } = await visitaAberta(visitaId);
   if (erro) return erro;
   await removerFotoExtra(visitaId, tecnico.id, fotoId);
+  atualizar(visitaId);
+  return null;
+}
+
+/**
+ * Acrescenta um setor à visita (o técnico treinou mais gente do que previa). `valor` é o id de um setor do estabelecimento da
+ * visita ou "outro", com o nome em `outro`. Vale até o check-out.
+ */
+export async function acrescentarSetor(visitaId: string, valor: string, outro: string): Promise<Resultado> {
+  const { tecnico, v, erro } = await visitaAberta(visitaId);
+  if (erro) return erro;
+  let resultado: string | null;
+  if (valor === "outro") {
+    const nome = outro.trim().replace(/\s+/g, " ").slice(0, 120);
+    if (!nome) return "Digite o nome do setor.";
+    resultado = await adicionarSetorExtra(visitaId, tecnico.id, { setorOutro: nome });
+  } else {
+    const setor = await buscarSetor(valor);
+    if (!setor || setor.unidadeId !== v.unidadeId) return "Escolha o setor.";
+    resultado = await adicionarSetorExtra(visitaId, tecnico.id, { setorId: setor.id });
+  }
+  atualizar(visitaId);
+  return resultado;
+}
+
+export async function retirarSetorAcrescentado(visitaId: string, extraId: string): Promise<Resultado> {
+  const { tecnico, erro } = await visitaAberta(visitaId);
+  if (erro) return erro;
+  await removerSetorExtra(visitaId, tecnico.id, extraId);
+  atualizar(visitaId);
+  return null;
+}
+
+const TAMANHO_ANOTACAO = 4000;
+
+/** Anotações feitas durante a visita (as mesmas do check-out, que parte delas). Salvas enquanto o técnico escreve. */
+export async function salvarAnotacoes(visitaId: string, a: { observacoes: string; pendencias: string; proximosPassos: string }): Promise<Resultado> {
+  const { tecnico, erro } = await visitaAberta(visitaId);
+  if (erro) return erro;
+  const texto = (t: string) => String(t ?? "").trim().slice(0, TAMANHO_ANOTACAO);
+  await definirAnotacoes(visitaId, tecnico.id, { observacoes: texto(a.observacoes), pendencias: texto(a.pendencias), proximosPassos: texto(a.proximosPassos) });
   atualizar(visitaId);
   return null;
 }

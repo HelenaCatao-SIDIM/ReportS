@@ -37,7 +37,7 @@ Use abas anônimas ou dois navegadores para estar logado com duas contas ao mesm
 ## 3. Cumprimento automático pela visita
 
 1. Escolha o tipo **Treinamento**, permita a localização (ou use um navegador sem GPS e escolha outro caminho), tire uma foto e faça o check-in.
-2. Na visita, **Adicionar participante** → cadastre um novo (nome e ocupação). Faça o **check-out**.
+2. O check-in de treinamento abre a **tela de presença** (só busca e assinatura, sem menu). Digite um nome que não existe, toque em **Não encontrei meu nome**, escolha a ocupação e **Confirmar presença**. Toque em **Todos assinaram? Continuar** e **Continuar**: abre a tela da visita (temas, anotações, setores). Faça o **check-out**.
 3. Volte ao check-in: o item do **Protocolo** não aparece mais entre as pendências.
 4. Na Administração → Cronograma: o item do Protocolo está **Cumprido, em <hoje>**; o de Implantação continua **A vencer** (a visita foi de Treinamento, não de Implantação). Contadores: 1 atrasado, 1 a vencer, 0 no prazo, 1 cumprido.
 

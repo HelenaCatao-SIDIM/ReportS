@@ -36,6 +36,7 @@ model Setor {
   nome              String
   estabelecimento   Estabelecimento @relation(fields: [estabelecimentoId], references: [id], onDelete: Cascade)
   visitas           Visita[]
+  visitasExtras     VisitaSetor[]
   cronograma        ItemCronograma[]
 
   @@index([estabelecimentoId])
@@ -168,6 +169,7 @@ model Visita {
   estabelecimento            Estabelecimento  @relation(fields: [estabelecimentoId], references: [id])
   setor                      Setor?           @relation(fields: [setorId], references: [id])
   relatorio                  Relatorio?       @relation(fields: [relatorioId], references: [id])
+  setoresExtras              VisitaSetor[]
   temas                      VisitaTema[]
   equipes                    VisitaEquipe[]
   presencas                  Presenca[]
@@ -179,6 +181,22 @@ model Visita {
   @@index([relatorioId])
   @@index([entrada])
   @@map("visitas")
+}
+
+/// Setores acrescentados à visita depois do check-in (o técnico treinou mais gente do que previa). O setor do check-in fica na própria
+/// visita; estes vêm além dele. Um é de um setor cadastrado do estabelecimento (`setorId`) ou digitado (`setorOutro`).
+model VisitaSetor {
+  id         String  @id
+  visitaId   String  @map("visita_id")
+  setorId    String? @map("setor_id")
+  setorOutro String? @map("setor_outro")
+  ordem      Int
+  visita     Visita  @relation(fields: [visitaId], references: [id], onDelete: Cascade)
+  setor      Setor?  @relation(fields: [setorId], references: [id], onDelete: Restrict)
+
+  @@unique([visitaId, setorId])
+  @@index([setorId])
+  @@map("visita_setores")
 }
 
 model VisitaTema {
@@ -216,6 +234,9 @@ model Presenca {
   cpf            String?
   confirmacao    String
   assinatura     String?
+  /// Como a presença foi validada além da assinatura: "login_saude" (o próprio participante entrou no Saúde) ou "sem_login"
+  /// (o técnico registrou sem o login). Nulo quando o login do participante não era exigido (e nas presenças antigas).
+  validacao      String?
   ordem          Int
   visita         Visita  @relation(fields: [visitaId], references: [id], onDelete: Cascade)
 

@@ -129,6 +129,7 @@ Onde: `src/lib/visitas.ts` (`TIPOS_VISITA`), `src/lib/regras-visita.ts` (`exigeP
 - Escolhe, em cascata: cliente (ativo) → **sistema** (contrato ativo do cliente) → estabelecimento → setor (da lista do estabelecimento ou "outro", digitado) → tipo.
 - **Presencial**: exige a **localização do aparelho** e a **foto do ambiente**. **Online**: exige o **print da tela da reunião** e o **link da reunião** (começando com `http://` ou `https://`).
 - A hora de entrada é a **hora do servidor**, nunca a do aparelho.
+- Depois do check-in, **treinamento, treinamento online e implantação** abrem pela **tela de presença** (veja [Lista de presença](#lista-de-presença)); os outros tipos abrem direto na tela da visita. Ao reabrir uma visita em andamento sem nenhuma presença, a tela inicial leva de novo à presença; com presença, à tela da visita.
 - O sistema grava por **qual aparelho** o check-in foi feito (celular ou computador); aparece como "Registrado por" no detalhe, no relatório e na página do aprovador. No computador, a visita presencial mostra um aviso em tela, sem bloquear.
 - **Raio do estabelecimento**: o check-in presencial grava a **distância medida** até o estabelecimento e o raio da época. Fora do raio, a Administração vê o selo "Fora do raio" e a distância; dentro, "Dentro do raio". É **só alerta, nunca bloqueia**, e o técnico, o aprovador e o PDF não veem. Só mede estabelecimentos com latitude e longitude.
 - A localização é lida uma única vez, no check-in e no check-out. Não há rastreamento contínuo. O navegador só libera o GPS em `https` ou `localhost`.
@@ -144,25 +145,36 @@ Só o próprio técnico altera a visita, e só enquanto ela está em andamento:
 - **Temas**: marca os temas ativos **do sistema do contrato** da visita (ou os que já estavam marcados, mesmo inativados depois);
 - **Equipes treinadas** (só na implantação, no treinamento e no treinamento online): marca as equipes ativas que têm algum tema mínimo ativo do sistema do contrato (ou as já marcadas, mesmo inativadas depois). O ReportS mostra os **temas mínimos** delas que são do sistema do contrato, como sugestão; o técnico marca os que trabalhou, e os demais temas continuam em "Outros temas". Marcar a equipe não marca nenhum tema sozinho. As equipes treinadas aparecem no detalhe da visita, no relatório (PDF) e na página do aprovador;
 - **Tema adicional**: texto livre de até 300 caracteres;
-- **Fotos extras**: adiciona e remove.
+- **Fotos extras**: adiciona e remove;
+- **Anotações** (observações, pendências e próximos passos): o técnico vai anotando **durante a visita** e o texto é salvo sozinho (logo depois de parar de digitar e ao sair do campo), com até 4.000 caracteres cada. O check-out parte dessas anotações, e dá para completá-las ali;
+- **Setores atendidos**: além do setor do check-in, o técnico pode **acrescentar outros setores até o check-out** (treinou mais gente do que previa, de outros setores). Escolhe entre os setores do estabelecimento da visita ou digita um nome ("Outro"); não repete o setor do check-in nem um já acrescentado (sem diferenciar acento e caixa), e pode retirar o que acrescentou. Os **temas continuam sendo uma lista só da visita**, valendo para todos os setores. O relatório, o PDF, a página do aprovador e o detalhe da visita listam **todos os setores**; cada setor **cadastrado** acrescentado **cumpre o item do cronograma** daquele setor (veja [Cronograma de implantação](#cronograma-de-implantação-reportscontratosgerenciar-leitura-com-reportsvisitasgerenciar)); o setor digitado não cumpre.
 
 Onde: `src/app/tecnico/visita/actions.ts`.
 
 ### Lista de presença
 
-- O técnico busca a pessoa entre os participantes do **sistema do cliente** (por nome, ocupação ou setor). Se a pessoa não está cadastrada, o técnico cria um **participante provisório** ali mesmo, com as regras de [Participantes](#participantes) (nome, ocupação CBO, setor opcional, CPF só se o contrato exige, aviso de CPF repetido ou nome parecido).
-- Se o contrato exige CPF e o participante escolhido ainda não tem, o técnico informa o CPF (só ele é gravado no cadastro).
+- **Quem assina é o próprio participante**, na **tela de presença** (`/tecnico/visita/<id>/presenca`): enquanto o técnico apresenta, o celular ou tablet passa de mão em mão, e cada pessoa **busca o próprio nome** (a partir de 2 letras), toca nele e **assina** (ou só confirma, se o contrato é nominal). A tela mostra **só a busca e a assinatura**: nada de ocupação, setor, CPF ou selo de estado nos resultados (a ocupação e o setor só aparecem se houver dois nomes iguais na busca, para a pessoa saber qual é o dela), **nem a lista de quem já assinou**, e **sem o menu do usuário nem a barra de navegação**. Só aparece um contador ("N presenças confirmadas"). Depois de confirmar, a tela agradece pelo primeiro nome e volta sozinha à busca (4 s). Quem busca um nome que já assinou é avisado de que não precisa assinar de novo.
+- Quem **não acha o próprio nome** toca em **"Não encontrei meu nome"** e se cadastra ali mesmo (nome, ocupação, setor opcional já preenchido com o da visita, e CPF só se o contrato exige), depois assina. Isso cria um **participante provisório**, com as regras de [Participantes](#participantes) (nome, ocupação CBO, setor opcional, CPF só se o contrato exige, aviso de CPF repetido ou nome parecido).
+- Se o contrato exige CPF e o participante escolhido ainda não tem, a própria pessoa informa o CPF na tela de presença (só ele é gravado no cadastro). CPF inválido: "CPF inválido. Confira os números.". **CPF que já é de outra pessoa do cadastro:** como a tela passa de mão em mão, o **nome do dono só aparece se for parecido com o de quem está assinando** (provavelmente a mesma pessoa, que toca em "É esta pessoa"); senão a mensagem é genérica ("Este CPF já está em outro cadastro. Confira o número ou chame o técnico.") e não revela o nome.
 - A mesma pessoa não entra duas vezes na lista.
+- **Login do participante no Saúde (opcional, por tenant, desligado por padrão).** Com o tenant do cliente configurado (`SAUDE_API_<TENANT>_URL` e `SAUDE_API_<TENANT>_LOGIN_PARTICIPANTE=true`), a sequência passa a ser **busca do nome → login → assinatura → confirmar**. A pessoa entra com o **usuário e a senha dela no Saúde**; o ReportS repassa à API (`POST /api/login`) e confere se o `userId` devolvido é o **id do Saúde do participante escolhido** (`external_user_id`): login de outra pessoa é recusado. A **senha só passa pela memória** (não é gravada, registrada em log nem devolvida ao navegador). O servidor devolve uma **prova assinada, válida por 10 minutos**, para aquele participante naquela visita, e a presença **só é gravada com a prova** (o navegador não decide sozinho que o login passou); a presença guarda como foi validada: `login_saude` ou `sem_login`.
+  - **Quem não consegue entrar não assina por conta própria**: participante cadastrado sem id do Saúde (provisório), "Não encontrei meu nome", senha errada demais ou API fora do ar → a tela manda **chamar o técnico**, que usa o atalho **"Registrar sem login (técnico)"** na tela da visita (link com token assinado, válido por 30 minutos). As presenças desse modo ficam marcadas **"sem login"** na lista do técnico e no detalhe da Administração.
+  - **Limite de tentativas:** 5 falhas (senha errada ou login de outra pessoa) do mesmo participante na visita, em 10 minutos, bloqueiam novas tentativas dele; 30 falhas na visita bloqueiam todas. API fora do ar não conta como falha. A contagem fica na memória do processo (reiniciar zera).
+  - **Só liga com `https://` em produção** (a senha viaja até a API): com `http://` em produção o login fica desligado e o aviso vai para o log do servidor. Fora de produção, `http://` é aceito para testar. Só vale para o sistema **Saúde** (os outros sistemas do ReportS não têm essa API).
+  - Onde: `src/lib/saude-login.ts`, `src/lib/repo/presenca-login.ts`, `entrarNoSaude` e `registrarPresenca` em `src/app/tecnico/visita/participantes-actions.ts`.
+- Esta tela **não guarda nada no aparelho** (nem rascunho de cadastro): quem vem depois não vê o que o anterior digitou.
+- Quando todos assinaram, o **técnico** toca em "Todos assinaram? Continuar" (pede uma confirmação, para ninguém tocar sem querer) e vai à **tela da visita**: temas e equipes, anotações, fotos extras, a lista de presença completa (com as assinaturas, onde o técnico pode retirar alguém lançado por engano), os setores atendidos e o check-out. Chegou mais gente? Há um botão para **voltar à tela de presença**. Em treinamento, o "Continuar" só libera depois da primeira presença.
 - **Assinatura** é exigida quando o contrato é **Assinada** e a visita é **presencial**. Treinamento online é sempre nominal.
 - A presença guarda uma **cópia** dos dados da pessoa naquele momento (nome, CBO, setor e CPF). Mudanças posteriores no cadastro não alteram visitas já registradas.
 
-Onde: `src/app/tecnico/visita/participantes-actions.ts`.
+Onde: `src/app/tecnico/visita/participantes-actions.ts`, `src/app/tecnico/visita/[id]/presenca/`.
 
 ### Check-out
 
 - Treinamento e treinamento online: exigem **pelo menos um participante** na lista.
 - Presencial: exige a **localização do aparelho**.
-- Observações, pendências e próximos passos são opcionais, com até 4.000 caracteres cada.
+- Observações, pendências e próximos passos são opcionais, com até 4.000 caracteres cada, e já vêm preenchidos com o que o técnico anotou durante a visita.
+- O resumo do check-out lista todos os setores da visita.
 - A hora de saída é a **hora do servidor**. Depois do check-out, o técnico **não altera mais** a visita.
 
 Onde: `src/app/tecnico/visita/checkout-actions.ts`, `src/app/tecnico/visita/[id]/checkout/checkout-form.tsx`.
@@ -185,6 +197,7 @@ Aparecem da mais antiga para a mais recente, para que as esquecidas fiquem no to
 ### Correção de visita encerrada
 
 - Campos que podem ser corrigidos: entrada, saída (depois da entrada e não no futuro), tipo, estabelecimento (do mesmo cliente), setor, equipes treinadas (as mesmas que o técnico pode marcar; veja [Durante a visita](#durante-a-visita)), temas (só do sistema do contrato da visita; os já marcados continuam aceitos), tema adicional, observações, pendências e próximos passos. Também dá para **retirar** participantes da lista e fotos extras.
+- Os **setores acrescentados** pelo técnico não são editados na correção, mas **saem junto se a correção muda o estabelecimento** (eles são do estabelecimento anterior), e o histórico registra quais saíram.
 - Equipes treinadas só existem na implantação, no treinamento e no treinamento online: se a correção muda o tipo para outro, as equipes saem da visita (a tela avisa antes de salvar).
 - Cliente, técnico, sistema, localizações, foto do ambiente e print não mudam.
 - O **motivo** é obrigatório (pelo menos 5 caracteres). Se nada mudou, nada é gravado.
@@ -252,7 +265,7 @@ Planeja **onde e até quando** cada atividade deve acontecer. Exemplo: "no Posto
 
 - Um **item** é de um **contrato** (cliente + sistema) e traz: **estabelecimento**, **setor** (do estabelecimento; em branco vale qualquer setor), **atividade** (um dos tipos de visita, como Treinamento ou Implantação), **prazo** (data, vale até o fim do dia, no horário de Brasília) e uma **observação interna**.
 - Só o contrato **ativo** de cliente ativo recebe item novo. O contrato de um item não muda: para outro contrato, cancele e crie outro. Não pode haver dois itens ativos iguais (mesmo contrato, estabelecimento, setor e atividade).
-- A **situação nunca é digitada**: o sistema calcula pelas **visitas encerradas** do mesmo contrato, estabelecimento e tipo (e do mesmo setor, quando o item pede um). Visita em andamento ou cancelada não conta. Vale a primeira visita que bate:
+- A **situação nunca é digitada**: o sistema calcula pelas **visitas encerradas** do mesmo contrato, estabelecimento e tipo (e do mesmo setor, quando o item pede um: vale o setor do check-in **ou qualquer setor cadastrado acrescentado à visita**, então uma visita com os setores A, B e C cumpre os itens de A, B e C). Visita em andamento ou cancelada não conta. Vale a primeira visita que bate:
   - **Cumprido**: a visita foi até o prazo. **Cumprido com atraso**: foi depois.
   - Sem visita: **Atrasado** se o prazo passou; **A vencer** se faltam até 7 dias (inclusive no próprio dia do prazo); **No prazo** nos demais casos.
   - **Cancelado**: a Administração cancelou; não conta e não aparece ao técnico nem ao cliente. Dá para reativar.
