@@ -42,16 +42,25 @@ const sugestao = (p: Participante): SugestaoParticipante => ({
   cpfMascarado: p.cpf ? mascararCpf(p.cpf) : "",
 });
 
+export interface ResultadoBusca {
+  sugestoes: SugestaoParticipante[];
+  /** Nomes que combinam com o termo e já assinaram nesta visita (para a pessoa saber que não precisa assinar de novo). */
+  jaNaLista: string[];
+}
+
 /** Participantes do sistema do cliente cujo nome contém o termo, fora os que já estão na visita. CPF só mascarado. */
-export async function sugerirParticipantes(visitaId: string, termo: string): Promise<SugestaoParticipante[]> {
+export async function sugerirParticipantes(visitaId: string, termo: string): Promise<ResultadoBusca> {
   const { v, sistemaDoClienteId } = await contexto(visitaId);
-  if (normalizar(termo).length < 2) return [];
+  if (normalizar(termo).length < 2) return { sugestoes: [], jaNaLista: [] };
   const presentes = new Set(v.presencas.map((p) => p.participanteId));
   const n = normalizar(termo);
-  return (await listarParticipantes(sistemaDoClienteId))
-    .filter((p) => !presentes.has(p.id) && normalizar(p.nome).includes(n))
-    .slice(0, 8)
-    .map(sugestao);
+  return {
+    sugestoes: (await listarParticipantes(sistemaDoClienteId))
+      .filter((p) => !presentes.has(p.id) && normalizar(p.nome).includes(n))
+      .slice(0, 8)
+      .map(sugestao),
+    jaNaLista: v.presencas.filter((p) => normalizar(p.nome).includes(n)).map((p) => p.nome),
+  };
 }
 
 export interface PresencaState {
@@ -157,6 +166,7 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
     assinatura,
   });
   revalidatePath(`/tecnico/visita/${visitaId}`);
+  revalidatePath(`/tecnico/visita/${visitaId}/presenca`);
   revalidatePath("/admin/participantes");
   revalidatePath("/admin/visitas", "layout");
   return { ok: true };
@@ -167,6 +177,7 @@ export async function retirarPresenca(visitaId: string, participanteId: string):
   if (v.status !== "em_andamento") return "Esta visita já foi encerrada.";
   await removerPresenca(visitaId, tecnico.id, participanteId);
   revalidatePath(`/tecnico/visita/${visitaId}`);
+  revalidatePath(`/tecnico/visita/${visitaId}/presenca`);
   revalidatePath("/admin/visitas", "layout");
   return null;
 }

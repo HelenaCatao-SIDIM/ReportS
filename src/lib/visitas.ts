@@ -10,6 +10,20 @@ export const TIPOS_VISITA: { valor: TipoVisita; label: string; presencial: boole
   { valor: "treinamento_online", label: "Treinamento online", presencial: false },
 ];
 
+/** Nomes dos setores da visita: o do check-in e os acrescentados depois, sem repetir nem contar o "—" de quem não tem setor. */
+export function nomesDosSetores(v: { setorNome: string; setoresExtras?: { nome: string }[] }): string[] {
+  const vistos = new Set<string>();
+  return [v.setorNome, ...(v.setoresExtras ?? []).map((s) => s.nome)].filter((n) => {
+    const k = n.trim().toLowerCase();
+    if (!k || k === "—" || vistos.has(k)) return false;
+    vistos.add(k);
+    return true;
+  });
+}
+
+/** "Protocolo, Recursos Humanos": os setores da visita para mostrar numa linha. */
+export const rotuloSetores = (v: { setorNome: string; setoresExtras?: { nome: string }[] }) => nomesDosSetores(v).join(", ") || "—";
+
 export const rotuloTipo = (t: TipoVisita) => TIPOS_VISITA.find((x) => x.valor === t)?.label ?? t;
 export const ehPresencial = (t: TipoVisita) => TIPOS_VISITA.find((x) => x.valor === t)?.presencial ?? true;
 

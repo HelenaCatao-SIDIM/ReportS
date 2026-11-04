@@ -4,6 +4,12 @@ import type { Equipe, Tema, TipoVisita } from "@/lib/types";
 /** Tipos em que o check-out exige ao menos um participante na lista. */
 export const exigeParticipantes = (tipo: TipoVisita) => tipo === "treinamento" || tipo === "treinamento_online";
 
+/**
+ * Tipos em que, logo depois do check-in, o aparelho vai para a tela de presença (os participantes buscam o próprio nome e
+ * assinam enquanto o técnico apresenta). Nos outros tipos, a visita abre direto na tela de temas e anotações.
+ */
+export const abrePelaPresenca = (tipo: TipoVisita) => tipo === "treinamento" || tipo === "treinamento_online" || tipo === "implantacao";
+
 /** Tipos em que o técnico marca as equipes treinadas e recebe os temas mínimos delas como sugestão. */
 export const sugereTemasPorEquipe = (tipo: TipoVisita) => tipo === "implantacao" || tipo === "treinamento" || tipo === "treinamento_online";
 
@@ -20,6 +26,17 @@ export function equipesDaVisita<E extends Pick<Equipe, "id" | "ativo" | "temaIds
   const doSistema = new Set(temas.filter((t) => t.sistema === sistema && t.ativo).map((t) => t.id));
   return equipes.filter((e) => marcadas.includes(e.id) || (e.ativo && e.temaIds.some((id) => doSistema.has(id))));
 }
+
+/** Para onde o técnico vai ao abrir a visita em andamento: a presença, enquanto ninguém assinou; depois, a tela da visita. */
+export const rotaDaVisita = (v: { id: string; tipo: TipoVisita; presencas: unknown[] }) =>
+  abrePelaPresenca(v.tipo) && v.presencas.length === 0 ? `/tecnico/visita/${v.id}/presenca` : `/tecnico/visita/${v.id}`;
+
+/** Anotações da visita: escritas durante a visita (tela da visita) e completadas no check-out, que parte delas. */
+export const CAMPOS_ANOTACAO = [
+  { nome: "observacoes", rotulo: "Observações", dica: "O que foi feito na visita." },
+  { nome: "pendencias", rotulo: "Pendências", dica: "O que ficou para resolver (do cliente ou da SIDIM)." },
+  { nome: "proximosPassos", rotulo: "Próximos passos", dica: "O que foi combinado para a próxima etapa." },
+] as const;
 
 /** Chave do rascunho do check-out guardado no aparelho. */
 export const chaveRascunho = (visitaId: string) => `checkout-rascunho:${visitaId}`;

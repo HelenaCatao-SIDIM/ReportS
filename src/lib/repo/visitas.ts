@@ -2,6 +2,7 @@ import "server-only";
 import { Prisma } from "@/generated/reports/client";
 import { idPlataforma, idTexto, plataforma, reports } from "@/lib/db";
 import { formatarDataHora } from "@/lib/datas";
+import { normalizar } from "@/lib/format";
 import { rotuloTipo } from "@/lib/visitas";
 import type {
   AlteracaoVisita, EnderecoVisita, EstadoParticipante, Foto, LocalVisita, MeioRegistro, MudancaCampo, PresencaVisita, StatusVisita, TipoVisita,
@@ -28,6 +29,7 @@ const INCLUIR = {
   alteracoes: { orderBy: { em: "asc" } },
   estabelecimento: { select: { nome: true } },
   setor: { select: { nome: true } },
+  setoresExtras: { orderBy: { ordem: "asc" }, include: { setor: { select: { nome: true } } } },
   contrato: { select: { sistemaDoClienteId: true } },
   relatorio: { select: { status: true } },
 } as const;
@@ -114,6 +116,7 @@ async function detalharTodas(linhas: Linha[]): Promise<VisitaDetalhada[]> {
       sistemaNome: sistema ? nomeDoSistema(sistema) : "—",
       unidadeNome: linha.estabelecimento.nome,
       setorNome: linha.setor?.nome ?? v.setorOutro ?? "—",
+      setoresExtras: linha.setoresExtras.map((s) => ({ id: s.id, setorId: s.setorId, nome: s.setor?.nome ?? s.setorOutro ?? "—" })),
       equipes: v.equipeIds.map((id) => equipes.get(id) ?? "—").sort((a, b) => a.localeCompare(b, "pt-BR")),
       temas: temas.filter((t) => v.temaIds.includes(t.id)),
       travada: linha.relatorio?.status === "aprovado",
@@ -267,6 +270,11 @@ export async function corrigirPelaAdministracao(id: string, c: CorrecaoVisita, a
   comparar("Pendências", v.pendencias, c.pendencias);
   comparar("Próximos passos", v.proximosPassos, c.proximosPassos);
 
+  // Os setores acrescentados são do estabelecimento da visita: ao trocar de estabelecimento, saem junto (e ficam no histórico).
+  const extras = v.setoresExtras ?? [];
+  const limparExtras = c.unidadeId !== v.unidadeId && extras.length > 0;
+  if (limparExtras) mudancas.push({ campo: "Setores acrescentados", antes: extras.map((s) => s.nome).join(", "), depois: "— (eram do estabelecimento anterior)" });
+
   const presencasRemovidas = v.presencas.filter((p) => c.removerPresencas.includes(p.participanteId));
   if (presencasRemovidas.length) {
     mudancas.push({ campo: "Participantes removidos", antes: presencasRemovidas.map((p) => p.nome).join(", "), depois: "—" });
@@ -303,6 +311,7 @@ export async function corrigirPelaAdministracao(id: string, c: CorrecaoVisita, a
     await tx.visitaTema.createMany({ data: temaIds.map((temaId) => ({ visitaId: id, temaId })) });
     await tx.visitaEquipe.deleteMany({ where: { visitaId: id } });
     await tx.visitaEquipe.createMany({ data: equipeIds.map((equipeId) => ({ visitaId: id, equipeId })) });
+    if (limparExtras) await tx.visitaSetor.deleteMany({ where: { visitaId: id } });
     if (presencasRemovidas.length) {
       await tx.presenca.deleteMany({ where: { visitaId: id, participanteId: { in: presencasRemovidas.map((p) => idPlataforma(p.participanteId)!) } } });
     }
@@ -387,9 +396,53 @@ export async function definirEquipes(id: string, tecnicoId: string, equipeIds: s
   ]);
 }
 
+/** Mesmo nome, sem diferenciar acento nem caixa (para não acrescentar o setor "protocolo" quando "Protocolo" já está na visita). */
+const mesmoNome = (a: string, b: string) => normalizar(a) === normalizar(b);
+
+/**
+ * Acrescenta um setor à visita em andamento (o técnico treinou mais gente do que previa). Recebe um setor cadastrado do
+ * estabelecimento (`setorId`) ou um nome digitado (`setorOutro`). Quem chama já conferiu que o setor é do estabelecimento.
+ * Devolve o erro para mostrar, ou null.
+ */
+export async function adicionarSetorExtra(id: string, tecnicoId: string, setor: { setorId: string } | { setorOutro: string }): Promise<string | null> {
+  await abertaDe(id, tecnicoId);
+  const v = await buscarVisita(id);
+  if (!v) throw new Error("Visita não encontrada");
+  const setorId = "setorId" in setor ? setor.setorId : null;
+  const outro = "setorOutro" in setor ? setor.setorOutro.trim() : null;
+  if (setorId === null && !outro) return "Digite o nome do setor.";
+  const nomeNovo = setorId ? ((await reports.setor.findUnique({ where: { id: setorId }, select: { nome: true } }))?.nome ?? "") : (outro ?? "");
+  // Já na visita: o setor do check-in ou um acrescentado antes (pelo cadastro ou pelo nome).
+  const jaTem =
+    (setorId !== null && v.setorId === setorId) ||
+    (v.setoresExtras ?? []).some((s) => (setorId !== null ? s.setorId === setorId : mesmoNome(s.nome, nomeNovo))) ||
+    (setorId === null && mesmoNome(v.setorNome, nomeNovo));
+  if (jaTem) return "Este setor já está na visita.";
+  const ultima = await reports.visitaSetor.aggregate({ where: { visitaId: id }, _max: { ordem: true } });
+  try {
+    await reports.visitaSetor.create({ data: { id: crypto.randomUUID(), visitaId: id, setorId, setorOutro: setorId ? null : outro, ordem: (ultima._max.ordem ?? -1) + 1 } });
+  } catch (e) {
+    // Dois toques ao mesmo tempo no mesmo setor: o índice único do banco recusa o segundo.
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return "Este setor já está na visita.";
+    throw e;
+  }
+  return null;
+}
+
+export async function removerSetorExtra(id: string, tecnicoId: string, extraId: string) {
+  await abertaDe(id, tecnicoId);
+  await reports.visitaSetor.deleteMany({ where: { id: extraId, visitaId: id } });
+}
+
 export async function definirTemaAdicional(id: string, tecnicoId: string, texto: string) {
   await abertaDe(id, tecnicoId);
   await reports.visita.update({ where: { id }, data: { temaAdicional: texto } });
+}
+
+/** Anotações da visita, guardadas enquanto o técnico escreve; o check-out parte delas. */
+export async function definirAnotacoes(id: string, tecnicoId: string, a: { observacoes: string; pendencias: string; proximosPassos: string }) {
+  await abertaDe(id, tecnicoId);
+  await reports.visita.update({ where: { id }, data: { observacoes: a.observacoes, pendencias: a.pendencias, proximosPassos: a.proximosPassos } });
 }
 
 export async function adicionarFotoExtra(id: string, tecnicoId: string, foto: Foto) {

@@ -5,7 +5,7 @@ import type { ContagemSuporte, ConteudoCongelado, CronogramaCongelado, ResumoSup
 import { formatarData, formatarDataHora, formatarDuracao, formatarHora } from "@/lib/datas";
 import { formatarCbo, formatarCnpj, mascararCpf } from "@/lib/format";
 import { ROTULO_MEIO } from "@/lib/meio";
-import { ehPresencial, formatarDataCurta, formatarMinutos, rotuloTipo } from "@/lib/visitas";
+import { ehPresencial, formatarDataCurta, formatarMinutos, nomesDosSetores, rotuloSetores, rotuloTipo } from "@/lib/visitas";
 import { ROTULO_SITUACAO, resumoCronograma } from "@/lib/cronograma";
 
 // Sem hifenização automática: em colunas estreitas o padrão quebrava palavras ("Recursos Hu-manos").
@@ -81,14 +81,14 @@ function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao }: { v: Visit
         {formatarData(v.entrada)} · {rotuloTipo(v.tipo)}
       </Text>
       <Text style={[s.subtitulo, { marginBottom: 12 }]}>
-        {v.unidadeNome} · {v.setorNome}
+        {v.unidadeNome} · {rotuloSetores(v)}
         {outroPeriodo ? "   (visita de período anterior)" : ""}
       </Text>
 
       <View style={s.caixa}>
         <View style={s.grade}>
           <Campo rotulo="Estabelecimento" valor={v.unidadeNome} />
-          <Campo rotulo="Setor" valor={v.setorNome} />
+          <Campo rotulo={nomesDosSetores(v).length > 1 ? "Setores" : "Setor"} valor={rotuloSetores(v)} />
           <Campo rotulo="Técnico" valor={v.tecnicoNome} />
           <Campo rotulo="Registrado por" valor={ROTULO_MEIO[v.meio]} />
           <Campo rotulo="Entrada" valor={formatarHora(v.entrada)} />
@@ -317,7 +317,7 @@ export function RelatorioPdf({
               <Text style={{ width: "14%" }}>{formatarData(v.entrada)}</Text>
               <Text style={{ width: "22%" }}>{rotuloTipo(v.tipo)}</Text>
               <Text style={{ width: "30%" }}>
-                {v.unidadeNome} · {v.setorNome}
+                {v.unidadeNome} · {rotuloSetores(v)}
               </Text>
               <Text style={{ width: "20%" }}>
                 {formatarHora(v.entrada)}–{v.saida ? formatarHora(v.saida) : "—"}

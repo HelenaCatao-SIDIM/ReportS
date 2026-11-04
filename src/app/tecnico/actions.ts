@@ -7,6 +7,7 @@ import { PERMISSOES } from "@/lib/permissoes";
 import { distanciaMetros } from "@/lib/distancia";
 import { ehMeio } from "@/lib/meio";
 import { ehPresencial, TIPOS_VISITA } from "@/lib/visitas";
+import { rotaDaVisita } from "@/lib/regras-visita";
 import { buscarCliente, buscarSetor, buscarUnidade } from "@/lib/repo/clientes";
 import { buscarContrato } from "@/lib/repo/contratos";
 import { salvarImagem } from "@/lib/repo/arquivos";
@@ -101,5 +102,6 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
   await converterDepois(v.id, "checkin", v.checkin);
   revalidatePath("/tecnico", "layout");
   revalidatePath("/admin/visitas", "layout");
-  redirect(`/tecnico/visita/${v.id}`);
+  // Treinamento e implantação abrem pela tela de presença (os participantes assinam enquanto o técnico apresenta); os outros tipos, direto na visita.
+  redirect(rotaDaVisita(v));
 }

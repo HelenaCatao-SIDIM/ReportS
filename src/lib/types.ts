@@ -318,6 +318,14 @@ export interface VersaoRelatorio {
   decisao: DecisaoRelatorio | null;
 }
 
+/** Setor acrescentado à visita depois do check-in (o técnico treinou mais gente do que previa). */
+export interface SetorExtraVisita {
+  id: string;
+  /** Setor cadastrado do estabelecimento; null quando foi digitado ("outro"). */
+  setorId: string | null;
+  nome: string;
+}
+
 /** Visita com os nomes resolvidos (cliente, técnico, estabelecimento, setor, temas). */
 export interface VisitaDetalhada extends Visita {
   tecnicoNome: string;
@@ -326,7 +334,10 @@ export interface VisitaDetalhada extends Visita {
   sistema: string;
   sistemaNome: string;
   unidadeNome: string;
+  /** Setor do check-in. */
   setorNome: string;
+  /** Setores acrescentados depois. Opcional: as versões de relatório emitidas antes disso não têm. */
+  setoresExtras?: SetorExtraVisita[];
   /** Nomes das equipes treinadas. Opcional: as versões de relatório emitidas antes das equipes não têm. */
   equipes?: string[];
   temas: Tema[];

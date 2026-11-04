@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { AlertCircle, Check, Clock, Loader2, LocateFixed, LogOut } from "lucide-react";
 import { formatarDuracao, formatarHora } from "@/lib/datas";
 import { cn } from "@/lib/utils";
-import { chaveRascunho } from "@/lib/regras-visita";
+import { CAMPOS_ANOTACAO, chaveRascunho } from "@/lib/regras-visita";
 import { fazerCheckout, type CheckoutState } from "../../checkout-actions";
 import { useAcao } from "@/components/form/use-acao";
 import { useGps } from "@/components/tecnico/use-gps";
@@ -17,11 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 
-const CAMPOS = [
-  { nome: "observacoes", rotulo: "Observações", dica: "O que foi feito na visita." },
-  { nome: "pendencias", rotulo: "Pendências", dica: "O que ficou para resolver (do cliente ou da SIDIM)." },
-  { nome: "proximosPassos", rotulo: "Próximos passos", dica: "O que foi combinado para a próxima etapa." },
-] as const;
+const CAMPOS = CAMPOS_ANOTACAO;
 
 interface Resumo {
   clienteNome: string;
@@ -38,6 +34,7 @@ export function CheckoutForm({
   presencial,
   resumo,
   faltaParticipantes,
+  inicial,
   porCep = false,
 }: {
   visitaId: string;
@@ -45,6 +42,8 @@ export function CheckoutForm({
   presencial: boolean;
   resumo: Resumo;
   faltaParticipantes: boolean;
+  /** Anotações já feitas durante a visita (a tela da visita as salva). */
+  inicial: Record<(typeof CAMPOS)[number]["nome"], string>;
   porCep?: boolean;
 }) {
   const [state, onSubmit, pending] = useAcao<CheckoutState>(fazerCheckout.bind(null, visitaId), {});
@@ -151,7 +150,7 @@ export function CheckoutForm({
                 {c.rotulo}
               </Label>
               <p className="mb-1.5 text-xs text-muted-foreground">{c.dica}</p>
-              <Textarea id={c.nome} name={c.nome} rows={3} className="text-base" />
+              <Textarea id={c.nome} name={c.nome} rows={3} defaultValue={inicial[c.nome]} className="text-base" />
             </div>
           ))}
           <p className="text-xs text-muted-foreground">O texto fica guardado neste aparelho enquanto você escreve.</p>

@@ -109,10 +109,23 @@ export function DetalheVisita({
             <Item rotulo="Data">{formatarData(v.entrada)}</Item>
             <Item rotulo="Tipo">{rotuloTipo(v.tipo)}</Item>
             <Item rotulo="Estabelecimento">{v.unidadeNome}</Item>
-            <Item rotulo="Setor">
-              {v.setorNome}
-              {v.setorOutro && <span className="ml-1 text-xs text-muted-foreground">(outro)</span>}
-            </Item>
+            {(() => {
+              // O setor do check-in e os acrescentados depois; "(outro)" marca o que foi digitado em vez de escolhido do cadastro.
+              const setores = [{ id: "checkin", nome: v.setorNome, outro: !!v.setorOutro }, ...(v.setoresExtras ?? []).map((s) => ({ id: s.id, nome: s.nome, outro: !s.setorId }))].filter((s) => s.nome !== "—");
+              return (
+                <Item rotulo={setores.length > 1 ? "Setores" : "Setor"}>
+                  {setores.length
+                    ? setores.map((s, i) => (
+                        <span key={s.id}>
+                          {i > 0 && ", "}
+                          {s.nome}
+                          {s.outro && <span className="ml-1 text-xs text-muted-foreground">(outro)</span>}
+                        </span>
+                      ))
+                    : "—"}
+                </Item>
+              );
+            })()}
             <Item rotulo="Entrada">{formatarHora(v.entrada)}</Item>
             <Item rotulo="Saída">{v.saida ? formatarHora(v.saida) : "—"}</Item>
             <Item rotulo="Duração">{v.saida ? formatarDuracao(v.entrada, v.saida) : "—"}</Item>

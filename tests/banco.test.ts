@@ -164,6 +164,46 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     assert.deepEqual(pendentes.map((i) => i.tipo), ["implantacao"], "no check-in só aparece o que falta");
   });
 
+  test("setores acrescentados à visita: sem repetir, até o check-out, e cumprem o item do cronograma", async () => {
+    const recepcao = await db.reports.setor.create({ data: { id: crypto.randomUUID(), estabelecimentoId, nome: "Recepção" } });
+    const farmacia = await db.reports.setor.create({ data: { id: crypto.randomUUID(), estabelecimentoId, nome: "Farmácia" } });
+    const hoje = hojeLocal();
+    const base = { contratoId, unidadeId: estabelecimentoId, tipo: "treinamento" as const, observacao: "", prazo: somarDias(hoje, 10) };
+    await cronograma.criarItemCronograma({ ...base, setorId: recepcao.id });
+    await cronograma.criarItemCronograma({ ...base, setorId: farmacia.id });
+    const situacao = async () => Object.fromEntries((await cronograma.listarCronograma(hoje, { contratoId })).map((i) => [i.setorNome, i.situacao]));
+
+    const v = await treinoNo(recepcao.id);
+    assert.equal(await visitas.adicionarSetorExtra(v.id, tecnico.id, { setorId: recepcao.id }), "Este setor já está na visita.", "o do check-in não entra de novo");
+    assert.equal(await visitas.adicionarSetorExtra(v.id, tecnico.id, { setorId: farmacia.id }), null);
+    assert.equal(await visitas.adicionarSetorExtra(v.id, tecnico.id, { setorId: farmacia.id }), "Este setor já está na visita.", "nem o acrescentado duas vezes");
+    assert.equal(await visitas.adicionarSetorExtra(v.id, tecnico.id, { setorOutro: "Almoxarifado" }), null);
+    assert.equal(await visitas.adicionarSetorExtra(v.id, tecnico.id, { setorOutro: "  almoxarifado " }), "Este setor já está na visita.", "o digitado também não repete, sem diferenciar caixa");
+    assert.equal(await visitas.adicionarSetorExtra(v.id, tecnico.id, { setorOutro: "farmacia" }), "Este setor já está na visita.", "digitar o nome de um setor que já está na visita (cadastrado) também não repete");
+
+    const aberta = (await visitas.buscarVisita(v.id))!;
+    assert.deepEqual((aberta.setoresExtras ?? []).map((s) => s.nome), ["Farmácia", "Almoxarifado"], "na ordem em que foram acrescentados");
+    assert.equal((await situacao())["Farmácia"], "no_prazo", "em andamento não cumpre nada");
+
+    // Outro técnico não mexe; depois do check-out ninguém acrescenta.
+    await assert.rejects(visitas.adicionarSetorExtra(v.id, "999999999", { setorId: farmacia.id }), /não encontrada/);
+    await visitas.removerSetorExtra(v.id, tecnico.id, (aberta.setoresExtras ?? [])[1].id);
+    assert.deepEqual(((await visitas.buscarVisita(v.id))!.setoresExtras ?? []).map((s) => s.nome), ["Farmácia"], "o acrescentado pode ser retirado");
+    await encerrar(v.id);
+    assert.deepEqual(await situacao(), { Recepção: "cumprido", Farmácia: "cumprido" }, "uma visita com os dois setores cumpre os dois itens");
+    await assert.rejects(visitas.adicionarSetorExtra(v.id, tecnico.id, { setorId: farmacia.id }), /encerrada/);
+
+    // O setor acrescentado conta como "com visita": não pode ser removido.
+    await assert.rejects(clientes.removerSetor(farmacia.id), /visitas registradas/);
+
+    // A administração move a visita para outro estabelecimento: os setores acrescentados (do anterior) saem, e fica no histórico.
+    const outra = await db.reports.estabelecimento.create({ data: { id: crypto.randomUUID(), clienteId: BigInt(clienteId), nome: "Anexo", raioMetros: 50 } });
+    const antes = (await visitas.buscarVisita(v.id))!;
+    const mudancas = await visitas.corrigirPelaAdministracao(v.id, { ...antes, unidadeId: outra.id, setorId: null, setorOutro: "Gabinete", saida: antes.saida!, removerPresencas: [], removerFotos: [] }, tecnico, "estabelecimento errado");
+    assert.ok(mudancas.some((m) => m.campo === "Setores acrescentados" && /Farmácia/.test(m.antes)), "o histórico diz quais setores saíram");
+    assert.deepEqual((await visitas.buscarVisita(v.id))!.setoresExtras, []);
+  });
+
   test("cronograma: duplicado, cancelar, e o relatório recebe o cronograma sem a observação interna", async () => {
     const hoje = hojeLocal();
     const d = { contratoId, unidadeId: estabelecimentoId, setorId: null, tipo: "treinamento" as const, prazo: somarDias(hoje, 20), observacao: "Combinado por telefone com o prefeito" };

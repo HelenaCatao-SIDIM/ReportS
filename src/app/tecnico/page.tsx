@@ -7,7 +7,8 @@ import { listarPendentesDosContratos } from "@/lib/repo/cronograma";
 import { horaDoServidor } from "@/lib/agora";
 import { visitaAbertaDoTecnico } from "@/lib/repo/visitas";
 import { dataLocal, formatarDataHora } from "@/lib/datas";
-import { rotuloTipo } from "@/lib/visitas";
+import { rotuloSetores, rotuloTipo } from "@/lib/visitas";
+import { rotaDaVisita } from "@/lib/regras-visita";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { carimboFoto, localizacaoPorCep } from "@/lib/config";
@@ -42,13 +43,13 @@ async function Conteudo() {
                 <span className="font-normal text-muted-foreground"> · {aberta.sistemaNome}</span>
               </div>
               <div className="text-sm text-muted-foreground">
-                {aberta.unidadeNome} · {aberta.setorNome}
+                {aberta.unidadeNome} · {rotuloSetores(aberta)}
               </div>
               <div className="mt-1 text-sm text-muted-foreground">
                 {rotuloTipo(aberta.tipo)} · entrada {formatarDataHora(aberta.entrada)}
               </div>
             </div>
-            <Button nativeButton={false} render={<Link href={`/tecnico/visita/${aberta.id}`} />} className="h-11 w-full text-base">
+            <Button nativeButton={false} render={<Link href={rotaDaVisita(aberta)} />} className="h-11 w-full text-base">
               Continuar visita
               <ArrowRight />
             </Button>

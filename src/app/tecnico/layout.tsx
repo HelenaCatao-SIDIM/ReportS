@@ -1,6 +1,7 @@
 import { ClipboardCheck } from "lucide-react";
 import { AreaProtegida, UsuarioHeader } from "@/components/shell/area-protegida";
 import { TecnicoBottomNav } from "@/components/shell/tecnico-nav";
+import { OcultoNaPresenca } from "@/components/shell/oculto-na-presenca";
 
 export default function TecnicoLayout({ children }: LayoutProps<"/tecnico">) {
   return (
@@ -13,13 +14,17 @@ export default function TecnicoLayout({ children }: LayoutProps<"/tecnico">) {
             </div>
             <span className="text-sm font-semibold">SIDIM Visitas</span>
           </div>
-          <UsuarioHeader area="tecnico" />
+          <OcultoNaPresenca>
+            <UsuarioHeader area="tecnico" />
+          </OcultoNaPresenca>
         </div>
       </header>
       <main className="mx-auto max-w-lg px-4 py-5">
         <AreaProtegida area="tecnico">{children}</AreaProtegida>
       </main>
-      <TecnicoBottomNav />
+      <OcultoNaPresenca>
+        <TecnicoBottomNav />
+      </OcultoNaPresenca>
     </div>
   );
 }

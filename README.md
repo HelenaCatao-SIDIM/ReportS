@@ -6,7 +6,7 @@ do check-in em campo até o relatório periódico aprovado pelo cliente (que lib
 Três interfaces:
 
 - **Administração** (computador; as telas que cada pessoa vê dependem das permissões): usuários e permissões (aviso do SINC), clientes (sistemas e contratos, estabelecimentos e setores), aprovadores, temas, equipes (com os temas mínimos), participantes, gestão de visitas e relatórios.
-- **App do Técnico** (celular ou computador): check-in com GPS e foto (escolhendo o cliente e o sistema), temas do sistema, fotos extras, lista de presença (com assinatura quando o contrato exige), check-out e histórico.
+- **App do Técnico** (celular ou computador): check-in com GPS e foto (escolhendo o cliente e o sistema), tela de presença em que os próprios participantes buscam o nome e assinam (quando o contrato exige), temas do sistema, anotações durante a visita, setores acrescentados no fim, fotos extras, check-out e histórico.
 - **Aprovação** (cliente, sem login): página aberta pelo link do e-mail para aprovar o relatório ou pedir ajuste.
 
 Tecnologia: Next.js 16 (App Router) + TypeScript + Tailwind CSS 4 + shadcn/ui (Base UI). PDF com `@react-pdf/renderer`.

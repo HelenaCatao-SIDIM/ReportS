@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getUsuarioAtual } from "@/lib/dal";
 import { buscarVisita } from "@/lib/repo/visitas";
-import { ehPresencial, rotuloTipo } from "@/lib/visitas";
+import { ehPresencial, rotuloSetores, rotuloTipo } from "@/lib/visitas";
 import { exigeParticipantes } from "@/lib/regras-visita";
 import { localizacaoPorCep } from "@/lib/config";
 import { CheckoutForm } from "./checkout-form";
@@ -38,10 +38,11 @@ async function Conteudo({ params }: Pick<PageProps<"/tecnico/visita/[id]/checkou
         entrada={v.entrada}
         presencial={ehPresencial(v.tipo)}
         faltaParticipantes={exigeParticipantes(v.tipo) && v.presencas.length === 0}
+        inicial={{ observacoes: v.observacoes, pendencias: v.pendencias, proximosPassos: v.proximosPassos }}
         porCep={localizacaoPorCep()}
         resumo={{
           clienteNome: v.clienteNome,
-          local: `${v.unidadeNome} · ${v.setorNome}`,
+          local: `${v.unidadeNome} · ${rotuloSetores(v)}`,
           tipo: rotuloTipo(v.tipo),
           temas: v.temas.length + (v.temaAdicional ? 1 : 0),
           fotos: v.fotosExtras.length,
