@@ -1,4 +1,4 @@
-import { ROTULO_SITUACAO } from "@/lib/cronograma";
+import { ROTULO_SITUACAO, ROTULO_SITUACAO_RELATORIO, situacaoNoRelatorio, type SituacaoNoRelatorio } from "@/lib/cronograma";
 import type { SituacaoCronograma } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,24 @@ export function SituacaoBadge({ situacao }: { situacao: SituacaoCronograma }) {
   return (
     <Badge variant={variante} className={cn(ESTILO[situacao])}>
       {ROTULO_SITUACAO[situacao]}
+    </Badge>
+  );
+}
+
+const ESTILO_RELATORIO: Record<SituacaoNoRelatorio, string> = {
+  cumprido: ESTILO.cumprido,
+  pendente: "",
+  no_prazo: "",
+  a_vencer: ESTILO.a_vencer,
+  cancelado: ESTILO.cancelado,
+};
+
+/** Selo para o cliente (relatório e página do aprovador): "Cumprido com atraso" aparece como "Cumprido" e "Atrasado" como "Pendente", sem vermelho. */
+export function SituacaoBadgeRelatorio({ situacao }: { situacao: SituacaoCronograma }) {
+  const s = situacaoNoRelatorio(situacao);
+  return (
+    <Badge variant="outline" className={cn(ESTILO_RELATORIO[s])}>
+      {ROTULO_SITUACAO_RELATORIO[s]}
     </Badge>
   );
 }

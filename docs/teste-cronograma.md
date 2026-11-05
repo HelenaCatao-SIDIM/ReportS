@@ -44,10 +44,10 @@ Use abas anônimas ou dois navegadores para estar logado com duas contas ao mesm
 ## 4. O relatório ao cliente
 
 1. Administração → **Relatórios** → **Novo relatório**: cliente Prefeitura de Vale Verde, sistema SCA, período que inclua hoje → **Gerar rascunho**.
-2. O rascunho mostra o cartão **Cronograma de implantação**: "1 de 3 itens cumpridos · 1 atrasado". A observação interna **não** aparece.
+2. O rascunho mostra o cartão **Cronograma de implantação**: "1 de 3 itens cumpridos" (o relatório não cita atraso: o item atrasado aparece como **Pendente**, e um item cumprido depois do prazo aparece como **Cumprido**, com a data embaixo). A observação interna **não** aparece.
 3. **Emitir e enviar** (sem SMTP configurado, o e-mail só aparece em **Caixa de saída**). Baixe o PDF: o cronograma está na primeira página.
 4. Na Caixa de saída, abra o link **Ver relatório** (pode ser em aba anônima): a página do aprovador mostra o mesmo cronograma.
-5. Volte ao cronograma e **mude o prazo** do item de Recursos Humanos para daqui a 30 dias. O relatório emitido e a página do aprovador **continuam** mostrando o item como atrasado: o que o cliente recebeu não muda.
+5. Volte ao cronograma e **mude o prazo** do item de Recursos Humanos para daqui a 30 dias. O relatório emitido e a página do aprovador **continuam** mostrando o item como pendente: o que o cliente recebeu não muda.
 
 ## 5. Permissões
 

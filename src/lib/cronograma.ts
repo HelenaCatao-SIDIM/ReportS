@@ -14,6 +14,24 @@ export const ROTULO_SITUACAO: Record<SituacaoCronograma, string> = {
   cancelado: "Cancelado",
 };
 
+/**
+ * Como o CLIENTE lê a situação (relatório, PDF e página do aprovador): sem ressaltar atraso, em favor da SIDIM.
+ * "Cumprido com atraso" vira só "Cumprido" (a data em que foi cumprido fica embaixo) e "Atrasado" vira "Pendente".
+ * A Administração e o técnico seguem vendo a situação exata. A situação gravada no relatório emitido não muda: a troca é só
+ * na hora de mostrar (então vale também para os relatórios já emitidos).
+ */
+export type SituacaoNoRelatorio = "cumprido" | "pendente" | "no_prazo" | "a_vencer" | "cancelado";
+
+export const situacaoNoRelatorio = (s: SituacaoCronograma): SituacaoNoRelatorio => (s === "cumprido_com_atraso" ? "cumprido" : s === "atrasado" ? "pendente" : s);
+
+export const ROTULO_SITUACAO_RELATORIO: Record<SituacaoNoRelatorio, string> = {
+  cumprido: "Cumprido",
+  pendente: "Pendente",
+  no_prazo: "No prazo",
+  a_vencer: "A vencer",
+  cancelado: "Cancelado",
+};
+
 /** Da mais urgente para a menos: serve para ordenar listas. */
 const URGENCIA: Record<SituacaoCronograma, number> = { atrasado: 0, a_vencer: 1, no_prazo: 2, cumprido_com_atraso: 3, cumprido: 4, cancelado: 5 };
 export const urgencia = (s: SituacaoCronograma) => URGENCIA[s];
@@ -102,11 +120,9 @@ export interface PendenciaCronograma {
   diasParaPrazo: number;
 }
 
-/** Resumo em uma frase: "3 de 5 itens cumpridos · 1 atrasado". */
+/** Resumo em uma frase, para o cliente: "3 de 5 itens cumpridos". Não conta nem cita atrasos (ver `situacaoNoRelatorio`). */
 export function resumoCronograma(c: CronogramaCongelado): string {
   const n = contarPorSituacao(c.itens);
   const cumpridos = n.cumprido + n.cumprido_com_atraso;
-  const partes = [`${cumpridos} de ${c.itens.length} ${c.itens.length === 1 ? "item cumprido" : "itens cumpridos"}`];
-  if (n.atrasado) partes.push(`${n.atrasado} ${n.atrasado === 1 ? "atrasado" : "atrasados"}`);
-  return partes.join(" · ");
+  return `${cumpridos} de ${c.itens.length} ${c.itens.length === 1 ? "item cumprido" : "itens cumpridos"}`;
 }

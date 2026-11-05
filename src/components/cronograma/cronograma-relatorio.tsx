@@ -2,7 +2,7 @@ import { CalendarClock } from "lucide-react";
 import { resumoCronograma } from "@/lib/cronograma";
 import type { CronogramaCongelado } from "@/lib/types";
 import { formatarDataCurta, rotuloTipo } from "@/lib/visitas";
-import { SituacaoBadge } from "@/components/cronograma/situacao-badge";
+import { SituacaoBadgeRelatorio } from "@/components/cronograma/situacao-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -40,7 +40,7 @@ export function CronogramaRelatorio({ cronograma: c }: { cronograma: CronogramaC
                   <TableCell className="whitespace-nowrap">{formatarDataCurta(i.prazo)}</TableCell>
                   <TableCell className="pr-4">
                     <div className="flex flex-col items-start gap-0.5">
-                      <SituacaoBadge situacao={i.situacao} />
+                      <SituacaoBadgeRelatorio situacao={i.situacao} />
                       {i.cumpridoEm && <span className="text-xs text-muted-foreground">em {formatarDataCurta(i.cumpridoEm)}</span>}
                     </div>
                   </TableCell>
