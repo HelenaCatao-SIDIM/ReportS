@@ -227,7 +227,7 @@ Onde: `src/app/admin/visitas/actions.ts`, `src/lib/repo/visitas.ts`, `src/compon
 - Entram as visitas **encerradas do contrato** com entrada até o fim do período e que **não estão em outro relatório**. Isso inclui visitas de períodos anteriores que ficaram de fora, marcadas como **"Período anterior"**.
 - **Período sem visitas é permitido** (cliente que passou o mês sem visita): o rascunho é criado vazio e **o relatório é emitido** com os chamados de suporte e o cronograma. A emissão sem visitas só é barrada se não deu para consultar os chamados (n8n fora do ar ou conexão não configurada): o botão fica desabilitado e a tela diz o motivo. Sem visitas, o PDF não mostra horas nem a tabela de visitas; o e-mail diz “Nenhuma visita registrada no período”.
 - As visitas ficam **reservadas** para o relatório e não entram em outro (duas criações ao mesmo tempo não disputam a mesma visita).
-- **Atualizar visitas** recalcula a lista (ex.: uma visita esquecida foi encerrada depois). Vale para rascunho e ajuste solicitado.
+- **Atualizar visitas e chamados** recalcula a lista de visitas (ex.: uma visita esquecida foi encerrada depois) e busca os chamados de suporte de novo no n8n (o rascunho guarda o resultado por 10 minutos; a **emissão** sempre busca de novo, para congelar o número de agora). Vale para rascunho e ajuste solicitado.
 - **Excluir** só vale para rascunho nunca emitido e libera as visitas.
 - O relatório soma as **horas presenciais** e as **horas online** separadamente (saída − entrada de cada visita).
 
