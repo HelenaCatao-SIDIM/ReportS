@@ -6,18 +6,15 @@ Ele **não altera** o fluxo de captura que já existe ("SIDIM - Suporte (Reset +
 ## Importar
 
 1. No n8n: **Workflows → ⋯ → Import from File** e escolha `docs/n8n-resumo-chamados.json`.
-2. Nó **Webhook**, em *Credential for Header Auth* → **Create new credential**:
-   - Name: `x-api-key`
-   - Value: uma chave longa e aleatória (ex.: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
-   Salve como **Chave Reports Sidim**. A mesma chave vai no ReportS, em Administração → Configurações.
+2. Nó **Webhook**: o fluxo **não usa chave nem credencial** (*Authentication: None*). Como o endereço é a única proteção, troque o **Path** por um texto longo e aleatório (ex.: `resumo-chamados-` e mais 32 letras e números, que você pode gerar com `node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"`) e **não divulgue o endereço**: quem o souber consulta os chamados de qualquer cliente. Se puder, restrinja também por rede, para só o servidor do ReportS chamar o webhook.
 3. Nó **Ler atendimentos**: confira se a tabela escolhida é **atendimentos** (o arquivo já aponta para ela; se o n8n pedir, escolha de novo na lista).
 4. Nó **Montar resumo**: confira a constante `FUSO_DATAS` (abaixo).
-5. Salve e **ative** o fluxo. A URL de produção fica em `https://<seu-n8n>/webhook/resumo-chamados-cliente` → vai no ReportS, em Administração → Configurações (campo "Endereço do webhook"); o botão **Salvar e testar** confere o endereço e a chave.
+5. Salve e **ative** o fluxo. A URL de produção fica em `https://<seu-n8n>/webhook/resumo-chamados-cliente` → vai no ReportS, em Administração → Configurações (campo "Endereço do webhook"); o botão **Salvar e testar** confere o endereço.
 
 ## Como funciona
 
 ```
-Webhook (POST, Header Auth) → Validar entrada → Entrada válida?
+Webhook (POST) → Validar entrada → Entrada válida?
    ├─ sim → Ler atendimentos → Montar resumo → Responder resumo (200)
    └─ não → Responder erro (400)
 ```
@@ -59,8 +56,8 @@ já são ignorados). Quando o mesmo cliente aparece de formas diferentes, cadast
 Com o fluxo aberto, clique em **Test workflow** e chame a URL de teste:
 
 ```bash
-curl -s -X POST "https://<seu-n8n>/webhook-test/resumo-chamados-cliente" \
-  -H "Content-Type: application/json" -H "x-api-key: <chave>" \
+curl -s -X POST "https://<seu-n8n>/webhook-test/<path do webhook>" \
+  -H "Content-Type: application/json" \
   -d '{"clientes":["<nome de um cliente no SINC>"],"inicio":"2026-10-01","fim":"2026-10-31"}'
 ```
 
@@ -69,7 +66,6 @@ curl -s -X POST "https://<seu-n8n>/webhook-test/resumo-chamados-cliente" \
 | Cliente com chamados | `totalAbertosEFechados` maior que 0 e a lista |
 | Cliente sem chamados | `totalAbertosEFechados: 0`, sem erro |
 | `"inicio":"2026-10-31","fim":"2026-10-01"` | status 400 com `erro` |
-| Sem o cabeçalho `x-api-key` | recusado (403) |
 | `"sistema":"SERP"` | só os chamados com sistema SERP (sem acento, maiúsculas e espaços extras), e `"sistema":"SERP"` na resposta |
 | Sem `sistema` | todos os sistemas do cliente, e `"sistema":null` na resposta |
 | `"sistema":123` | status 400 com `erro` |
