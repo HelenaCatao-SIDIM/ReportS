@@ -307,6 +307,51 @@ Primeira instalação (uma vez, no servidor):
 7. Backup: o banco `reports_production` e a pasta `ARQUIVOS_DIR` precisam entrar no backup do servidor, junto com os bancos do SINC
    (em aberto com a Helena: QA-002 do SINC).
 
+### Publicação automática (GitHub Actions)
+
+O arquivo `.github/workflows/publicar.yml` roda em toda mudança e publica sozinho quando a `main` muda:
+
+1. **Testes** (em toda PR e em todo push na `main`): os mesmos de sempre, num PostgreSQL de teste: `npm test`, lint, tipos e build.
+   O banco `plataforma` de teste vem do `npm run db:ambiente-teste`. Falhou, nada é publicado.
+2. **Consulta ao servidor** (só na `main`, com a variável `DEPLOY_AUTOMATICO=true`): o GitHub chama `bin/deploy-remoto consultar <commit>` por SSH.
+   O servidor compara as migrações novas com as que estão no ar (`scripts/migracoes-perigosas.mjs`).
+3. **Sem migração, ou só migração que cria** (tabela, coluna, índice): publica direto (`bin/deploy-remoto publicar <commit>`: o mesmo
+   `bin/deploy`, no commit exato, e confere que o `/login` responde depois do reinício).
+4. **Migração que apaga ou altera dados** (DROP, DELETE, TRUNCATE, UPDATE, mudar tipo, tornar coluna obrigatória, coluna nova obrigatória
+   sem valor padrão, renomear, mexer em migração antiga): a publicação **para e espera aprovação**. A PR ganha um comentário e a Helena
+   recebe o aviso do GitHub. Para aprovar: abra a execução em *Actions* e use **Review deployments** → `producao-migracao`.
+5. **Backup automático** (`/usr/local/bin/sinc-backup.sh`) antes de qualquer migração, aprovada ou não. Se o backup falhar, nada é publicado.
+6. **Aviso**: um comentário na PR diz se foi publicado (e quantas migrações) ou o que falhou. O GitHub também manda e-mail de execução que falhou.
+
+O log da execução no GitHub é **público** (o repositório é público): o servidor só devolve as etapas, o resultado e os nomes das migrações.
+O log completo do deploy fica em `~/deploy-ultimo.log` do usuário `reports`.
+
+Não há volta automática. Se uma publicação falhar no meio, o comentário avisa e é preciso conferir o servidor (`systemctl status reports-web`,
+`~/deploy-ultimo.log`) antes de seguir. `git revert` na `main` publica a versão anterior pelo mesmo caminho.
+
+**Desligar sem apagar nada:** *Settings → Secrets and variables → Actions → Variables* → `DEPLOY_AUTOMATICO` com qualquer valor diferente
+de `true` (ou apague a variável). Os testes continuam rodando. O `bin/deploy` manual continua funcionando e usa a mesma trava
+(`~/.reports-deploy.lock`): dois deploys nunca rodam ao mesmo tempo.
+
+**Simular:** *Actions → Testes e publicação → Run workflow* na `main` com "Só simular" marcado: consulta o servidor, mostra o que faria e não publica.
+
+Instalação (uma vez):
+
+1. No GitHub, ambientes `producao` e `producao-migracao` (*Settings → Environments*), os dois com *Deployment branches* só `main`;
+   no `producao-migracao`, *Required reviewers* = quem aprova migração. Em **cada** ambiente, os segredos `DEPLOY_SSH_KEY` (chave privada
+   só de deploy), `DEPLOY_HOST_KEY` (a linha do `known_hosts` do servidor), `DEPLOY_HOST` e `DEPLOY_USER` (`reports`).
+2. No servidor, no `~reports/.ssh/authorized_keys`, a chave pública de deploy **travada** num único comando (sem terminal, sem túnel):
+
+   ```text
+   command="/var/www/reports/bin/deploy-remoto",restrict ssh-ed25519 AAAA... deploy-github
+   ```
+
+3. Permissão para o backup, em `/etc/sudoers.d/reports-deploy` (confira com `visudo -cf`), além das duas linhas do `systemctl`:
+   `reports ALL=(root) NOPASSWD: /usr/local/bin/sinc-backup.sh`.
+4. Por último, a variável `DEPLOY_AUTOMATICO=true` (*Settings → Secrets and variables → Actions → Variables*).
+
+Quem consegue escrever na `main` passa a publicar em produção: proteja a `main` (exigir PR) e mantenha poucas pessoas com permissão de escrita.
+
 ## Plataforma SIDIM (SINC + ReportS)
 
 Decisão de 29/10/2026: o ReportS e o SINC passam a ser dois serviços de um mesmo produto, apoiados numa base comum (banco `plataforma`, no mesmo PostgreSQL). O plano completo (24 decisões, fases 0 a 5, regras RN-PL) está no documento "Plataforma SIDIM — Unificação SINC + ReportS" da Helena; o resumo para o ReportS:

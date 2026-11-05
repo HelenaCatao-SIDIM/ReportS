@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+# Porta de entrada do deploy automático. Quem chama é o GitHub Actions, por SSH, com uma chave que SÓ consegue rodar
+# este arquivo (authorized_keys do usuário `reports`:  command="/var/www/reports/bin/deploy-remoto",restrict ssh-ed25519 ...).
+# O pedido chega em SSH_ORIGINAL_COMMAND. Aceita só:
+#   consultar <sha>              mostra o que mudaria (migrações; se alguma apaga ou altera dados). Não muda nada.
+#   publicar  <sha>              publica exatamente esse commit da main
+#   publicar  <sha> aprovado     idem, com migração que apaga/altera dados (só o GitHub manda isto, depois da aprovação)
+#
+# A saída vai para o log do GitHub, que é PÚBLICO (o repositório é público): só linhas de etapa e de resultado,
+# nunca conteúdo do servidor. O log completo do deploy fica em ~/deploy-ultimo.log, no servidor.
+set -euo pipefail
+trap '' HUP # se a conexão cair no meio, o deploy continua até o fim em vez de parar numa etapa só
+
+falhar() {
+  echo "ERRO=$*"
+  exit 1
+}
+
+# Pasta temporária (variável global de propósito: o trap de saída roda depois que a função principal já acabou).
+PASTA_TEMP=""
+limpar() { [[ -z "$PASTA_TEMP" ]] || rm -rf "$PASTA_TEMP"; }
+trap limpar EXIT
+
+principal() {
+  cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+  local acao="" sha="" extra="" resto=""
+  read -r acao sha extra resto <<<"${SSH_ORIGINAL_COMMAND:-}" || true
+  [[ -z "$resto" ]] || falhar "pedido inválido"
+  [[ "$acao" == "consultar" || "$acao" == "publicar" ]] || falhar "pedido inválido (use: consultar <sha> | publicar <sha> [aprovado])"
+  [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || falhar "versão inválida"
+  [[ -z "$extra" || ( "$acao" == "publicar" && "$extra" == "aprovado" ) ]] || falhar "pedido inválido"
+
+  # Um deploy por vez (inclusive o manual, que usa a mesma trava em bin/deploy).
+  exec 9>"${HOME}/.reports-deploy.lock"
+  flock -w 600 9 || falhar "já existe um deploy rodando; tente de novo em alguns minutos"
+  export REPORTS_DEPLOY_COM_TRAVA=1
+
+  git fetch --quiet origin main || falhar "não consegui buscar a main no GitHub"
+  git cat-file -e "${sha}^{commit}" 2>/dev/null || falhar "essa versão não existe no GitHub"
+  git merge-base --is-ancestor "$sha" origin/main || falhar "essa versão não está na main"
+  [[ -z "$(git status --porcelain --untracked-files=no)" ]] || falhar "há alteração solta no servidor; veja na mão"
+  local atual
+  atual="$(git rev-parse HEAD)"
+  git merge-base --is-ancestor "$atual" "$sha" || falhar "o servidor está numa versão que não faz parte da história da main; veja na mão"
+  echo "ATUAL=${atual:0:7}"
+  echo "NOVA=${sha:0:7}"
+
+  # Migrações: o classificador vem do commit NOVO (assim uma correção dele vale já neste deploy).
+  local saida
+  PASTA_TEMP="$(mktemp -d)"
+  if git show "${sha}:scripts/migracoes-perigosas.mjs" >"$PASTA_TEMP/classificar.mjs" 2>/dev/null; then
+    saida="$(node "$PASTA_TEMP/classificar.mjs" "$atual" "$sha")" || falhar "não consegui comparar as migrações"
+  else
+    saida=$'NOVAS=1\nPERIGOSA=true\nMIGRACAO (esta versão não traz o classificador) PERIGOSA: sem como conferir'
+  fi
+  echo "$saida"
+  local perigosa novas
+  perigosa="$(sed -n 's/^PERIGOSA=//p' <<<"$saida")"
+  novas="$(sed -n 's/^NOVAS=//p' <<<"$saida")"
+  [[ "$perigosa" == "true" || "$perigosa" == "false" ]] || falhar "resposta inesperada do classificador"
+  [[ "$novas" =~ ^[0-9]+$ ]] || falhar "resposta inesperada do classificador"
+
+  if [[ "$atual" == "$sha" ]]; then
+    echo "NADA=true"
+    echo "==> o servidor já está nesta versão; nada a publicar"
+    return 0
+  fi
+  [[ "$acao" == "publicar" ]] || return 0
+
+  if [[ "$perigosa" == "true" && "$extra" != "aprovado" ]]; then
+    falhar "tem migração que apaga ou altera dados e ela ainda não foi aprovada; nada foi publicado"
+  fi
+
+  if [[ "$novas" != "0" ]]; then
+    echo "==> backup antes da migração"
+    sudo -n /usr/local/bin/sinc-backup.sh >"${HOME}/backup-ultimo.log" 2>&1 || falhar "o backup falhou; nada foi publicado"
+  fi
+
+  git merge --ff-only --quiet "$sha" || falhar "não consegui avançar o servidor para essa versão"
+
+  # O bin/deploy roda separado desta conexão: se o SSH cair, ele termina o serviço em vez de parar no meio.
+  # REPORTS_DEPLOY_JA_ATUALIZADO=1: o código já está na versão certa (acima), então ele pula o git pull.
+  local log="${HOME}/deploy-ultimo.log" pid vistas=0 rc=0
+  : >"$log"
+  (
+    trap '' HUP
+    exec setsid -w nice -n 10 env REPORTS_DEPLOY_JA_ATUALIZADO=1 bash -lc 'bin/deploy'
+  ) >"$log" 2>&1 </dev/null &
+  pid=$!
+
+  mostrar_etapas_novas() {
+    local total
+    total="$(grep -c '^==> ' "$log" || true)"
+    if ((total > vistas)); then
+      grep '^==> ' "$log" | tail -n +$((vistas + 1))
+      vistas=$total
+    fi
+  }
+  while kill -0 "$pid" 2>/dev/null; do
+    mostrar_etapas_novas
+    sleep 3
+  done
+  wait "$pid" || rc=$?
+  mostrar_etapas_novas
+
+  if ((rc != 0)); then
+    echo "ERRO=o deploy falhou (código $rc) depois da etapa: $(grep '^==> ' "$log" | tail -1 | sed 's/^==> //')"
+    echo "OBS=o log completo está no servidor, em ~/deploy-ultimo.log"
+    exit 1
+  fi
+
+  # O serviço precisa responder de verdade depois do reinício.
+  local ok=0
+  for _ in $(seq 1 20); do
+    if [[ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3100/login || true)" == "200" ]]; then
+      ok=1
+      break
+    fi
+    sleep 2
+  done
+  ((ok)) || falhar "o deploy terminou, mas o ReportS não respondeu depois do reinício; veja na mão"
+  echo "==> o site respondeu (login 200)"
+  echo "PUBLICADO=${sha:0:7}"
+  echo "MIGRACOES=$novas"
+}
+
+# Esta linha fica por último e numa linha só: o git merge acima pode trocar este arquivo no disco, e o bash
+# já leu a função inteira; assim ele não tenta ler pedaço de uma versão nova.
+principal "$@"; exit $?
