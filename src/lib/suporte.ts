@@ -1,6 +1,6 @@
 import "server-only";
 import { connection } from "next/server";
-import { n8nResumoChave, n8nResumoUrl } from "@/lib/config-suporte";
+import { lerConexaoN8n } from "@/lib/repo/configuracoes";
 import type { ChamadoSuporte, Cliente, ContagemSuporte, ResumoSuporte } from "@/lib/types";
 
 /*
@@ -14,6 +14,11 @@ const CACHE_MS = 10 * 60 * 1000;
 
 const g = globalThis as unknown as { __suporte?: Map<string, { em: number; resumo: ResumoSuporte }> };
 const cache = (g.__suporte ??= new Map<string, { em: number; resumo: ResumoSuporte }>());
+
+/** Esquece os resumos guardados (depois de mudar a conexão com o n8n). */
+export function limparCacheSuporte() {
+  cache.clear();
+}
 
 function vazio(situacao: ResumoSuporte["situacao"]): ResumoSuporte {
   return { situacao, totalAbertosEFechados: 0, porSistema: [], porTopico: [], porMotivoEncerramento: [], tempoMedioEsperaMin: null, chamados: [], consultadoEm: new Date().toISOString() };
@@ -52,10 +57,10 @@ export function lerResposta(json: unknown): Omit<ResumoSuporte, "situacao" | "co
   return { totalAbertosEFechados: total as number, porSistema, porTopico, porMotivoEncerramento, tempoMedioEsperaMin: (espera as number | null | undefined) ?? null, chamados };
 }
 
-async function pedir(corpo: object): Promise<Response> {
-  return fetch(n8nResumoUrl(), {
+async function pedir(corpo: object, conexao: { url: string; chave: string }): Promise<Response> {
+  return fetch(conexao.url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json", "x-api-key": n8nResumoChave() },
+    headers: { "Content-Type": "application/json", Accept: "application/json", "x-api-key": conexao.chave },
     body: JSON.stringify(corpo),
     signal: AbortSignal.timeout(TIMEOUT_MS),
     cache: "no-store",
@@ -76,10 +81,8 @@ export async function buscarResumoSuporte(
   const filtro = sistema?.trim() || null;
   const nomes = (cliente.nomesFortics ?? []).filter(Boolean);
   if (!nomes.length) return vazio("sem_vinculo");
-  if (!n8nResumoUrl() || !n8nResumoChave()) {
-    console.error("[suporte] N8N_RESUMO_CHAMADOS_URL ou N8N_RESUMO_CHAMADOS_CHAVE não configurados.");
-    return vazio("indisponivel");
-  }
+  const conexao = await lerConexaoN8n();
+  if (!conexao) return vazio("nao_configurado");
 
   const chave = JSON.stringify([nomes, de, ate, filtro]);
   const guardado = cache.get(chave);
@@ -88,7 +91,7 @@ export async function buscarResumoSuporte(
   const corpo = { clientes: nomes, inicio: de, fim: ate, incluirLista: true, ...(filtro ? { sistema: filtro } : {}) };
   for (let tentativa = 1; tentativa <= 2; tentativa++) {
     try {
-      const r = await pedir(corpo);
+      const r = await pedir(corpo, conexao);
       // Erro do servidor: tenta mais uma vez. Erro do pedido (4xx): não adianta repetir.
       if (r.status >= 500 && tentativa === 1) continue;
       if (!r.ok) {
@@ -109,4 +112,23 @@ export async function buscarResumoSuporte(
     }
   }
   return vazio("indisponivel");
+}
+
+export type ResultadoTeste = { ok: true } | { ok: false; erro: string };
+
+/** Testa a conexão com o n8n guardada (um pedido de um dia, sem lista, para um cliente que não existe). Nunca devolve nem registra a chave. */
+export async function testarConexaoN8n(): Promise<ResultadoTeste> {
+  const conexao = await lerConexaoN8n();
+  if (!conexao) return { ok: false, erro: "Informe o endereço e a chave do n8n." };
+  const hoje = new Date().toISOString().slice(0, 10);
+  try {
+    const r = await pedir({ clientes: ["Teste de conexão do ReportS"], inicio: hoje, fim: hoje, incluirLista: false }, conexao);
+    if (r.status === 403 || r.status === 401) return { ok: false, erro: "O n8n recusou a chave. Confira se é a mesma da credencial “Chave Reports Sidim” do fluxo." };
+    if (r.status === 404) return { ok: false, erro: "Endereço não encontrado no n8n. Confira a URL de produção do webhook e se o fluxo está ativo." };
+    if (!r.ok) return { ok: false, erro: `O n8n respondeu com erro ${r.status}.` };
+    if (!lerResposta(await r.json().catch(() => null))) return { ok: false, erro: "O n8n respondeu, mas num formato diferente do esperado. Confira se é o fluxo “Reports Sidim - Resumo de chamados por cliente”." };
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível falar com o n8n (fora do ar, endereço errado ou demorou demais)." };
+  }
 }

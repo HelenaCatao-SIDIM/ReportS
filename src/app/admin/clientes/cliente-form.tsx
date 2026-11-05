@@ -20,14 +20,13 @@ type Acao = (state: ClienteFormState, formData: FormData) => Promise<ClienteForm
 interface Props {
   acao: Acao;
   cliente?: Cliente;
-  chamadosAtivos?: boolean;
   /** Sistemas que o cliente ainda não tem (na criação, todos os ativos). */
   sistemasDisponiveis: Sistema[];
   /** Só na edição: sistemas que o cliente já tem. */
   sistemasAtuais?: { id: string; sistemaNome: string; estado: EstadoSistemaCliente; tenantId: string | null }[];
 }
 
-export function ClienteForm({ acao, cliente, chamadosAtivos = false, sistemasDisponiveis, sistemasAtuais = [] }: Props) {
+export function ClienteForm({ acao, cliente, sistemasDisponiveis, sistemasAtuais = [] }: Props) {
   const [state, action, pending] = useActionState(acao, {});
   const v = state.valores ?? cliente;
   const e = state.erros ?? {};
@@ -125,30 +124,28 @@ export function ClienteForm({ acao, cliente, chamadosAtivos = false, sistemasDis
         </CardContent>
       </Card>
 
-      {chamadosAtivos && (
-        <Card key={`sinc-${JSON.stringify(state.valores ?? null)}`}>
-          <CardHeader>
-            <CardTitle>Chamados de suporte</CardTitle>
-            <CardDescription>Liga este cliente aos atendimentos do suporte, para o relatório mostrar os chamados abertos e fechados no período.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Campo
+      <Card key={`sinc-${JSON.stringify(state.valores ?? null)}`}>
+        <CardHeader>
+          <CardTitle>Chamados de suporte</CardTitle>
+          <CardDescription>Liga este cliente aos atendimentos do suporte, para o relatório mostrar os chamados abertos e fechados no período.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Campo
+            id="nomesFortics"
+            label="Nome no SINC"
+            erro={e.nomesFortics}
+            dica="O nome do cliente no SINC, o mesmo que aparece no campo Cliente / Município dos atendimentos (ex.: Prefeitura de Vale Verde / Vale Verde). Um por linha; pode ter mais de um."
+          >
+            <Textarea
               id="nomesFortics"
-              label="Nome no SINC"
-              erro={e.nomesFortics}
-              dica="O nome do cliente no SINC, o mesmo que aparece no campo Cliente / Município dos atendimentos (ex.: Prefeitura de Vale Verde / Vale Verde). Um por linha; pode ter mais de um."
-            >
-              <Textarea
-                id="nomesFortics"
-                name="nomesFortics"
-                rows={3}
-                defaultValue={(v?.nomesFortics ?? []).join("\n")}
-                aria-invalid={!!e.nomesFortics}
-              />
-            </Campo>
-          </CardContent>
-        </Card>
-      )}
+              name="nomesFortics"
+              rows={3}
+              defaultValue={(v?.nomesFortics ?? []).join("\n")}
+              aria-invalid={!!e.nomesFortics}
+            />
+          </Campo>
+        </CardContent>
+      </Card>
 
       <div className="flex justify-end gap-2">
         <Button variant="outline" nativeButton={false} render={<Link href={edicao ? `/admin/clientes/${cliente.id}` : "/admin/clientes"} />}>

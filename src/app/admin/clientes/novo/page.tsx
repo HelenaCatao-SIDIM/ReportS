@@ -5,7 +5,6 @@ import { listarSistemas } from "@/lib/repo/sistemas";
 import { PageHeader } from "@/components/shell/placeholder";
 import { ClienteForm } from "../cliente-form";
 import { criarCliente } from "../actions";
-import { chamadosSuporte } from "@/lib/config-suporte";
 
 export default function NovoClientePage() {
   return (
@@ -20,5 +19,5 @@ export default function NovoClientePage() {
 
 async function Formulario() {
   await exigirAdministracao(PERMISSOES.clientesCadastrar);
-  return <ClienteForm acao={criarCliente} chamadosAtivos={chamadosSuporte()} sistemasDisponiveis={await listarSistemas()} />;
+  return <ClienteForm acao={criarCliente} sistemasDisponiveis={await listarSistemas()} />;
 }

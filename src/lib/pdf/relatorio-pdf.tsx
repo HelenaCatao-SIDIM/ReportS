@@ -202,7 +202,7 @@ function top5(lista: ContagemSuporte[]): ContagemSuporte[] {
 
 /** Resumo dos chamados de suporte na capa: só totais e contagens (sem lista de chamados e sem atendentes). */
 function ChamadosSuportePdf({ r }: { r: ResumoSuporte }) {
-  if (r.situacao === "sem_vinculo") return null;
+  if (r.situacao === "sem_vinculo" || r.situacao === "nao_configurado") return null;
   const colunas: { titulo: string; itens: ContagemSuporte[] }[] = [
     { titulo: "Por sistema", itens: top5(r.porSistema) },
     { titulo: "Por assunto", itens: top5(r.porTopico) },
@@ -293,15 +293,12 @@ export function RelatorioPdf({
   versao,
   emitidoEm,
   imagens,
-  mostrarSuporte = false,
   marca,
 }: {
   conteudo: ConteudoCongelado;
   versao: number;
   emitidoEm: string;
   imagens: ImagensPdf;
-  /** Bloco de chamados de suporte na capa (CHAMADOS_SUPORTE_PDF). */
-  mostrarSuporte?: boolean;
   /** Logo e assinatura da SIDIM (ver `carregarMarcaPdf`). Sem elas, o PDF sai com o cabeçalho em texto e a linha de assinatura em branco. */
   marca?: MarcaPdf;
 }) {
@@ -342,7 +339,7 @@ export function RelatorioPdf({
           </View>
         )}
 
-        {mostrarSuporte && c.suporte && <ChamadosSuportePdf r={c.suporte} />}
+        {c.suporte && <ChamadosSuportePdf r={c.suporte} />}
 
         {c.cronograma && <CronogramaPdf c={c.cronograma} />}
 

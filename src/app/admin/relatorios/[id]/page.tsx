@@ -11,7 +11,6 @@ import { ConteudoRelatorio, type DadosConteudo } from "@/components/relatorio/co
 import { Mudancas } from "@/components/relatorio/mudancas";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { chamadosSuporte } from "@/lib/config-suporte";
 import { emailReal } from "@/lib/config";
 import { buscarResumoSuporte } from "@/lib/suporte";
 import { buscarSistema } from "@/lib/repo/sistemas";
@@ -99,7 +98,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
           minutosPresenciais: c.minutosPresenciais,
           minutosOnline: c.minutosOnline,
           // Prévia, buscada agora; na emissão estes números são congelados na versão.
-          suporte: chamadosSuporte() ? await buscarResumoSuporte(cliente, r.de, r.ate, (await buscarSistema(contrato.sistema))?.nomeFortics) : null,
+          suporte: await buscarResumoSuporte(cliente, r.de, r.ate, (await buscarSistema(contrato.sistema))?.nomeFortics),
           // Cronograma de implantação do contrato, na situação de hoje; na emissão também é congelado.
           cronograma: await congelarCronograma(contrato.id, dataLocal(agora)),
         };

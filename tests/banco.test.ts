@@ -26,6 +26,7 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
   let clientes: typeof import("@/lib/repo/clientes");
   let equipes: typeof import("@/lib/repo/equipes");
   let temas: typeof import("@/lib/repo/temas");
+  let configuracoes: typeof import("@/lib/repo/configuracoes");
   let tecnico: { id: string; nome: string; email: string; ativo: boolean; telefone: null; papelIds: string[] };
   let sistemaDoClienteId: string;
   let clienteId: string;
@@ -46,6 +47,7 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     clientes = await import("@/lib/repo/clientes");
     equipes = await import("@/lib/repo/equipes");
     temas = await import("@/lib/repo/temas");
+    configuracoes = await import("@/lib/repo/configuracoes");
 
     const sdc = await db.plataforma.clients.findFirst({ where: { customer_id: { not: null }, estado: { in: ["em_implantacao", "vinculado"] } } });
     const usuario = await db.plataforma.users.findFirst({ where: { active: true } });
@@ -314,6 +316,22 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     for (const l of invalidos) assert.equal((await importacao.gravarImportacao([l], true)).ok, false, JSON.stringify(l).slice(0, 80));
     assert.equal((await importacao.gravarImportacao([], true)).ok, false);
     assert.equal((await cronograma.listarCronograma("2026-11-01", { contratoId })).length, 1, "só o item que já existia");
+  });
+
+  test("configurações: a chave do n8n fica cifrada no banco e só se troca se vier outra", async () => {
+    await db.reports.configuracao.deleteMany();
+    assert.equal(await configuracoes.lerConexaoN8n(), null);
+    await configuracoes.salvarConexaoN8n("https://n8n.exemplo.com/webhook/resumo", "chave-secreta-123");
+    assert.deepEqual(await configuracoes.lerConexaoN8n(), { url: "https://n8n.exemplo.com/webhook/resumo", chave: "chave-secreta-123" });
+    const crua = await db.reports.configuracao.findMany();
+    assert.ok(crua.every((c) => !c.valor.includes("chave-secreta-123")), "a chave não está em texto puro no banco");
+    assert.deepEqual(await configuracoes.situacaoConexaoN8n(), { url: "https://n8n.exemplo.com/webhook/resumo", temChave: true, chaveIlegivel: false });
+    await configuracoes.salvarConexaoN8n("https://n8n.exemplo.com/webhook/novo", null);
+    assert.deepEqual(await configuracoes.lerConexaoN8n(), { url: "https://n8n.exemplo.com/webhook/novo", chave: "chave-secreta-123" }, "chave em branco mantém a guardada");
+    await db.reports.configuracao.update({ where: { chave: "n8n.resumo_chamados.chave" }, data: { valor: "v1.a.b.c" } });
+    assert.equal(await configuracoes.lerConexaoN8n(), null, "chave que não abre = sem conexão");
+    assert.equal((await configuracoes.situacaoConexaoN8n()).chaveIlegivel, true);
+    await db.reports.configuracao.deleteMany();
   });
 
   test("relatório: rascunho de um período sem visitas é permitido (cliente que só teve chamados de suporte)", async () => {

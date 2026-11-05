@@ -51,6 +51,7 @@ export const PERMISSOES_DA_TELA: Record<string, CodigoPermissao[]> = {
   "/admin/visitas": [PERMISSOES.visitasGerenciar],
   "/admin/relatorios": [PERMISSOES.relatoriosGerenciar],
   "/admin/emails": [PERMISSOES.relatoriosGerenciar],
+  "/admin/configuracoes": [PERMISSOES.relatoriosGerenciar],
 };
 
 export const temAlguma = (permissoes: readonly string[], exigidas: readonly string[]) => exigidas.some((p) => permissoes.includes(p));

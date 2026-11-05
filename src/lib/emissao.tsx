@@ -1,7 +1,6 @@
 import "server-only";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { enviarEmail } from "@/lib/email";
-import { chamadosSuporte, chamadosSuportePdf } from "@/lib/config-suporte";
 import { buscarResumoSuporte } from "@/lib/suporte";
 import { buscarSistema } from "@/lib/repo/sistemas";
 import { congelarCronograma } from "@/lib/repo/cronograma";
@@ -56,8 +55,8 @@ export async function emitirRelatorio(id: string) {
 
   // Chamados de suporte do período, congelados junto com a versão (PDF, página do aprovador e versões antigas mostram o mesmo número).
   // Os chamados são do sistema do contrato: o "Nome no Fortics" do sistema vai como filtro.
-  const suporte = chamadosSuporte() ? await buscarResumoSuporte(c.cliente, c.relatorio.de, c.relatorio.ate, (await buscarSistema(c.contrato.sistema))?.nomeFortics) : null;
-  // Sem visitas, só emite se o período tem chamados de suporte.
+  const suporte = await buscarResumoSuporte(c.cliente, c.relatorio.de, c.relatorio.ate, (await buscarSistema(c.contrato.sistema))?.nomeFortics);
+  // Sem visitas, o relatório sai só com os chamados de suporte; só não sai se não deu para consultá-los.
   const pode = conteudoParaEmitir(c.visitas.length, suporte);
   if (!pode.ok) return { erro: pode.motivo };
 
@@ -70,11 +69,11 @@ export async function emitirRelatorio(id: string) {
   const conteudo = congelar(c);
   const numero = c.relatorio.versoes.length + 1;
   const emitidoEm = new Date().toISOString();
-  if (suporte) conteudo.suporte = suporte;
+  conteudo.suporte = suporte;
   // Cronograma de implantação do contrato, na situação do dia da emissão: o cliente vê o mesmo na página e no PDF.
   conteudo.cronograma = await congelarCronograma(c.contrato.id, dataLocal(Date.parse(emitidoEm)));
   const pdf = await renderToBuffer(
-    <RelatorioPdf conteudo={conteudo} versao={numero} emitidoEm={emitidoEm} imagens={await carregarImagens(conteudo)} mostrarSuporte={chamadosSuportePdf() || !conteudo.visitas.length} marca={await carregarMarcaPdf()} />,
+    <RelatorioPdf conteudo={conteudo} versao={numero} emitidoEm={emitidoEm} imagens={await carregarImagens(conteudo)} marca={await carregarMarcaPdf()} />,
   );
   const arquivo = await salvarArquivo(pdf, "application/pdf");
 

@@ -9,10 +9,10 @@ Ele **não altera** o fluxo de captura que já existe ("SIDIM - Suporte (Reset +
 2. Nó **Webhook**, em *Credential for Header Auth* → **Create new credential**:
    - Name: `x-api-key`
    - Value: uma chave longa e aleatória (ex.: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
-   Salve como **Chave Reports Sidim**. A mesma chave vai em `N8N_RESUMO_CHAMADOS_CHAVE` no `.env.local` do Reports.
+   Salve como **Chave Reports Sidim**. A mesma chave vai no ReportS, em Administração → Configurações.
 3. Nó **Ler atendimentos**: confira se a tabela escolhida é **atendimentos** (o arquivo já aponta para ela; se o n8n pedir, escolha de novo na lista).
 4. Nó **Montar resumo**: confira a constante `FUSO_DATAS` (abaixo).
-5. Salve e **ative** o fluxo. A URL de produção fica em `https://<seu-n8n>/webhook/resumo-chamados-cliente` → vai em `N8N_RESUMO_CHAMADOS_URL`.
+5. Salve e **ative** o fluxo. A URL de produção fica em `https://<seu-n8n>/webhook/resumo-chamados-cliente` → vai no ReportS, em Administração → Configurações (campo "Endereço do webhook"); o botão **Salvar e testar** confere o endereço e a chave.
 
 ## Como funciona
 

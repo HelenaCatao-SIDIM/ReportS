@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   Mail,
   Menu,
+  Settings,
   ShieldCheck,
   Timer,
   Users,
@@ -52,6 +53,7 @@ const GRUPOS: { titulo?: string; itens: NavItem[] }[] = [
       { href: "/admin/emails", label: "Caixa de saída (teste)", icon: Mail },
     ],
   },
+  { titulo: "Sistema", itens: [{ href: "/admin/configuracoes", label: "Configurações", icon: Settings }] },
 ];
 
 function Marca() {

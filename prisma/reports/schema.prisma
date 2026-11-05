@@ -370,3 +370,12 @@ model ItemCronograma {
   @@index([estabelecimentoId])
   @@map("cronograma_itens")
 }
+
+/// Configurações editadas na Administração (ex.: conexão com o n8n dos chamados de suporte). Valores secretos ficam cifrados.
+model Configuracao {
+  chave        String   @id
+  valor        String
+  atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em")
+
+  @@map("configuracoes")
+}
