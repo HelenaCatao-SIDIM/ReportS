@@ -1,7 +1,8 @@
 /* eslint-disable jsx-a11y/alt-text -- Image do react-pdf não tem atributo alt */
 import "server-only";
 import { Document, Font, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
-import type { ContagemSuporte, ConteudoCongelado, CronogramaCongelado, ResumoSuporte, VisitaDetalhada } from "@/lib/types";
+import type { ConteudoCongelado, CronogramaCongelado, ResumoSuporte, VisitaDetalhada } from "@/lib/types";
+import { formatarTempo, indicadores, linhaDoAtendimento, ordenarPorAbertura, tabulacoes } from "@/lib/chamados";
 import { formatarData, formatarDataHora, formatarDuracao, formatarHora } from "@/lib/datas";
 import { formatarCbo, formatarCnpj, mascararCpf } from "@/lib/format";
 import { ROTULO_MEIO } from "@/lib/meio";
@@ -194,64 +195,113 @@ function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao, marca }: { v
   );
 }
 
-/** Top 5 + "Outros" (mesma regra da tela). */
-function top5(lista: ContagemSuporte[]): ContagemSuporte[] {
-  if (lista.length <= 5) return lista;
-  return [...lista.slice(0, 5), { nome: "Outros", quantidade: lista.slice(5).reduce((s, x) => s + x.quantidade, 0) }];
+const COR_INDICADOR = { azul: "#1d4ed8", verde: "#0f766e", roxo: "#6d28d9", ambar: "#b45309" } as const;
+const BORDA_INDICADOR = { azul: "#1d4ed8", verde: "#0d9488", roxo: "#7c3aed", ambar: "#d97706" } as const;
+
+/** Um número do painel de atendimentos: rótulo, valor grande e uma frase curta. */
+function IndicadorPdf({ cor, rotulo, valor, legenda }: { cor: keyof typeof COR_INDICADOR; rotulo: string; valor: string; legenda: string }) {
+  return (
+    <View style={{ width: "24.2%", borderWidth: 1, borderColor: BORDA, borderTopWidth: 3, borderTopColor: BORDA_INDICADOR[cor], borderRadius: 4, paddingHorizontal: 7, paddingVertical: 6 }}>
+      <Text style={[s.rotulo, { marginBottom: 2 }]}>{rotulo}</Text>
+      <Text style={{ fontSize: 19, fontFamily: "Helvetica-Bold", color: COR_INDICADOR[cor], marginBottom: 1 }}>{valor}</Text>
+      <Text style={{ fontSize: 6.8, color: CINZA }}>{legenda}</Text>
+    </View>
+  );
 }
 
-/** Resumo dos chamados de suporte na capa: só totais e contagens (sem lista de chamados e sem atendentes). */
+/** Painel dos atendimentos do suporte na capa (igual no relatório sintético e no analítico): indicadores e contagem por tabulação. */
 function ChamadosSuportePdf({ r }: { r: ResumoSuporte }) {
   if (r.situacao === "sem_vinculo" || r.situacao === "nao_configurado") return null;
-  const colunas: { titulo: string; itens: ContagemSuporte[] }[] = [
-    { titulo: "Por sistema", itens: top5(r.porSistema) },
-    { titulo: "Por assunto", itens: top5(r.porTopico) },
-    { titulo: "Por motivo de encerramento", itens: top5(r.porMotivoEncerramento) },
-  ];
+  const ind = indicadores(r);
+  const linhas = tabulacoes(r);
+  const maior = Math.max(...linhas.map((l) => l.quantidade), 1);
   return (
-    <View wrap={false}>
-      <Text style={s.secao}>Chamados de suporte</Text>
-      <View style={s.caixa}>
-        {r.situacao === "indisponivel" ? (
+    <View>
+      <Text style={s.secao}>Atendimentos do suporte</Text>
+      {r.situacao === "indisponivel" ? (
+        <View style={s.caixa}>
           <Text style={s.vazio}>Dados de suporte indisponíveis no momento da emissão.</Text>
-        ) : r.totalAbertosEFechados === 0 ? (
-          <Text style={s.vazio}>Nenhum chamado no período.</Text>
-        ) : (
-          <>
-            <View style={{ flexDirection: "row", marginBottom: 8 }}>
-              <View style={{ width: "50%" }}>
-                <Text style={s.rotulo}>Chamados abertos e fechados</Text>
-                <Text style={[s.destaque, { fontSize: 16 }]}>{r.totalAbertosEFechados}</Text>
+        </View>
+      ) : r.totalAbertosEFechados === 0 ? (
+        <View style={s.caixa}>
+          <Text style={s.vazio}>Nenhum atendimento no período.</Text>
+        </View>
+      ) : (
+        <>
+          <View wrap={false} style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+            <IndicadorPdf cor="azul" rotulo="Atendimentos" valor={String(ind.total)} legenda="abertos e fechados no período" />
+            <IndicadorPdf cor="verde" rotulo="Espera média" valor={formatarTempo(ind.esperaMediaMin)} legenda="até o atendente responder" />
+            <IndicadorPdf cor="roxo" rotulo="Atendimento médio" valor={formatarTempo(ind.atendimentoMedioMin)} legenda="por atendimento" />
+            <IndicadorPdf cor="ambar" rotulo="Tempo total dedicado" valor={formatarTempo(ind.tempoTotalMin)} legenda="soma de todos os atendimentos" />
+          </View>
+          <View wrap={false} style={[s.tabela, { marginBottom: 10 }]}>
+            <View style={[s.linha, s.cabecalho, { justifyContent: "space-between" }]}>
+              <Text>POR TABULAÇÃO</Text>
+              <Text style={{ fontFamily: "Helvetica" }}>{r.totalAbertosEFechados} atendimentos</Text>
+            </View>
+            {linhas.map((l, i) => (
+              <View key={l.nome} style={[s.linha, { paddingVertical: 5, borderBottomWidth: i === linhas.length - 1 ? 0 : 0.5 }]}>
+                <Text style={{ width: "38%", fontSize: 8.5 }}>{l.nome}</Text>
+                <View style={{ width: "46%", height: 6, backgroundColor: "#eef2f7", borderRadius: 3 }}>
+                  <View style={{ width: `${(l.quantidade / maior) * 100}%`, height: 6, backgroundColor: l.neutra ? "#94a3b8" : AZUL, borderRadius: 3 }} />
+                </View>
+                <Text style={{ width: "8%", textAlign: "right", fontSize: 11, fontFamily: "Helvetica-Bold" }}>{l.quantidade}</Text>
+                <Text style={{ width: "8%", textAlign: "right", fontSize: 7.5, color: CINZA }}>{l.percentual}%</Text>
               </View>
-              {r.tempoMedioEsperaMin !== null && (
-                <View style={{ width: "50%" }}>
-                  <Text style={s.rotulo}>Espera média pelo atendente</Text>
-                  <Text style={s.valor}>{r.tempoMedioEsperaMin.toLocaleString("pt-BR")} min</Text>
-                </View>
-              )}
-            </View>
-            <View style={{ flexDirection: "row" }}>
-              {colunas.map((col) => (
-                <View key={col.titulo} style={{ width: "33.33%", paddingRight: 8 }}>
-                  <Text style={s.rotulo}>{col.titulo}</Text>
-                  {col.itens.length ? (
-                    col.itens.map((x) => (
-                      <View key={x.nome} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 1.5 }}>
-                        <Text style={{ fontSize: 8.5, width: "80%" }}>{x.nome}</Text>
-                        <Text style={{ fontSize: 8.5 }}>{x.quantidade}</Text>
-                      </View>
-                    ))
-                  ) : (
-                    <Text style={s.vazio}>—</Text>
-                  )}
-                </View>
-              ))}
-            </View>
-          </>
-        )}
-        {r.situacao === "ok" && <Text style={[s.vazio, { fontSize: 7.5, marginTop: 6 }]}>Fonte: atendimentos do suporte (Fortics), consultados em {formatarDataHora(r.consultadoEm)}.</Text>}
-      </View>
+            ))}
+          </View>
+        </>
+      )}
+      {r.situacao === "ok" && <Text style={[s.vazio, { fontSize: 7.5, marginBottom: 8 }]}>Fonte: atendimentos do suporte (Fortics), consultados em {formatarDataHora(r.consultadoEm)}.</Text>}
     </View>
+  );
+}
+
+/** Linhas por página da lista analítica (o cabeçalho da tabela se repete em cada página). */
+const ATENDIMENTOS_POR_PAGINA = 20;
+
+/** Lista de todos os atendimentos do período (relatório analítico), do mais antigo ao mais recente, sem protocolo. */
+function PaginasAtendimentosPdf({ r, conteudo, versao, marca }: { r: ResumoSuporte; conteudo: ConteudoCongelado; versao: number; marca?: MarcaPdf }) {
+  const linhas = ordenarPorAbertura(r.chamados).map(linhaDoAtendimento);
+  if (!linhas.length) return null;
+  const paginas = Array.from({ length: Math.ceil(linhas.length / ATENDIMENTOS_POR_PAGINA) }, (_, i) => linhas.slice(i * ATENDIMENTOS_POR_PAGINA, (i + 1) * ATENDIMENTOS_POR_PAGINA));
+  return (
+    <>
+      {paginas.map((grupo, p) => (
+        <Page key={p} size="A4" style={s.pagina}>
+          {marca && <Image src={marca.logo} style={{ ...tamanhoLogo(20), marginBottom: 10 }} />}
+          <Text style={s.visitaTitulo}>Atendimentos do suporte — lista completa</Text>
+          <Text style={[s.subtitulo, { marginBottom: 10, fontSize: 9.5 }]}>
+            {linhas.length} {linhas.length === 1 ? "atendimento" : "atendimentos"} de {formatarDataCurta(conteudo.de)} a {formatarDataCurta(conteudo.ate)}, do mais antigo ao mais recente
+            {paginas.length > 1 ? ` · página ${p + 1} de ${paginas.length} da lista` : ""}
+          </Text>
+          <View style={s.tabela}>
+            <View style={[s.linha, s.cabecalho]}>
+              <Text style={{ width: "14%" }}>DATA E HORÁRIO</Text>
+              <Text style={{ width: "8%" }}>TEMPO</Text>
+              <Text style={{ width: "19%" }}>SOLICITANTE</Text>
+              <Text style={{ width: "15%" }}>TÉCNICO</Text>
+              <Text style={{ width: "25%" }}>ASSUNTO</Text>
+              <Text style={{ width: "19%" }}>TABULAÇÃO</Text>
+            </View>
+            {grupo.map((l, i) => (
+              <View key={i} style={[s.linha, { alignItems: "flex-start" }]} wrap={false}>
+                <View style={{ width: "14%" }}>
+                  <Text>{l.dia}</Text>
+                  <Text style={{ color: CINZA, fontSize: 7.5 }}>{l.horario}</Text>
+                </View>
+                <Text style={{ width: "8%", fontFamily: "Helvetica-Bold" }}>{l.tempo}</Text>
+                <Text style={{ width: "19%", paddingRight: 4 }}>{l.solicitante}</Text>
+                <Text style={{ width: "15%", paddingRight: 4 }}>{l.tecnico}</Text>
+                <Text style={{ width: "25%", paddingRight: 4 }}>{l.assunto}</Text>
+                <Text style={{ width: "19%" }}>{l.tabulacao}</Text>
+              </View>
+            ))}
+          </View>
+          <Rodape conteudo={conteudo} versao={versao} />
+        </Page>
+      ))}
+    </>
   );
 }
 
@@ -373,6 +423,8 @@ export function RelatorioPdf({
         <AssinaturaPdf marca={marca} />
         <Rodape conteudo={c} versao={versao} />
       </Page>
+
+      {c.relatorioAtendimentos === "analitico" && c.suporte?.situacao === "ok" && <PaginasAtendimentosPdf r={c.suporte} conteudo={c} versao={versao} marca={marca} />}
 
       {c.visitas.map((v) => (
         <PaginaVisita key={v.id} v={v} outroPeriodo={c.deOutroPeriodo.includes(v.id)} imagens={imagens} conteudo={c} versao={versao} marca={marca} />

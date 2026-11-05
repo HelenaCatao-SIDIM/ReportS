@@ -54,6 +54,8 @@ export function lerResposta(json: unknown): Omit<ResumoSuporte, "situacao" | "co
     topico: txt(c.topico),
     motivoEncerramento: txt(c.motivoEncerramento),
     agente: txt(c.agente),
+    solicitante: txt(c.solicitante),
+    duracaoMin: naoNegativo(c.duracaoMin) ? (c.duracaoMin as number) : null,
   }));
   return { totalAbertosEFechados: total as number, porSistema, porTopico, porMotivoEncerramento, tempoMedioEsperaMin: (espera as number | null | undefined) ?? null, chamados };
 }

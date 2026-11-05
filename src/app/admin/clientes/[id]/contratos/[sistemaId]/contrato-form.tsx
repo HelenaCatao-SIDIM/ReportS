@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 import { AlertCircle, Loader2, Plus, Trash2 } from "lucide-react";
 import type { ContratoFormState, NovoAprovadorForm } from "../../../contrato-actions";
-import type { Aprovador, NivelComprovacao } from "@/lib/types";
-import { NIVEIS } from "@/lib/contratos";
+import type { Aprovador, NivelComprovacao, TipoRelatorioAtendimentos } from "@/lib/types";
+import { NIVEIS, TIPOS_RELATORIO_ATENDIMENTOS } from "@/lib/contratos";
 import { cn } from "@/lib/utils";
 import { Campo } from "@/components/form/campo";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ interface ValoresContrato {
   texto: string;
   nivel: NivelComprovacao;
   exigeCpf: boolean;
+  relatorioAtendimentos: TipoRelatorioAtendimentos;
   ativo: boolean;
   aprovadorIds: string[];
 }
@@ -87,6 +88,7 @@ export function ContratoForm({
   const e = state.erros ?? {};
   const edicao = !!contrato;
   const [nivel, setNivel] = useState<NivelComprovacao>(v?.nivel ?? "nominal");
+  const [atendimentos, setAtendimentos] = useState<TipoRelatorioAtendimentos>(v?.relatorioAtendimentos ?? "sintetico");
   const marcados = v?.aprovadorIds ?? [];
   const chave = JSON.stringify(state.valores ?? null);
 
@@ -149,6 +151,42 @@ export function ContratoForm({
               </span>
             </span>
           </label>
+        </CardContent>
+      </Card>
+
+      <Card key={`atendimentos-${chave}`}>
+        <CardHeader>
+          <CardTitle>Relatório de atendimentos do suporte</CardTitle>
+          <CardDescription>
+            O painel de resumo (total, espera média, atendimento médio, tempo total e contagem por tabulação) sai nos dois tipos. O analítico acrescenta, no PDF, a
+            lista de todos os atendimentos do período.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {TIPOS_RELATORIO_ATENDIMENTOS.map((t) => (
+              <label
+                key={t.valor}
+                className={cn(
+                  "flex cursor-pointer gap-3 rounded-lg border p-3 transition-colors",
+                  atendimentos === t.valor ? "border-primary bg-primary/5" : "hover:bg-muted/50",
+                )}
+              >
+                <input
+                  type="radio"
+                  name="relatorioAtendimentos"
+                  value={t.valor}
+                  checked={atendimentos === t.valor}
+                  onChange={() => setAtendimentos(t.valor)}
+                  className="mt-0.5 size-4 accent-primary"
+                />
+                <span>
+                  <span className="block text-sm font-medium">{t.titulo}</span>
+                  <span className="block text-xs text-muted-foreground">{t.descricao}</span>
+                </span>
+              </label>
+            ))}
+          </div>
         </CardContent>
       </Card>
 

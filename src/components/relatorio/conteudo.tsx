@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ChevronDown, ExternalLink, History } from "lucide-react";
-import type { CronogramaCongelado, ResumoSuporte, VisitaDetalhada } from "@/lib/types";
+import type { CronogramaCongelado, ResumoSuporte, VisitaDetalhada, TipoRelatorioAtendimentos } from "@/lib/types";
 import { ChamadosSuporte } from "@/components/relatorio/chamados-suporte";
 import { CronogramaRelatorio } from "@/components/cronograma/cronograma-relatorio";
 import { formatarData, formatarDuracao, formatarHora } from "@/lib/datas";
@@ -20,6 +20,7 @@ export interface DadosConteudo {
   minutosPresenciais: number;
   minutosOnline: number;
   suporte?: ResumoSuporte | null;
+  relatorioAtendimentos?: TipoRelatorioAtendimentos;
   cronograma?: CronogramaCongelado | null;
 }
 
@@ -81,7 +82,7 @@ export function ConteudoRelatorio({ c, tituloVisitas, linkVisitas }: { c: DadosC
         </Card>
       </div>
 
-      {c.suporte && <ChamadosSuporte resumo={c.suporte} publico="administracao" />}
+      {c.suporte && <ChamadosSuporte resumo={c.suporte} publico="administracao" tipo={c.relatorioAtendimentos} />}
 
       {c.cronograma && <CronogramaRelatorio cronograma={c.cronograma} />}
 

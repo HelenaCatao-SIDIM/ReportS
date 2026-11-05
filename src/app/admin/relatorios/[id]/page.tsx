@@ -98,6 +98,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
           minutosPresenciais: c.minutosPresenciais,
           minutosOnline: c.minutosOnline,
           // Prévia, buscada agora; na emissão estes números são congelados na versão.
+          relatorioAtendimentos: contrato.relatorioAtendimentos,
           suporte: await buscarResumoSuporte(cliente, r.de, r.ate, (await buscarSistema(contrato.sistema))?.nomeFortics),
           // Cronograma de implantação do contrato, na situação de hoje; na emissão também é congelado.
           cronograma: await congelarCronograma(contrato.id, dataLocal(agora)),

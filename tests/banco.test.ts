@@ -318,6 +318,20 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     assert.equal((await cronograma.listarCronograma("2026-11-01", { contratoId })).length, 1, "só o item que já existia");
   });
 
+  test("contrato: o relatório de atendimentos nasce sintético, vira analítico e só muda quando o campo vem", async () => {
+    const antes = (await contratos.buscarContrato(contratoId))!;
+    assert.equal(antes.relatorioAtendimentos, "sintetico");
+    const base = { texto: antes.texto, nivel: antes.nivel, exigeCpf: antes.exigeCpf, ativo: antes.ativo, aprovadorIds: antes.aprovadorIds };
+    await contratos.salvarContrato(sistemaDoClienteId, { ...base, relatorioAtendimentos: "analitico" });
+    assert.equal((await contratos.buscarContrato(contratoId))!.relatorioAtendimentos, "analitico");
+    await contratos.salvarContrato(sistemaDoClienteId, { ...base, texto: "Contrato editado" });
+    const depois = (await contratos.buscarContrato(contratoId))!;
+    assert.equal(depois.relatorioAtendimentos, "analitico", "salvar sem o campo não muda o tipo");
+    assert.equal(depois.texto, "Contrato editado");
+    await contratos.salvarContrato(sistemaDoClienteId, { ...base, relatorioAtendimentos: "sintetico" });
+    assert.equal((await contratos.buscarContrato(contratoId))!.relatorioAtendimentos, "sintetico");
+  });
+
   test("configurações: o endereço do n8n é guardado e a chave de uma versão anterior é apagada", async () => {
     await db.reports.configuracao.deleteMany();
     assert.equal(await configuracoes.lerUrlN8n(), null);

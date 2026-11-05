@@ -31,7 +31,7 @@ Pedido:
 - Conta o chamado quando a `data_abertura` está no período. Toda linha da tabela já é um chamado encerrado.
 
 Resposta: `sistema` (o filtro usado, ou `null`), `totalAbertosEFechados`, `porSistema`, `porTopico`, `porMotivoEncerramento`, `tempoMedioEsperaMin` e `chamados`
-(protocolo, abertura, encerramento, sistema, tópico, motivo, atendente). **Nunca** devolve a transcrição nem as avaliações das IAs.
+(protocolo, abertura, encerramento, sistema, tópico, motivo, atendente, **solicitante** e **duracaoMin**). **Nunca** devolve a transcrição nem as avaliações das IAs.
 
 ## Fuso das datas (`FUSO_DATAS`)
 
@@ -71,3 +71,12 @@ curl -s -X POST "https://<seu-n8n>/webhook-test/<path do webhook>" \
 | `"sistema":123` | status 400 com `erro` |
 
 Se a tabela ficar muito grande, troque a leitura "Return All" por um filtro na própria consulta.
+
+## Solicitante e tempo de atendimento (relatório analítico)
+
+O fluxo devolve, em cada chamado, o **solicitante** (o nome de quem pediu o atendimento) e a **duração em minutos**. O nó **Montar resumo** procura esses dados nas colunas da lista no começo do código, usando a primeira que existir na tabela e tiver valor:
+
+- `COLUNAS_SOLICITANTE`: `nome_solicitante`, `solicitante`, `nome_usuario`, `usuario`, `nome_contato`, `contato`.
+- `COLUNAS_TEMPO_MIN`: `tempo_atendimento_min`, `duracao_min`, `tempo_atendimento`.
+
+**Confira os nomes reais das colunas da tabela `atendimentos`** e ajuste essas duas listas se for preciso. Sem coluna de tempo, o ReportS usa o encerramento menos a abertura. Sem coluna de solicitante, a lista do relatório analítico mostra "—" nessa coluna. Depois de mudar o fluxo, reimporte o arquivo no n8n (e confira o *Path* e a autenticação do nó Webhook).
