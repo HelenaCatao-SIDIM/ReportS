@@ -12,10 +12,14 @@ export interface DadosEmpresa {
   site?: string;
 }
 
-// Preencher os campos que faltam (razão social, CNPJ, endereço, telefone, e-mail, site): eles passam a sair no cabeçalho do PDF e
+// Telefone e e-mail ficam de fora de propósito (decisão do Bruno em 05/11/2026): preenchê-los aqui os faz sair no cabeçalho do PDF e
 // no rodapé da página do aprovador, sem mexer em mais nada.
 export const EMPRESA: DadosEmpresa = {
   nome: "SIDIM Tecnologia",
+  razaoSocial: "SIDIM Sistemas",
+  cnpj: "10.852.690/0001-60",
+  endereco: "Rua Treze de Maio, 79 - Centro, Sabará - MG, CEP 34.505-270",
+  site: "www.sidimsistemas.com.br",
 };
 
 /** Quem assina os relatórios (imagem da assinatura em `public/sidim/`). */
