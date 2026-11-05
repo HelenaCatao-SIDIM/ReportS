@@ -316,6 +316,15 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     assert.equal((await cronograma.listarCronograma("2026-11-01", { contratoId })).length, 1, "só o item que já existia");
   });
 
+  test("relatório: rascunho de um período sem visitas é permitido (cliente que só teve chamados de suporte)", async () => {
+    const criado = await relatorios.criarRascunho(contratoId, "1990-01-01", "1990-01-31");
+    assert.ok("relatorio" in criado, "erro" in criado ? criado.erro : "");
+    assert.deepEqual(criado.relatorio.visitaIds, []);
+    assert.equal((await relatorios.montarConteudo(criado.relatorio.id))!.visitas.length, 0);
+    assert.ok("erro" in (await relatorios.criarRascunho(contratoId, "1990-01-15", "1990-02-15")), "o período sobreposto continua recusado");
+    await relatorios.excluirRascunho(criado.relatorio.id);
+  });
+
   test("relatório: rascunho, emissão, primeira decisão vale e as visitas travam", async () => {
     const v = await checkin();
     await encerrar(v.id);

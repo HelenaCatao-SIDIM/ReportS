@@ -225,7 +225,7 @@ Onde: `src/app/admin/visitas/actions.ts`, `src/lib/repo/visitas.ts`, `src/compon
 - Um relatório é de um **contrato** (cliente + sistema) e de um período (data inicial e final, inclusive, no horário de Brasília), em geral um mês.
 - O período **não pode cruzar** o de outro relatório do mesmo contrato.
 - Entram as visitas **encerradas do contrato** com entrada até o fim do período e que **não estão em outro relatório**. Isso inclui visitas de períodos anteriores que ficaram de fora, marcadas como **"Período anterior"**.
-- Sem nenhuma visita, o rascunho não é criado.
+- **Período sem visitas é permitido** (cliente que passou o mês sem visita): o rascunho é criado vazio. **Emitir** sem visitas só é possível se o período tem **chamados de suporte** (com `CHAMADOS_SUPORTE` ligado); sem visita e sem chamado, o botão fica desabilitado e a tela diz o motivo (inclusive quando o n8n está fora do ar ou o cliente está sem “Nome no SINC”). Sem visitas, o PDF não mostra horas nem a tabela de visitas, e **sempre** traz o bloco de chamados (mesmo com `CHAMADOS_SUPORTE_PDF` desligado); o e-mail diz “Nenhuma visita registrada no período”.
 - As visitas ficam **reservadas** para o relatório e não entram em outro (duas criações ao mesmo tempo não disputam a mesma visita).
 - **Atualizar visitas** recalcula a lista (ex.: uma visita esquecida foi encerrada depois). Vale para rascunho e ajuste solicitado.
 - **Excluir** só vale para rascunho nunca emitido e libera as visitas.

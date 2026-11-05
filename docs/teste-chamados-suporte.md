@@ -22,3 +22,5 @@ Pré-requisitos: fluxo do n8n importado e ativo (`docs/n8n-resumo-chamados.md`) 
     - Com o nome: o bloco mostra "Só os chamados do sistema … no Fortics", e o total bate com a tabela `atendimentos` filtrada por cliente e sistema.
     - Sem o nome: o bloco mostra o aviso "Todos os sistemas do cliente…" (para a administração; o aprovador não vê) e o total é o do cliente inteiro.
     - Na versão de desenvolvimento em memória, os sistemas não têm Nome no Fortics (ele vem do SINC); para testar o filtro sem o SINC, use o fluxo do n8n direto com `curl` (tabela de casos no guia do fluxo).
+12. **Mês sem visitas:** Relatórios → Novo relatório de um período em que o cliente não teve visita, mas teve chamados. O rascunho é criado ("Nenhuma visita." e "0 visitas"), o bloco de chamados aparece e **Emitir e enviar** fica habilitado. Emita: o PDF não tem horas nem tabela de visitas, traz os chamados e o cronograma; o e-mail diz "Nenhuma visita registrada no período"; a página do aprovador explica o mesmo.
+    - Com o n8n fora do ar (ou cliente sem Nome no SINC, ou nenhum chamado) e sem visitas: o botão **Emitir** fica desabilitado e a tela explica o motivo.

@@ -113,7 +113,7 @@ export async function periodoSobreposto(contratoId: string, de: string, ate: str
 const idsElegiveis = async (r: Pick<Relatorio, "contratoId" | "ate" | "id">) =>
   (await elegiveisParaRelatorio(r.contratoId, fimDoDia(r.ate), r.id)).map((v) => v.id);
 
-/** Cria o rascunho e reserva as visitas. Recusa sobreposição e período sem visitas. */
+/** Cria o rascunho e reserva as visitas. Recusa sobreposição. Período sem visitas é permitido (cliente que só teve chamados de suporte): quem barra a emissão é `conteudoParaEmitir`. */
 export async function criarRascunho(contratoId: string, de: string, ate: string): Promise<{ relatorio: Relatorio } | { erro: string }> {
   const contrato = await buscarContrato(contratoId);
   if (!contrato) return { erro: "Contrato não encontrado." };
@@ -122,7 +122,6 @@ export async function criarRascunho(contratoId: string, de: string, ate: string)
 
   const id = crypto.randomUUID();
   const ids = await idsElegiveis({ contratoId, ate, id });
-  if (!ids.length) return { erro: `Nenhuma visita encerrada deste contrato (${contrato.sistemaNome}) até o fim do período (fora de outros relatórios).` };
 
   await reports.$transaction(async (tx) => {
     await tx.relatorio.create({ data: { id, clienteId: idPlataforma(contrato.clienteId)!, contratoId, de: data(de), ate: data(ate), status: "rascunho" } });
