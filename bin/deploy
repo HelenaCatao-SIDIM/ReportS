@@ -5,6 +5,14 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# Um deploy por vez: o manual e o automático (bin/deploy-remoto) usam a mesma trava. O bin/deploy-remoto já pega a trava
+# e avisa por REPORTS_DEPLOY_COM_TRAVA; a trava passa também pelo exec abaixo (o descritor 9 continua aberto).
+if [ -z "${REPORTS_DEPLOY_COM_TRAVA:-}" ] && command -v flock >/dev/null 2>&1; then
+  exec 9>"${HOME}/.reports-deploy.lock"
+  flock -n 9 || { echo "Já existe um deploy rodando. Espere ele terminar."; exit 1; }
+  export REPORTS_DEPLOY_COM_TRAVA=1
+fi
+
 # O pull vem primeiro e o resto roda na versão do script que acabou de chegar
 # (o bash que já está rodando seguiria lendo a versão antiga; o SINC passou por isso).
 if [ -z "${REPORTS_DEPLOY_JA_ATUALIZADO:-}" ]; then

@@ -1,0 +1,254 @@
+# Testes em toda mudança e publicação automática quando a main muda. Como funciona, como aprovar e como desligar:
+# README, "Publicação automática".
+#
+# O repositório é PÚBLICO: o log desta execução também é. Por isso o endereço do servidor e a chave ficam em
+# segredos do GitHub (ambientes `producao` e `producao-migracao`) e o servidor só devolve linhas de etapa.
+name: Testes e publicação
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      simular:
+        description: "Só simular: consulta o servidor e mostra o que faria, sem publicar nada"
+        type: boolean
+        default: true
+
+# Uma publicação por vez. Em pull request, uma execução nova cancela a anterior; na main nunca se cancela uma
+# publicação que já começou (a que espera na fila é trocada pela mais nova).
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.ref) || 'producao' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    name: Testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      # Valores só para os testes: nada disto existe em produção.
+      SESSION_SECRET: segredo-so-para-testes-0123456789abcdef0123456789abcdef
+      APP_URL: http://localhost:3000
+      SINC_URL: http://localhost:3001
+      ARQUIVOS_DIR: ./tmp/arquivos
+      REPORTS_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/reports_ci
+      PLATAFORMA_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/plataforma_ci
+      REPORTS_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/reports_test_ci
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: Instalar
+        run: npm ci
+      - name: Criar os bancos de teste
+        run: |
+          for banco in reports_ci plataforma_ci reports_test_ci; do
+            PGPASSWORD=postgres psql -h localhost -U postgres -c "create database $banco"
+          done
+          npm run db:migrate
+          npm run db:ambiente-teste
+      - name: Testes
+        run: npm test
+      - name: Lint
+        run: npm run lint
+      - name: Tipos
+        run: |
+          npx next typegen
+          npx tsc --noEmit
+      - name: Build
+        run: npm run build
+      - name: Migrações desta mudança
+        if: github.event_name == 'pull_request'
+        run: |
+          {
+            echo "### Migrações desta mudança"
+            echo '```'
+            node scripts/migracoes-perigosas.mjs "${{ github.event.pull_request.base.sha }}" HEAD
+            echo '```'
+            echo "Se aparecer \`PERIGOSA=true\`, depois do merge a publicação automática para e espera a aprovação."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Pergunta ao servidor o que mudaria (não muda nada lá) e decide se precisa de aprovação.
+  consultar:
+    name: Consultar o servidor
+    needs: testes
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && vars.DEPLOY_AUTOMATICO == 'true'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: producao
+    outputs:
+      perigosa: ${{ steps.consulta.outputs.perigosa }}
+      novas: ${{ steps.consulta.outputs.novas }}
+      nada: ${{ steps.consulta.outputs.nada }}
+    steps:
+      - name: Consultar
+        id: consulta
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST_KEY: ${{ secrets.DEPLOY_HOST_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_HOST_KEY" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o ServerAliveInterval=30 "$DEPLOY_USER@$DEPLOY_HOST" "consultar $GITHUB_SHA" | tee consulta.txt
+          perigosa="$(sed -n 's/^PERIGOSA=//p' consulta.txt)"
+          novas="$(sed -n 's/^NOVAS=//p' consulta.txt)"
+          nada="$(sed -n 's/^NADA=//p' consulta.txt)"
+          [[ "$perigosa" == "true" || "$perigosa" == "false" ]] || { echo "Resposta inesperada do servidor."; exit 1; }
+          [[ "$novas" =~ ^[0-9]+$ ]] || { echo "Resposta inesperada do servidor."; exit 1; }
+          {
+            echo "perigosa=$perigosa"
+            echo "novas=$novas"
+            echo "nada=${nada:-false}"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### Consulta ao servidor"
+            echo '```'
+            cat consulta.txt
+            echo '```'
+            if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.simular }}" == "true" ]]; then
+              echo "Simulação: nada foi publicado."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Sem migração perigosa: publica sozinho.
+  publicar-direto:
+    name: Publicar
+    needs: consultar
+    if: needs.consultar.outputs.perigosa == 'false' && !(github.event_name == 'workflow_dispatch' && inputs.simular)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: producao
+    steps:
+      - name: Publicar
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST_KEY: ${{ secrets.DEPLOY_HOST_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_HOST_KEY" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o ServerAliveInterval=30 "$DEPLOY_USER@$DEPLOY_HOST" "publicar $GITHUB_SHA" | tee publicacao.txt
+          { echo "### Publicação"; echo '```'; cat publicacao.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+  # Com migração que apaga ou altera dados: avisa e espera a aprovação (ambiente com revisora obrigatória).
+  avisar-aprovacao:
+    name: Avisar que espera aprovação
+    needs: consultar
+    if: needs.consultar.outputs.perigosa == 'true' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Comentar na PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LINK: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          pr="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" --jq '.[0].number // empty')"
+          [ -n "$pr" ] || exit 0
+          gh pr comment "$pr" --repo "$GITHUB_REPOSITORY" --body "⏸️ **A publicação está esperando a sua aprovação.** Os testes passaram, mas esta mudança traz migração que apaga ou altera dados, então nada foi publicado ainda. Para aprovar ou rejeitar: abra $LINK e use **Review deployments**. Antes de aplicar, o servidor faz um backup."
+
+  publicar-com-aprovacao:
+    name: Publicar (migração aprovada)
+    needs: consultar
+    if: needs.consultar.outputs.perigosa == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.simular)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: producao-migracao
+    steps:
+      - name: Publicar
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST_KEY: ${{ secrets.DEPLOY_HOST_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_HOST_KEY" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o ServerAliveInterval=30 "$DEPLOY_USER@$DEPLOY_HOST" "publicar $GITHUB_SHA aprovado" | tee publicacao.txt
+          { echo "### Publicação (migração aprovada)"; echo '```'; cat publicacao.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+  # Conta como terminou, na PR que entrou na main.
+  avisar-resultado:
+    name: Avisar o resultado
+    needs: [testes, consultar, publicar-direto, publicar-com-aprovacao]
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_AUTOMATICO == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Comentar na PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LINK: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TESTES: ${{ needs.testes.result }}
+          CONSULTA: ${{ needs.consultar.result }}
+          DIRETO: ${{ needs.publicar-direto.result }}
+          COM_APROVACAO: ${{ needs.publicar-com-aprovacao.result }}
+          NADA: ${{ needs.consultar.outputs.nada }}
+          NOVAS: ${{ needs.consultar.outputs.novas }}
+        run: |
+          versao="${GITHUB_SHA::7}"
+          if [ "$TESTES" != "success" ]; then
+            corpo="❌ **Os testes falharam; nada foi publicado.** Detalhes: $LINK"
+          elif [ "$CONSULTA" != "success" ]; then
+            corpo="❌ **Não consegui consultar o servidor; nada foi publicado.** Detalhes: $LINK"
+          elif [ "$DIRETO" = "success" ] || [ "$COM_APROVACAO" = "success" ]; then
+            if [ "$NADA" = "true" ]; then
+              corpo="✅ O servidor já estava na versão \`$versao\`; nada a publicar."
+            elif [ "${NOVAS:-0}" = "0" ]; then
+              corpo="✅ **Publicado em produção** (versão \`$versao\`). Sem migração."
+            else
+              corpo="✅ **Publicado em produção** (versão \`$versao\`). Migrações aplicadas: $NOVAS, com backup feito antes."
+            fi
+          elif [ "$DIRETO" = "failure" ] || [ "$COM_APROVACAO" = "failure" ]; then
+            corpo="❌ **A publicação falhou ou foi rejeitada** (versão \`$versao\`). Detalhes: $LINK. O servidor pode estar numa versão intermediária: confira antes de seguir."
+          else
+            exit 0
+          fi
+          pr="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" --jq '.[0].number // empty')"
+          [ -n "$pr" ] || { echo "$corpo"; exit 0; }
+          gh pr comment "$pr" --repo "$GITHUB_REPOSITORY" --body "$corpo"
