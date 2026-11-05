@@ -9,6 +9,7 @@ import { dataLocal } from "@/lib/datas";
 import { formatarDataCurta } from "@/lib/visitas";
 import { conteudoParaEmitir } from "@/lib/regras-relatorio";
 import { RelatorioPdf, type ImagensPdf } from "@/lib/pdf/relatorio-pdf";
+import { carregarMarcaPdf } from "@/lib/pdf/marca";
 import { lerImagemPorUrl, salvarArquivo } from "@/lib/repo/arquivos";
 import { congelar, montarConteudo, registrarEmissao } from "@/lib/repo/relatorios";
 import { preencherCepsPendentes } from "@/lib/cep-visitas";
@@ -73,7 +74,7 @@ export async function emitirRelatorio(id: string) {
   // Cronograma de implantação do contrato, na situação do dia da emissão: o cliente vê o mesmo na página e no PDF.
   conteudo.cronograma = await congelarCronograma(c.contrato.id, dataLocal(Date.parse(emitidoEm)));
   const pdf = await renderToBuffer(
-    <RelatorioPdf conteudo={conteudo} versao={numero} emitidoEm={emitidoEm} imagens={await carregarImagens(conteudo)} mostrarSuporte={chamadosSuportePdf() || !conteudo.visitas.length} />,
+    <RelatorioPdf conteudo={conteudo} versao={numero} emitidoEm={emitidoEm} imagens={await carregarImagens(conteudo)} mostrarSuporte={chamadosSuportePdf() || !conteudo.visitas.length} marca={await carregarMarcaPdf()} />,
   );
   const arquivo = await salvarArquivo(pdf, "application/pdf");
 

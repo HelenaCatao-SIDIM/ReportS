@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { CheckCircle2, ChevronDown, ClipboardCheck, Download, History, Info, LinkIcon, MessageSquareWarning } from "lucide-react";
+import { CheckCircle2, ChevronDown, Download, History, Info, LinkIcon, MessageSquareWarning } from "lucide-react";
 import { buscarPorLink } from "@/lib/repo/relatorios";
 import { formatarData, formatarDataHora, formatarDuracao, formatarHora } from "@/lib/datas";
 import { formatarCnpj } from "@/lib/format";
@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mudancas } from "@/components/relatorio/mudancas";
 import { ChamadosSuporte } from "@/components/relatorio/chamados-suporte";
+import { AssinaturaSidim, LogoSidim } from "@/components/relatorio/marca-sidim";
 import { CronogramaRelatorio } from "@/components/cronograma/cronograma-relatorio";
 import { Decisao } from "./decisao";
 
@@ -21,14 +22,9 @@ export default function AprovacaoPage({ params, searchParams }: PageProps<"/apro
   return (
     <div className="min-h-svh bg-muted/30">
       <header className="border-b bg-background">
-        <div className="mx-auto flex h-14 max-w-4xl items-center gap-2 px-4">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <ClipboardCheck className="size-4" />
-          </div>
-          <div className="leading-tight">
-            <div className="text-sm font-semibold">SIDIM</div>
-            <div className="text-xs text-muted-foreground">Relatório de atendimento</div>
-          </div>
+        <div className="mx-auto flex h-16 max-w-4xl items-center gap-3 px-4">
+          <LogoSidim altura={40} />
+          <div className="border-l pl-3 text-sm text-muted-foreground">Relatório de atendimento</div>
         </div>
       </header>
       <main className="mx-auto max-w-4xl px-4 py-6">
@@ -222,6 +218,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/aprovacao/[to
           </details>
         ))}
       </section>
+      <AssinaturaSidim />
       <p className="pb-6 text-center text-xs text-muted-foreground">Os CPFs dos participantes aparecem mascarados. Dúvidas? Responda ao e-mail da SIDIM.</p>
     </div>
   );

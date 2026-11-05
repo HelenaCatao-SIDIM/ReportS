@@ -7,6 +7,8 @@ import { formatarCbo, formatarCnpj, mascararCpf } from "@/lib/format";
 import { ROTULO_MEIO } from "@/lib/meio";
 import { ehPresencial, formatarDataCurta, formatarMinutos, nomesDosSetores, rotuloSetores, rotuloTipo } from "@/lib/visitas";
 import { ROTULO_SITUACAO_RELATORIO, resumoCronograma, situacaoNoRelatorio } from "@/lib/cronograma";
+import { ASSINANTE, ASSINATURA, LOGO, linhasDaEmpresa } from "@/lib/sidim";
+import type { MarcaPdf } from "@/lib/pdf/marca";
 
 // Sem hifenização automática: em colunas estreitas o padrão quebrava palavras ("Recursos Hu-manos").
 Font.registerHyphenationCallback((palavra) => [palavra]);
@@ -21,7 +23,8 @@ const BORDA = "#e2e8f0";
 const s = StyleSheet.create({
   pagina: { padding: 36, paddingBottom: 54, fontFamily: "Helvetica", fontSize: 9, color: "#0f172a" },
   rodape: { position: "absolute", bottom: 24, left: 36, right: 36, flexDirection: "row", justifyContent: "space-between", fontSize: 7.5, color: CINZA },
-  marca: { fontSize: 9, color: AZUL, fontFamily: "Helvetica-Bold", marginBottom: 32 },
+  marca: { fontSize: 9, color: AZUL, fontFamily: "Helvetica-Bold" },
+  topo: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 26 },
   titulo: { fontSize: 22, fontFamily: "Helvetica-Bold", marginBottom: 4 },
   subtitulo: { fontSize: 11, color: CINZA, marginBottom: 24 },
   rotulo: { fontSize: 7.5, color: CINZA, marginBottom: 1.5, textTransform: "uppercase" },
@@ -51,6 +54,40 @@ function Campo({ rotulo, valor, largura = "33.33%" }: { rotulo: string; valor: s
   );
 }
 
+/** Logo com a proporção certa (altura em pontos). */
+const tamanhoLogo = (altura: number) => ({ height: altura, width: Math.round((altura * LOGO.largura) / LOGO.altura) });
+
+/** Cabeçalho da capa: logo à esquerda e os dados da SIDIM à direita. */
+function CabecalhoPdf({ marca }: { marca?: MarcaPdf }) {
+  const linhas = linhasDaEmpresa();
+  return (
+    <View style={s.topo}>
+      {marca ? <Image src={marca.logo} style={tamanhoLogo(42)} /> : <Text style={s.marca}>SIDIM · Registro de visitas e treinamentos</Text>}
+      <View style={{ alignItems: "flex-end", maxWidth: "55%" }}>
+        {linhas.map((l, i) => (
+          <Text key={i} style={{ fontSize: 7.5, marginBottom: 1, color: i === 0 ? "#0f172a" : CINZA, fontFamily: i === 0 ? "Helvetica-Bold" : "Helvetica" }}>
+            {l}
+          </Text>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/** Assinatura do responsável: a imagem fica sobre a linha, com o nome embaixo. */
+function AssinaturaPdf({ marca }: { marca?: MarcaPdf }) {
+  const largura = 190;
+  return (
+    <View wrap={false} style={{ marginTop: 22, width: 230 }}>
+      {marca && <Image src={marca.assinatura} style={{ width: largura, height: Math.round((largura * ASSINATURA.altura) / ASSINATURA.largura), marginLeft: 8, marginBottom: -9 }} />}
+      {!marca && <View style={{ height: 36 }} />}
+      <View style={{ borderTopWidth: 0.75, borderTopColor: "#94a3b8" }} />
+      <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", marginTop: 3 }}>{ASSINANTE.nome}</Text>
+      <Text style={{ fontSize: 8, color: CINZA }}>{ASSINANTE.empresa}</Text>
+    </View>
+  );
+}
+
 function Rodape({ conteudo, versao }: { conteudo: ConteudoCongelado; versao: number }) {
   return (
     <View style={s.rodape} fixed>
@@ -71,12 +108,13 @@ function Texto({ rotulo, valor }: { rotulo: string; valor: string }) {
   );
 }
 
-function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao }: { v: VisitaDetalhada; outroPeriodo: boolean; imagens: ImagensPdf; conteudo: ConteudoCongelado; versao: number }) {
+function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao, marca }: { v: VisitaDetalhada; outroPeriodo: boolean; imagens: ImagensPdf; conteudo: ConteudoCongelado; versao: number; marca?: MarcaPdf }) {
   const fotos = [v.fotoAmbiente, v.printTela, ...v.fotosExtras].filter((f): f is NonNullable<typeof f> => !!f && imagens.has(f.url));
   const temas = [...v.temas.map((t) => `${t.nome} (${t.sistemaNome} / ${t.modulo})`), ...(v.temaAdicional ? [`${v.temaAdicional} (adicional)`] : [])];
 
   return (
     <Page size="A4" style={s.pagina}>
+      {marca && <Image src={marca.logo} style={{ ...tamanhoLogo(20), marginBottom: 10 }} />}
       <Text style={s.visitaTitulo}>
         {formatarData(v.entrada)} · {rotuloTipo(v.tipo)}
       </Text>
@@ -256,6 +294,7 @@ export function RelatorioPdf({
   emitidoEm,
   imagens,
   mostrarSuporte = false,
+  marca,
 }: {
   conteudo: ConteudoCongelado;
   versao: number;
@@ -263,12 +302,14 @@ export function RelatorioPdf({
   imagens: ImagensPdf;
   /** Bloco de chamados de suporte na capa (CHAMADOS_SUPORTE_PDF). */
   mostrarSuporte?: boolean;
+  /** Logo e assinatura da SIDIM (ver `carregarMarcaPdf`). Sem elas, o PDF sai com o cabeçalho em texto e a linha de assinatura em branco. */
+  marca?: MarcaPdf;
 }) {
   const c = conteudo;
   return (
     <Document title={`Relatório ${c.cliente.nome} ${c.sistema.nome} ${formatarDataCurta(c.de)} a ${formatarDataCurta(c.ate)} v${versao}`} author="SIDIM" language="pt-BR">
       <Page size="A4" style={s.pagina}>
-        <Text style={s.marca}>SIDIM · Registro de visitas e treinamentos</Text>
+        <CabecalhoPdf marca={marca} />
         <Text style={s.titulo}>Relatório de atendimento</Text>
         <Text style={s.subtitulo}>
           Período de {formatarDataCurta(c.de)} a {formatarDataCurta(c.ate)} · versão v{versao}
@@ -332,11 +373,12 @@ export function RelatorioPdf({
           </View>
         )}
         <Text style={s.vazio}>Os CPFs dos participantes aparecem mascarados neste documento.</Text>
+        <AssinaturaPdf marca={marca} />
         <Rodape conteudo={c} versao={versao} />
       </Page>
 
       {c.visitas.map((v) => (
-        <PaginaVisita key={v.id} v={v} outroPeriodo={c.deOutroPeriodo.includes(v.id)} imagens={imagens} conteudo={c} versao={versao} />
+        <PaginaVisita key={v.id} v={v} outroPeriodo={c.deOutroPeriodo.includes(v.id)} imagens={imagens} conteudo={c} versao={versao} marca={marca} />
       ))}
     </Document>
   );
