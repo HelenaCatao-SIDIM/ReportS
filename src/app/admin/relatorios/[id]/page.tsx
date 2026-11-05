@@ -98,6 +98,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
           minutosPresenciais: c.minutosPresenciais,
           minutosOnline: c.minutosOnline,
           // Prévia, buscada agora; na emissão estes números são congelados na versão.
+          relatorioAtendimentos: contrato.relatorioAtendimentos,
           suporte: await buscarResumoSuporte(cliente, r.de, r.ate, (await buscarSistema(contrato.sistema))?.nomeFortics),
           // Cronograma de implantação do contrato, na situação de hoje; na emissão também é congelado.
           cronograma: await congelarCronograma(contrato.id, dataLocal(agora)),
@@ -145,7 +146,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
             </div>
             <p className="mt-1 italic">“{ultima.decisao.motivo}”</p>
             <p className="mt-2 text-xs">
-              Abra as visitas abaixo e use “Corrigir” (o motivo fica no histórico). Se faltou ou sobrou visita, use “Atualizar visitas”. Depois, emita a
+              Abra as visitas abaixo e use “Corrigir” (o motivo fica no histórico). Se faltou ou sobrou visita, use “Atualizar visitas e chamados”. Depois, emita a
               v{r.versoes.length + 1}: os links da v{ultima.numero} deixam de valer e os aprovadores recebem a nova versão.
             </p>
           </AlertDescription>

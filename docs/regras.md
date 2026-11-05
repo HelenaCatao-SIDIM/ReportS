@@ -56,7 +56,7 @@ Onde: `src/app/admin/clientes/actions.ts`, `src/lib/repo/clientes.ts`.
 
 ### Contratos e aprovadores
 
-- Há **um contrato por sistema do cliente**. Ele tem: o **texto do contrato** (obrigatório; aparece na capa do relatório), o **nível de comprovação** da presença, se **exige CPF** dos participantes e se está **ativo** (nasce ativo; a caixa só existe na edição).
+- Há **um contrato por sistema do cliente**. Ele tem: o **texto do contrato** (obrigatório; aparece na capa do relatório), o **nível de comprovação** da presença, se **exige CPF** dos participantes o **tipo do relatório de atendimentos do suporte** (sintético, o padrão, ou analítico; ver "Chamados de suporte") e se está **ativo** (nasce ativo; a caixa só existe na edição).
 - Nível de comprovação: **Nominal** — a lista de presença tem só os dados das pessoas; **Assinada** — cada pessoa assina no celular do técnico (só em visitas presenciais; veja [Lista de presença](#lista-de-presença)).
 - Pelo menos **um aprovador ativo** por contrato: marcado na lista do cadastro de aprovadores ou cadastrado ali mesmo.
 - **Aprovadores** têm um cadastro único: nome obrigatório e **e-mail válido e único** no cadastro; cargo opcional.
@@ -227,7 +227,7 @@ Onde: `src/app/admin/visitas/actions.ts`, `src/lib/repo/visitas.ts`, `src/compon
 - Entram as visitas **encerradas do contrato** com entrada até o fim do período e que **não estão em outro relatório**. Isso inclui visitas de períodos anteriores que ficaram de fora, marcadas como **"Período anterior"**.
 - **Período sem visitas é permitido** (cliente que passou o mês sem visita): o rascunho é criado vazio e **o relatório é emitido** com os chamados de suporte e o cronograma. A emissão sem visitas só é barrada se não deu para consultar os chamados (n8n fora do ar ou conexão não configurada): o botão fica desabilitado e a tela diz o motivo. Sem visitas, o PDF não mostra horas nem a tabela de visitas; o e-mail diz “Nenhuma visita registrada no período”.
 - As visitas ficam **reservadas** para o relatório e não entram em outro (duas criações ao mesmo tempo não disputam a mesma visita).
-- **Atualizar visitas** recalcula a lista (ex.: uma visita esquecida foi encerrada depois). Vale para rascunho e ajuste solicitado.
+- **Atualizar visitas e chamados** recalcula a lista de visitas (ex.: uma visita esquecida foi encerrada depois) e busca os chamados de suporte de novo no n8n (o rascunho guarda o resultado por 10 minutos; a **emissão** sempre busca de novo, para congelar o número de agora). Vale para rascunho e ajuste solicitado.
 - **Excluir** só vale para rascunho nunca emitido e libera as visitas.
 - O relatório soma as **horas presenciais** e as **horas online** separadamente (saída − entrada de cada visita).
 
@@ -255,7 +255,12 @@ Onde: `src/app/admin/visitas/actions.ts`, `src/lib/repo/visitas.ts`, `src/compon
 
 ### Chamados de suporte (sempre ativos)
 
-Todo relatório mostra quantos chamados o cliente **abriu e teve fechados** no período, a partir dos atendimentos do Fortics guardados pelo n8n. A contagem é do **sistema do contrato**: o ReportS manda o "Nome no Fortics" do sistema, e o n8n filtra pelo campo `sistema`. Os chamados do cliente são buscados pelo **nome dele no SINC** (do cadastro) e pelos "Outros nomes nos atendimentos", se a Administração os cadastrou para quando o Fortics grava o cliente de outra forma. Sistema sem "Nome no Fortics": contam todos os sistemas do cliente, e só a Administração vê o aviso. Detalhes em `docs/n8n-resumo-chamados.md`. A conexão com o n8n (só o endereço do webhook, sem chave) se configura em **Administração → Configurações** (permissão de relatórios), guardada no banco, e não por variável de ambiente; sem a conexão, o bloco some do relatório do cliente e a Administração vê o aviso.
+Todo relatório mostra os **atendimentos do suporte** do cliente no período, a partir dos atendimentos do Fortics guardados pelo n8n. A contagem é do **sistema do contrato**: o ReportS manda o "Nome no Fortics" do sistema, e o n8n filtra pelo campo `sistema`. Os atendimentos do cliente são buscados pelo **nome dele no SINC** (do cadastro) e pelos "Outros nomes nos atendimentos", se a Administração os cadastrou para quando o Fortics grava o cliente de outra forma. Sistema sem "Nome no Fortics": contam todos os sistemas do cliente, e só a Administração vê o aviso. A conexão com o n8n (só o endereço do webhook, sem chave) se configura em **Administração → Configurações** (permissão de relatórios), guardada no banco; sem a conexão, o bloco some do relatório do cliente e a Administração vê o aviso. Detalhes em `docs/n8n-resumo-chamados.md`.
+
+- **Painel (igual nos dois tipos de relatório):** quatro indicadores (**atendimentos**, **espera média**, **atendimento médio** e **tempo total dedicado**) e a contagem **por tabulação** (o motivo de encerramento), com barra proporcional, quantidade, porcentagem e uma linha fina entre as linhas. O "por assunto" saiu: o assunto é texto livre e quase não se repete; ele aparece em cada linha da lista analítica. O atendimento médio e o tempo total saem da lista (tempo dedicado de cada atendimento: o do n8n, ou o encerramento menos a abertura).
+- **Tipo do relatório, por contrato** (Administração → Clientes → contrato → "Relatório de atendimentos do suporte"): **Sintético** (padrão, e como ficam os contratos que já existiam) = só o painel. **Analítico** = o painel e, no **PDF**, a **lista de todos os atendimentos** do período, do mais antigo ao mais recente, em páginas próprias depois da capa: data e horário (início e fim), tempo, **solicitante** (o usuário do cliente), **técnico** que atendeu, assunto e tabulação. **Sem o número de protocolo.** O tipo vale no momento da emissão e fica congelado na versão.
+- **Quem vê o quê:** o PDF traz o painel (e a lista, no analítico); a página do aprovador mostra só o painel, sem nomes; a Administração vê o painel e a lista completa no rascunho ("Ver os N atendimentos"), com um selo do tipo do contrato.
+- **Campos que o Fortics não trouxer** (solicitante, tempo) saem como "—" na lista, e o painel usa só os atendimentos que têm o dado.
 
 Onde: `src/lib/repo/relatorios.ts`, `src/lib/emissao.tsx`, `src/lib/email.ts`, `src/app/admin/relatorios/actions.ts`, `src/app/aprovacao/[token]/`.
 

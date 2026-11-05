@@ -1,6 +1,6 @@
 import "server-only";
 import { idPlataforma, idTexto, plataforma, reports } from "@/lib/db";
-import type { Aprovador, Contrato, EstadoSistemaCliente, NivelComprovacao } from "@/lib/types";
+import type { Aprovador, Contrato, EstadoSistemaCliente, NivelComprovacao, TipoRelatorioAtendimentos } from "@/lib/types";
 import { buscarSistemaDoCliente, listarSistemasDoCliente } from "./clientes";
 import { nomesDosSistemas } from "./sistemas";
 
@@ -50,6 +50,7 @@ async function detalhar(linhas: Linha[]): Promise<ContratoDetalhado[]> {
         texto: c.texto,
         nivel: c.nivel as NivelComprovacao,
         exigeCpf: c.exigeCpf,
+        relatorioAtendimentos: (c.relatorioAtendimentos === "analitico" ? "analitico" : "sintetico") as TipoRelatorioAtendimentos,
         ativo: c.ativo,
         aprovadorIds: c.aprovadores.map((a) => a.aprovadorId),
         clienteId: idTexto(sdc.customers.id),
@@ -101,6 +102,8 @@ export interface DadosContrato {
   texto: string;
   nivel: NivelComprovacao;
   exigeCpf: boolean;
+  /** Sem o campo, o contrato novo nasce sintético e o existente fica como está. */
+  relatorioAtendimentos?: TipoRelatorioAtendimentos;
   ativo: boolean;
   aprovadorIds: string[];
 }
@@ -114,7 +117,7 @@ export async function salvarContrato(sistemaDoClienteId: string, d: DadosContrat
   if (!sdc) throw new Error("Sistema do cliente não encontrado");
   const chave = idPlataforma(sistemaDoClienteId)!;
   const aprovadorIds = [...new Set(d.aprovadorIds)];
-  const dados = { texto: d.texto, nivel: d.nivel, exigeCpf: d.exigeCpf, ativo: d.ativo };
+  const dados = { texto: d.texto, nivel: d.nivel, exigeCpf: d.exigeCpf, ativo: d.ativo, ...(d.relatorioAtendimentos ? { relatorioAtendimentos: d.relatorioAtendimentos } : {}) };
   const c = await reports.$transaction(async (tx) => {
     const salvo = await tx.contrato.upsert({
       where: { sistemaDoClienteId: chave },
@@ -125,7 +128,7 @@ export async function salvarContrato(sistemaDoClienteId: string, d: DadosContrat
     await tx.contratoAprovador.createMany({ data: aprovadorIds.map((aprovadorId, ordem) => ({ contratoId: salvo.id, aprovadorId, ordem })) });
     return salvo;
   });
-  return { id: c.id, sistemaDoClienteId, ...dados, aprovadorIds };
+  return { id: c.id, sistemaDoClienteId, texto: d.texto, nivel: d.nivel, exigeCpf: d.exigeCpf, ativo: d.ativo, relatorioAtendimentos: c.relatorioAtendimentos === "analitico" ? "analitico" : "sintetico", aprovadorIds };
 }
 
 /** Contratos que citam o aprovador (para a tela de aprovadores). */

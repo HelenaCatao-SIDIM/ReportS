@@ -203,6 +203,7 @@ export function congelar(c: ConteudoRelatorio): ConteudoCongelado {
     deOutroPeriodo: [...c.deOutroPeriodo],
     minutosPresenciais: c.minutosPresenciais,
     minutosOnline: c.minutosOnline,
+    relatorioAtendimentos: c.contrato.relatorioAtendimentos,
   });
 }
 

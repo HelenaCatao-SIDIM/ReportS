@@ -1,5 +1,5 @@
 /** Rótulos e opções compartilhados entre telas de clientes, contratos e relatórios. */
-import type { EstadoSistemaCliente, NivelComprovacao } from "@/lib/types";
+import type { EstadoSistemaCliente, NivelComprovacao, TipoRelatorioAtendimentos } from "@/lib/types";
 
 export const ROTULO_ESTADO: Record<EstadoSistemaCliente, string> = {
   em_implantacao: "Em implantação",
@@ -13,3 +13,10 @@ export const NIVEIS: { valor: NivelComprovacao; titulo: string; descricao: strin
 ];
 
 export const rotuloNivel = (n: NivelComprovacao) => (n === "assinado" ? "Assinado" : "Nominal");
+
+export const TIPOS_RELATORIO_ATENDIMENTOS: { valor: TipoRelatorioAtendimentos; titulo: string; descricao: string }[] = [
+  { valor: "sintetico", titulo: "Sintético", descricao: "Só o painel de resumo: total, espera média, atendimento médio, tempo total e contagem por tabulação." },
+  { valor: "analitico", titulo: "Analítico", descricao: "O painel de resumo e a lista de todos os atendimentos (início e fim, tempo, solicitante, técnico, assunto e tabulação), no PDF." },
+];
+
+export const rotuloTipoRelatorioAtendimentos = (t: TipoRelatorioAtendimentos | undefined) => (t === "analitico" ? "Analítico" : "Sintético");

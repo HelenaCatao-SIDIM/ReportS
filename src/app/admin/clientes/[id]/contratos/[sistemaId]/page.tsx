@@ -44,7 +44,7 @@ async function Conteudo({ params }: Pick<PageProps<"/admin/clientes/[id]/contrat
       <ContratoForm
         acao={salvarContratoDoSistema.bind(null, id, sistemaId)}
         clienteId={id}
-        contrato={contrato ? { texto: contrato.texto, nivel: contrato.nivel, exigeCpf: contrato.exigeCpf, ativo: contrato.ativo, aprovadorIds: contrato.aprovadorIds } : undefined}
+        contrato={contrato ? { texto: contrato.texto, nivel: contrato.nivel, exigeCpf: contrato.exigeCpf, relatorioAtendimentos: contrato.relatorioAtendimentos, ativo: contrato.ativo, aprovadorIds: contrato.aprovadorIds } : undefined}
         aprovadores={lista}
       />
     </>

@@ -55,7 +55,7 @@ export async function emitirRelatorio(id: string) {
 
   // Chamados de suporte do período, congelados junto com a versão (PDF, página do aprovador e versões antigas mostram o mesmo número).
   // Os chamados são do sistema do contrato: o "Nome no Fortics" do sistema vai como filtro.
-  const suporte = await buscarResumoSuporte(c.cliente, c.relatorio.de, c.relatorio.ate, (await buscarSistema(c.contrato.sistema))?.nomeFortics);
+  const suporte = await buscarResumoSuporte(c.cliente, c.relatorio.de, c.relatorio.ate, (await buscarSistema(c.contrato.sistema))?.nomeFortics, true);
   // Sem visitas, o relatório sai só com os chamados de suporte; só não sai se não deu para consultá-los.
   const pode = conteudoParaEmitir(c.visitas.length, suporte);
   if (!pode.ok) return { erro: pode.motivo };

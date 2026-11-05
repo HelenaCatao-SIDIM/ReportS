@@ -68,6 +68,9 @@ export interface SistemaDoCliente {
   estado: EstadoSistemaCliente;
 }
 
+/** Relatório de atendimentos do suporte: só o resumo (sintético) ou o resumo e a lista de todos os atendimentos (analítico). */
+export type TipoRelatorioAtendimentos = "sintetico" | "analitico";
+
 /** Contrato de um sistema do cliente: o que sai na capa do relatório, como comprovar a presença e quem aprova. */
 export interface Contrato {
   id: string;
@@ -76,6 +79,8 @@ export interface Contrato {
   texto: string;
   nivel: NivelComprovacao;
   exigeCpf: boolean;
+  /** Como os atendimentos do suporte saem no relatório deste contrato. */
+  relatorioAtendimentos: TipoRelatorioAtendimentos;
   /** Contrato inativo não aparece para o técnico no check-in. */
   ativo: boolean;
   aprovadorIds: string[];
@@ -363,7 +368,12 @@ export interface ChamadoSuporte {
   sistema: string;
   topico: string;
   motivoEncerramento: string;
+  /** Técnico da SIDIM que atendeu. */
   agente: string;
+  /** Nome de quem pediu o atendimento (o usuário do cliente). Opcional: versões antigas e fluxos antigos do n8n não têm. */
+  solicitante?: string;
+  /** Tempo dedicado ao atendimento, em minutos. Sem ele, conta-se do encerramento menos a abertura. */
+  duracaoMin?: number | null;
 }
 
 /** Resumo dos chamados de suporte do cliente no período, vindo do n8n (congelado na emissão). */
@@ -399,6 +409,8 @@ export interface ConteudoCongelado {
   minutosOnline: number;
   /** Chamados de suporte no período. Opcional: versões emitidas antes desta funcionalidade não têm. */
   suporte?: ResumoSuporte | null;
+  /** Tipo do relatório de atendimentos do contrato no momento da emissão. Opcional: versões antigas valem como sintético. */
+  relatorioAtendimentos?: TipoRelatorioAtendimentos;
   /** Cronograma de implantação do contrato. Opcional: versões emitidas antes desta funcionalidade não têm. */
   cronograma?: CronogramaCongelado | null;
 }

@@ -38,7 +38,7 @@ export function AcoesRascunho({ id, podeExcluir, proximaVersao, aprovadores, vis
     <div className="flex flex-wrap gap-2">
       <Button variant="outline" disabled={pendente} onClick={() => start(() => recalcularVisitas(id))}>
         {pendente && !confirmando ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-        Atualizar visitas
+        Atualizar visitas e chamados
       </Button>
       {podeExcluir && (
         <Button

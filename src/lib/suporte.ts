@@ -54,6 +54,8 @@ export function lerResposta(json: unknown): Omit<ResumoSuporte, "situacao" | "co
     topico: txt(c.topico),
     motivoEncerramento: txt(c.motivoEncerramento),
     agente: txt(c.agente),
+    solicitante: txt(c.solicitante),
+    duracaoMin: naoNegativo(c.duracaoMin) ? (c.duracaoMin as number) : null,
   }));
   return { totalAbertosEFechados: total as number, porSistema, porTopico, porMotivoEncerramento, tempoMedioEsperaMin: (espera as number | null | undefined) ?? null, chamados };
 }
@@ -77,6 +79,8 @@ export async function buscarResumoSuporte(
   de: string,
   ate: string,
   sistema?: string | null,
+  /** true = não usa o resumo guardado nos últimos 10 minutos (na emissão, para congelar o número de agora). */
+  atualizar = false,
 ): Promise<ResumoSuporte> {
   await connection(); // a hora da consulta e o cache dependem da requisição, nunca da pré-renderização
   const filtro = sistema?.trim() || null;
@@ -87,7 +91,7 @@ export async function buscarResumoSuporte(
 
   const chave = JSON.stringify([nomes, de, ate, filtro]);
   const guardado = cache.get(chave);
-  if (guardado && Date.now() - guardado.em < CACHE_MS) return guardado.resumo;
+  if (!atualizar && guardado && Date.now() - guardado.em < CACHE_MS) return guardado.resumo;
 
   const corpo = { clientes: nomes, inicio: de, fim: ate, incluirLista: true, ...(filtro ? { sistema: filtro } : {}) };
   for (let tentativa = 1; tentativa <= 2; tentativa++) {

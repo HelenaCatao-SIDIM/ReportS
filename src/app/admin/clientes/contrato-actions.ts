@@ -8,7 +8,7 @@ import { emailValido } from "@/lib/format";
 import { buscarSistemaDoCliente } from "@/lib/repo/clientes";
 import { buscarAprovador, buscarAprovadorPorEmail, criarAprovador } from "@/lib/repo/aprovadores";
 import { buscarContratoDoSistemaDoCliente, salvarContrato } from "@/lib/repo/contratos";
-import type { NivelComprovacao } from "@/lib/types";
+import type { NivelComprovacao, TipoRelatorioAtendimentos } from "@/lib/types";
 
 export interface NovoAprovadorForm {
   nome: string;
@@ -20,7 +20,7 @@ export interface ContratoFormState {
   erros?: Partial<Record<"texto" | "aprovadores" | "geral", string>>;
   /** Erro por linha de aprovador novo (índice → mensagem). */
   errosNovos?: Record<number, string>;
-  valores?: { texto: string; nivel: NivelComprovacao; exigeCpf: boolean; ativo: boolean; aprovadorIds: string[]; novos: NovoAprovadorForm[] };
+  valores?: { texto: string; nivel: NivelComprovacao; exigeCpf: boolean; relatorioAtendimentos: TipoRelatorioAtendimentos; ativo: boolean; aprovadorIds: string[]; novos: NovoAprovadorForm[] };
 }
 
 function lerContrato(fd: FormData) {
@@ -36,6 +36,7 @@ function lerContrato(fd: FormData) {
     texto: String(fd.get("texto") ?? "").trim(),
     nivel: (fd.get("nivel") === "assinado" ? "assinado" : "nominal") as NivelComprovacao,
     exigeCpf: fd.get("exigeCpf") !== null,
+    relatorioAtendimentos: (fd.get("relatorioAtendimentos") === "analitico" ? "analitico" : "sintetico") as TipoRelatorioAtendimentos,
     ativo: fd.get("ativo") !== null,
     aprovadorIds: [...new Set(fd.getAll("aprovadorIds").map(String))],
     // Linhas totalmente vazias são ignoradas.
@@ -78,6 +79,7 @@ export async function salvarContratoDoSistema(clienteId: string, sistemaDoClient
     texto: d.texto,
     nivel: d.nivel,
     exigeCpf: d.exigeCpf,
+    relatorioAtendimentos: d.relatorioAtendimentos,
     ativo: d.ativo,
     aprovadorIds: [...marcados.map((a) => a!.id), ...criados.map((a) => a.id)],
   });

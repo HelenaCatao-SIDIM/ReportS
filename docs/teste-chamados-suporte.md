@@ -24,3 +24,9 @@ Pré-requisito: o fluxo do n8n importado e ativo (`docs/n8n-resumo-chamados.md`)
     - Sem o nome: o bloco mostra o aviso "Todos os sistemas do cliente…" (para a administração; o aprovador não vê) e o total é o do cliente inteiro.
 11. **Mês sem visitas:** Relatórios → Novo relatório de um período em que o cliente não teve visita. O rascunho é criado ("Nenhuma visita." e "0 visitas"), o bloco de chamados aparece e **Emitir e enviar** fica habilitado, com ou sem chamados no período. O PDF não tem horas nem tabela de visitas; o e-mail diz "Nenhuma visita registrada no período". Se o n8n não puder ser consultado (fora do ar ou conexão não configurada), o botão fica desabilitado e a tela explica.
 12. **Permissão:** quem não tem `reports.relatorios.gerenciar` não abre Configurações.
+13. **Sintético e analítico:** em Administração → Clientes → contrato, a seção "Relatório de atendimentos do suporte" vem com **Sintético** marcado (também nos contratos que já existiam).
+    - **Sintético:** emita um relatório. O PDF traz o painel (atendimentos, espera média, atendimento médio, tempo total e "por tabulação", com barras, quantidades, porcentagens e linhas finas) e **não** traz a lista nem nomes de solicitantes.
+    - Troque para **Analítico**, salve, e emita outro período. O rascunho mostra o selo "Relatório analítico". O PDF traz o mesmo painel e, depois da capa, "Atendimentos do suporte — lista completa", com todos os atendimentos do mais antigo ao mais recente (20 por página, cabeçalho repetido): data e horário, tempo, solicitante, técnico, assunto e tabulação, **sem protocolo**. O texto do PDF confere com a contagem do painel.
+    - A página do aprovador mostra só o painel, nos dois tipos. A Administração vê a lista completa em "Ver os N atendimentos".
+    - Sem o dado no n8n (fluxo antigo, sem solicitante ou tempo): a lista mostra "—" e o tempo é calculado pelo encerramento menos a abertura.
+

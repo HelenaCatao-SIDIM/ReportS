@@ -7,6 +7,7 @@ import { PERMISSOES } from "@/lib/permissoes";
 import { buscarContrato } from "@/lib/repo/contratos";
 import { atualizarVisitasDoRascunho, criarRascunho, excluirRascunho } from "@/lib/repo/relatorios";
 import { emitirRelatorio } from "@/lib/emissao";
+import { limparCacheSuporte } from "@/lib/suporte";
 
 export interface NovoRelatorioState {
   erros?: Partial<Record<"cliente" | "contrato" | "de" | "ate" | "geral", string>>;
@@ -42,6 +43,7 @@ export async function criarRelatorio(_: NovoRelatorioState, fd: FormData): Promi
 export async function recalcularVisitas(id: string) {
   await exigirPermissaoAcao(PERMISSOES.relatoriosGerenciar);
   const { antes, depois } = await atualizarVisitasDoRascunho(id);
+  limparCacheSuporte(); // os chamados também são buscados de novo no n8n
   revalidatePath("/admin/relatorios", "layout");
   revalidatePath("/admin/visitas", "layout");
   redirect(`/admin/relatorios/${id}?ok=atualizado&antes=${antes}&depois=${depois}`);
