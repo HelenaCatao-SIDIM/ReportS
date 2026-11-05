@@ -1,34 +1,23 @@
 import "server-only";
 import { reports } from "@/lib/db";
-import { cifrar, decifrar } from "@/lib/segredo";
 
 /*
- * Configurações editadas na Administração (tabela `configuracoes`, chave → valor). Hoje só a conexão com o n8n dos chamados de
- * suporte: o endereço do webhook e a chave. A chave fica cifrada no banco (`segredo.ts`) e nunca volta para a tela.
+ * Configurações editadas na Administração (tabela `configuracoes`, chave → valor). Hoje só o endereço do webhook do n8n dos
+ * chamados de suporte. Não há senha nem chave: o endereço é o único dado da conexão.
  */
 
 const N8N_URL = "n8n.resumo_chamados.url";
-const N8N_CHAVE = "n8n.resumo_chamados.chave";
+/** Chave que uma versão anterior guardava (cifrada); não é mais usada e é apagada ao salvar. */
+const N8N_CHAVE_ANTIGA = "n8n.resumo_chamados.chave";
 
-const ler = async (chave: string) => (await reports.configuracao.findUnique({ where: { chave } }))?.valor ?? null;
-const gravar = (chave: string, valor: string) => reports.configuracao.upsert({ where: { chave }, create: { chave, valor }, update: { valor } });
-
-/** Endereço e chave para chamar o n8n, ou null se a conexão não está configurada (ou a chave não abre mais). */
-export async function lerConexaoN8n(): Promise<{ url: string; chave: string } | null> {
-  const [url, cifrada] = await Promise.all([ler(N8N_URL), ler(N8N_CHAVE)]);
-  const chave = cifrada ? decifrar(cifrada) : null;
-  return url && chave ? { url, chave } : null;
+/** Endereço do webhook do n8n, ou null se ainda não foi informado. */
+export async function lerUrlN8n(): Promise<string | null> {
+  return (await reports.configuracao.findUnique({ where: { chave: N8N_URL } }))?.valor ?? null;
 }
 
-/** O que a tela pode mostrar: o endereço e se há chave guardada (a chave em si nunca sai). */
-export async function situacaoConexaoN8n(): Promise<{ url: string; temChave: boolean; chaveIlegivel: boolean }> {
-  const [url, cifrada] = await Promise.all([ler(N8N_URL), ler(N8N_CHAVE)]);
-  const temChave = !!cifrada && decifrar(cifrada) !== null;
-  return { url: url ?? "", temChave, chaveIlegivel: !!cifrada && !temChave };
-}
-
-/** Grava o endereço e, se informada, a chave (chave null = manter a que já está guardada). */
-export async function salvarConexaoN8n(url: string, chave: string | null) {
-  await gravar(N8N_URL, url);
-  if (chave) await gravar(N8N_CHAVE, cifrar(chave));
+export async function salvarUrlN8n(url: string) {
+  await reports.$transaction([
+    reports.configuracao.upsert({ where: { chave: N8N_URL }, create: { chave: N8N_URL, valor: url }, update: { valor: url } }),
+    reports.configuracao.deleteMany({ where: { chave: N8N_CHAVE_ANTIGA } }),
+  ]);
 }

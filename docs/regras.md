@@ -255,7 +255,7 @@ Onde: `src/app/admin/visitas/actions.ts`, `src/lib/repo/visitas.ts`, `src/compon
 
 ### Chamados de suporte (sempre ativos)
 
-Todo relatório mostra quantos chamados o cliente **abriu e teve fechados** no período, a partir dos atendimentos do Fortics guardados pelo n8n. A contagem é do **sistema do contrato**: o ReportS manda o "Nome no Fortics" do sistema, e o n8n filtra pelo campo `sistema`. Sistema sem "Nome no Fortics": contam todos os sistemas do cliente, e só a Administração vê o aviso. Detalhes em `docs/n8n-resumo-chamados.md`. A conexão com o n8n (endereço e chave) se configura em **Administração → Configurações** (permissão de relatórios), guardada no banco com a chave cifrada, e não por variável de ambiente; sem a conexão, o bloco some do relatório do cliente e a Administração vê o aviso.
+Todo relatório mostra quantos chamados o cliente **abriu e teve fechados** no período, a partir dos atendimentos do Fortics guardados pelo n8n. A contagem é do **sistema do contrato**: o ReportS manda o "Nome no Fortics" do sistema, e o n8n filtra pelo campo `sistema`. Sistema sem "Nome no Fortics": contam todos os sistemas do cliente, e só a Administração vê o aviso. Detalhes em `docs/n8n-resumo-chamados.md`. A conexão com o n8n (só o endereço do webhook, sem chave) se configura em **Administração → Configurações** (permissão de relatórios), guardada no banco, e não por variável de ambiente; sem a conexão, o bloco some do relatório do cliente e a Administração vê o aviso.
 
 Onde: `src/lib/repo/relatorios.ts`, `src/lib/emissao.tsx`, `src/lib/email.ts`, `src/app/admin/relatorios/actions.ts`, `src/app/aprovacao/[token]/`.
 

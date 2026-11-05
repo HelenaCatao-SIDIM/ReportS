@@ -1,11 +1,11 @@
 import "server-only";
 import { connection } from "next/server";
-import { lerConexaoN8n } from "@/lib/repo/configuracoes";
+import { lerUrlN8n } from "@/lib/repo/configuracoes";
 import type { ChamadoSuporte, Cliente, ContagemSuporte, ResumoSuporte } from "@/lib/types";
 
 /*
  * Resumo dos chamados de suporte do cliente (abertos e fechados) no período, pedido ao fluxo
- * "Reports Sidim - Resumo de chamados por cliente" do n8n. Só o servidor chama, com a chave.
+ * "Reports Sidim - Resumo de chamados por cliente" do n8n. Só o servidor chama (sem chave: o endereço do webhook é o único dado da conexão).
  * Nunca lança exceção: em qualquer falha devolve situacao "indisponivel" (o relatório segue sem os números).
  */
 
@@ -57,10 +57,10 @@ export function lerResposta(json: unknown): Omit<ResumoSuporte, "situacao" | "co
   return { totalAbertosEFechados: total as number, porSistema, porTopico, porMotivoEncerramento, tempoMedioEsperaMin: (espera as number | null | undefined) ?? null, chamados };
 }
 
-async function pedir(corpo: object, conexao: { url: string; chave: string }): Promise<Response> {
-  return fetch(conexao.url, {
+async function pedir(corpo: object, url: string): Promise<Response> {
+  return fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json", "x-api-key": conexao.chave },
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(corpo),
     signal: AbortSignal.timeout(TIMEOUT_MS),
     cache: "no-store",
@@ -81,8 +81,8 @@ export async function buscarResumoSuporte(
   const filtro = sistema?.trim() || null;
   const nomes = (cliente.nomesFortics ?? []).filter(Boolean);
   if (!nomes.length) return vazio("sem_vinculo");
-  const conexao = await lerConexaoN8n();
-  if (!conexao) return vazio("nao_configurado");
+  const url = await lerUrlN8n();
+  if (!url) return vazio("nao_configurado");
 
   const chave = JSON.stringify([nomes, de, ate, filtro]);
   const guardado = cache.get(chave);
@@ -91,7 +91,7 @@ export async function buscarResumoSuporte(
   const corpo = { clientes: nomes, inicio: de, fim: ate, incluirLista: true, ...(filtro ? { sistema: filtro } : {}) };
   for (let tentativa = 1; tentativa <= 2; tentativa++) {
     try {
-      const r = await pedir(corpo, conexao);
+      const r = await pedir(corpo, url);
       // Erro do servidor: tenta mais uma vez. Erro do pedido (4xx): não adianta repetir.
       if (r.status >= 500 && tentativa === 1) continue;
       if (!r.ok) {
@@ -107,7 +107,7 @@ export async function buscarResumoSuporte(
       cache.set(chave, { em: Date.now(), resumo });
       return resumo;
     } catch (e) {
-      // Rede ou tempo esgotado: tenta mais uma vez. A chave nunca vai para o log.
+      // Rede ou tempo esgotado: tenta mais uma vez.
       if (tentativa === 2) console.error(`[suporte] falha ao consultar o n8n (cliente ${cliente.id}):`, e instanceof Error ? e.message : e);
     }
   }
@@ -116,14 +116,14 @@ export async function buscarResumoSuporte(
 
 export type ResultadoTeste = { ok: true } | { ok: false; erro: string };
 
-/** Testa a conexão com o n8n guardada (um pedido de um dia, sem lista, para um cliente que não existe). Nunca devolve nem registra a chave. */
+/** Testa o endereço do n8n guardado (um pedido de um dia, sem lista, para um cliente que não existe). */
 export async function testarConexaoN8n(): Promise<ResultadoTeste> {
-  const conexao = await lerConexaoN8n();
-  if (!conexao) return { ok: false, erro: "Informe o endereço e a chave do n8n." };
+  const url = await lerUrlN8n();
+  if (!url) return { ok: false, erro: "Informe o endereço do webhook do n8n." };
   const hoje = new Date().toISOString().slice(0, 10);
   try {
-    const r = await pedir({ clientes: ["Teste de conexão do ReportS"], inicio: hoje, fim: hoje, incluirLista: false }, conexao);
-    if (r.status === 403 || r.status === 401) return { ok: false, erro: "O n8n recusou a chave. Confira se é a mesma da credencial “Chave Reports Sidim” do fluxo." };
+    const r = await pedir({ clientes: ["Teste de conexão do ReportS"], inicio: hoje, fim: hoje, incluirLista: false }, url);
+    if (r.status === 401 || r.status === 403) return { ok: false, erro: `O n8n recusou o pedido (erro ${r.status}). Se o nó Webhook do fluxo ainda exige uma credencial, ponha Authentication: None.` };
     if (r.status === 404) return { ok: false, erro: "Endereço não encontrado no n8n. Confira a URL de produção do webhook e se o fluxo está ativo." };
     if (!r.ok) return { ok: false, erro: `O n8n respondeu com erro ${r.status}.` };
     if (!lerResposta(await r.json().catch(() => null))) return { ok: false, erro: "O n8n respondeu, mas num formato diferente do esperado. Confira se é o fluxo “Reports Sidim - Resumo de chamados por cliente”." };

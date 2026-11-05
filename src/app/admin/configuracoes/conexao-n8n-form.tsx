@@ -9,12 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-/** Conexão com o n8n que traz os chamados do suporte (Fortics) para o relatório. A chave nunca volta para a tela. */
-export function ConexaoN8nForm({ url, temChave, chaveIlegivel }: { url: string; temChave: boolean; chaveIlegivel: boolean }) {
+/** Conexão com o n8n que traz os chamados do suporte (Fortics) para o relatório: só o endereço do webhook. */
+export function ConexaoN8nForm({ url }: { url: string }) {
   const [state, action, pending] = useActionState<ConexaoN8nState, FormData>(salvarConexao, {});
   const e = state.erros ?? {};
-  // Depois de salvar, a tela já tem a chave guardada (o campo volta em branco).
-  const guardada = temChave || !!state.salvo;
+  const guardado = !!url || !!state.salvo;
 
   return (
     <form action={action} className="max-w-2xl">
@@ -23,28 +22,14 @@ export function ConexaoN8nForm({ url, temChave, chaveIlegivel }: { url: string; 
           <CardTitle>Chamados de suporte (n8n)</CardTitle>
           <CardDescription>
             Os chamados do Fortics entram em todos os relatórios, vindos do fluxo “Reports Sidim - Resumo de chamados por cliente” do n8n. Informe o endereço do
-            webhook de produção e a chave desse fluxo. A chave fica guardada cifrada e não aparece de novo aqui.
+            webhook de produção desse fluxo.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Campo id="url" label="Endereço do webhook" erro={e.url} dica="Exemplo: https://seu-n8n/webhook/resumo-chamados-cliente (o de produção, não o de teste).">
+          <Campo id="url" label="Endereço do webhook" erro={e.url} dica="Exemplo: https://seu-n8n/webhook/resumo-chamados-cliente (o de produção, não o de teste). Quem souber este endereço consulta os chamados: não o divulgue.">
             <Input id="url" name="url" type="url" defaultValue={state.url ?? url} placeholder="https://" autoComplete="off" aria-invalid={!!e.url} />
           </Campo>
-          <Campo
-            id="chave"
-            label="Chave de acesso"
-            erro={e.chave}
-            dica={guardada ? "Há uma chave guardada. Deixe em branco para mantê-la, ou digite outra para trocar." : "A mesma da credencial “Chave Reports Sidim” do fluxo no n8n."}
-          >
-            <Input id="chave" name="chave" type="password" autoComplete="new-password" placeholder={guardada ? "••••••••••••" : ""} aria-invalid={!!e.chave} />
-          </Campo>
 
-          {chaveIlegivel && !state.salvo && (
-            <Alert className="border-amber-300 bg-amber-50 text-amber-900">
-              <AlertCircle />
-              <AlertDescription className="text-amber-900">A chave guardada não pode mais ser lida (a chave de segurança do servidor mudou). Digite a chave de novo.</AlertDescription>
-            </Alert>
-          )}
           {state.teste && (
             <Alert className={state.teste.ok ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-destructive/40 bg-destructive/5 text-destructive"}>
               {state.teste.ok ? <CheckCircle2 /> : <AlertCircle />}
@@ -56,7 +41,7 @@ export function ConexaoN8nForm({ url, temChave, chaveIlegivel }: { url: string; 
           )}
 
           <div className="flex flex-wrap justify-end gap-2">
-            {guardada && (
+            {guardado && (
               <Button type="submit" name="acao" value="testar" variant="outline" disabled={pending}>
                 Testar de novo
               </Button>

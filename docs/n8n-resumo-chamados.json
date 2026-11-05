@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## Resumo de chamados por cliente (Reports Sidim)\nRecebe `{ clientes, inicio, fim, incluirLista, sistema? }` e devolve quantos chamados **abertos e fechados** o cliente teve no período, lendo a tabela **atendimentos**. O `sistema` é opcional: com ele, conta só os chamados cujo campo **sistema** é igual a esse nome (o \"Nome no Fortics\" do sistema, cadastrado no SINC); sem ele, conta todos os sistemas do cliente.\n\nAntes de ativar:\n1. No nó **Webhook**, em *Credential for Header Auth*, crie a credencial **Chave Reports Sidim** (Name `x-api-key`, Value = uma chave longa e aleatória). A mesma chave vai no `.env.local` do Reports.\n2. No nó **Ler atendimentos**, confira se a tabela escolhida é **atendimentos**.\n3. No nó **Montar resumo**, confira `FUSO_DATAS` (veja o guia).\n\nNunca devolve transcrição nem avaliações das IAs.",
+        "content": "## Resumo de chamados por cliente (Reports Sidim)\nRecebe `{ clientes, inicio, fim, incluirLista, sistema? }` e devolve quantos chamados **abertos e fechados** o cliente teve no período, lendo a tabela **atendimentos**. O `sistema` é opcional: com ele, conta só os chamados cujo campo **sistema** é igual a esse nome (o \"Nome no Fortics\" do sistema, cadastrado no SINC); sem ele, conta todos os sistemas do cliente.\n\nAntes de ativar:\n1. O nó **Webhook** está sem autenticação (Authentication: None). Para o endereço não ser adivinhado, troque o *Path* por um texto longo e aleatório (ex.: resumo-chamados-<32 letras e números>) e informe o endereço de produção no Reports, em Administração → Configurações.\n2. No nó **Ler atendimentos**, confira se a tabela escolhida é **atendimentos**.\n3. No nó **Montar resumo**, confira `FUSO_DATAS` (veja o guia).\n\nNunca devolve transcrição nem avaliações das IAs.",
         "height": 420,
         "width": 420,
         "color": 4
@@ -21,7 +21,6 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "resumo-chamados-cliente",
-        "authentication": "headerAuth",
         "responseMode": "responseNode",
         "options": {}
       },

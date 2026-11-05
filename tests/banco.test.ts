@@ -318,19 +318,15 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     assert.equal((await cronograma.listarCronograma("2026-11-01", { contratoId })).length, 1, "só o item que já existia");
   });
 
-  test("configurações: a chave do n8n fica cifrada no banco e só se troca se vier outra", async () => {
+  test("configurações: o endereço do n8n é guardado e a chave de uma versão anterior é apagada", async () => {
     await db.reports.configuracao.deleteMany();
-    assert.equal(await configuracoes.lerConexaoN8n(), null);
-    await configuracoes.salvarConexaoN8n("https://n8n.exemplo.com/webhook/resumo", "chave-secreta-123");
-    assert.deepEqual(await configuracoes.lerConexaoN8n(), { url: "https://n8n.exemplo.com/webhook/resumo", chave: "chave-secreta-123" });
-    const crua = await db.reports.configuracao.findMany();
-    assert.ok(crua.every((c) => !c.valor.includes("chave-secreta-123")), "a chave não está em texto puro no banco");
-    assert.deepEqual(await configuracoes.situacaoConexaoN8n(), { url: "https://n8n.exemplo.com/webhook/resumo", temChave: true, chaveIlegivel: false });
-    await configuracoes.salvarConexaoN8n("https://n8n.exemplo.com/webhook/novo", null);
-    assert.deepEqual(await configuracoes.lerConexaoN8n(), { url: "https://n8n.exemplo.com/webhook/novo", chave: "chave-secreta-123" }, "chave em branco mantém a guardada");
-    await db.reports.configuracao.update({ where: { chave: "n8n.resumo_chamados.chave" }, data: { valor: "v1.a.b.c" } });
-    assert.equal(await configuracoes.lerConexaoN8n(), null, "chave que não abre = sem conexão");
-    assert.equal((await configuracoes.situacaoConexaoN8n()).chaveIlegivel, true);
+    assert.equal(await configuracoes.lerUrlN8n(), null);
+    await db.reports.configuracao.create({ data: { chave: "n8n.resumo_chamados.chave", valor: "v1.a.b.c" } });
+    await configuracoes.salvarUrlN8n("https://n8n.exemplo.com/webhook/resumo");
+    assert.equal(await configuracoes.lerUrlN8n(), "https://n8n.exemplo.com/webhook/resumo");
+    await configuracoes.salvarUrlN8n("https://n8n.exemplo.com/webhook/novo");
+    assert.equal(await configuracoes.lerUrlN8n(), "https://n8n.exemplo.com/webhook/novo");
+    assert.deepEqual((await db.reports.configuracao.findMany()).map((c) => c.chave), ["n8n.resumo_chamados.url"], "a chave antiga saiu");
     await db.reports.configuracao.deleteMany();
   });
 
