@@ -1,5 +1,6 @@
 import "server-only";
 import { connection } from "next/server";
+import { nomesDoCliente } from "@/lib/config-suporte";
 import { lerUrlN8n } from "@/lib/repo/configuracoes";
 import type { ChamadoSuporte, Cliente, ContagemSuporte, ResumoSuporte } from "@/lib/types";
 
@@ -72,14 +73,14 @@ async function pedir(corpo: object, url: string): Promise<Response> {
  * `sistema`: o "Nome no Fortics" do sistema do contrato, para contar só os chamados desse sistema; vazio = todos os sistemas do cliente.
  */
 export async function buscarResumoSuporte(
-  cliente: Pick<Cliente, "id" | "nomesFortics">,
+  cliente: Pick<Cliente, "id" | "nome" | "nomesFortics">,
   de: string,
   ate: string,
   sistema?: string | null,
 ): Promise<ResumoSuporte> {
   await connection(); // a hora da consulta e o cache dependem da requisição, nunca da pré-renderização
   const filtro = sistema?.trim() || null;
-  const nomes = (cliente.nomesFortics ?? []).filter(Boolean);
+  const nomes = nomesDoCliente(cliente);
   if (!nomes.length) return vazio("sem_vinculo");
   const url = await lerUrlN8n();
   if (!url) return vazio("nao_configurado");
@@ -103,7 +104,7 @@ export async function buscarResumoSuporte(
         console.error(`[suporte] resposta do n8n em formato inesperado (cliente ${cliente.id}).`);
         return vazio("indisponivel");
       }
-      const resumo: ResumoSuporte = { situacao: "ok", ...dados, sistemaFiltro: filtro, consultadoEm: new Date().toISOString() };
+      const resumo: ResumoSuporte = { situacao: "ok", ...dados, sistemaFiltro: filtro, nomesBuscados: nomes, consultadoEm: new Date().toISOString() };
       cache.set(chave, { em: Date.now(), resumo });
       return resumo;
     } catch (e) {

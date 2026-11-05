@@ -377,6 +377,8 @@ export interface ResumoSuporte {
    * sistemas do cliente (o sistema não tem o nome cadastrado). Opcional: versões emitidas antes do filtro não têm.
    */
   sistemaFiltro?: string | null;
+  /** Nomes do cliente pelos quais os chamados foram buscados (o nome no SINC e os outros cadastrados). Opcional: versões antigas não têm. */
+  nomesBuscados?: string[];
   porTopico: ContagemSuporte[];
   porMotivoEncerramento: ContagemSuporte[];
   tempoMedioEsperaMin: number | null;

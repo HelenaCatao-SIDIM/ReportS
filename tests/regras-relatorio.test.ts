@@ -19,7 +19,7 @@ test("sem visitas, emite com chamados e também sem chamados no período (consul
 test("sem visitas, só não emite se os chamados não puderam ser consultados", () => {
   for (const [s, trecho] of [
     [suporte("indisponivel", 0), /não foi possível consultar/],
-    [suporte("sem_vinculo", 0), /Nome no SINC/],
+    [suporte("sem_vinculo", 0), /sem nome no cadastro/],
     [suporte("nao_configurado", 0), /Configurações/],
     [null, /não foi possível consultar/],
   ] as const) {

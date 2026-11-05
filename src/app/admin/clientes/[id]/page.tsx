@@ -69,7 +69,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/cliente
           <p className="mt-1 text-sm text-muted-foreground">
             {cliente.cnpj ? `CNPJ ${formatarCnpj(cliente.cnpj)}` : "CNPJ pendente"} · {cliente.origem === "sinc" ? "veio do SINC" : "criado no ReportS"}
             {" "}
-            · Nome no SINC (chamados de suporte): {cliente.nomesFortics.length ? cliente.nomesFortics.join(" · ") : "não informado"}
+            · Outros nomes nos atendimentos: {cliente.nomesFortics.length ? cliente.nomesFortics.join(" · ") : "nenhum (busca pelo nome do cliente)"}
           </p>
         </div>
         {podeCadastrar && (
