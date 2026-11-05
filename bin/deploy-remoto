@@ -16,6 +16,11 @@ falhar() {
   exit 1
 }
 
+# Pasta temporária (variável global de propósito: o trap de saída roda depois que a função principal já acabou).
+PASTA_TEMP=""
+limpar() { [[ -z "$PASTA_TEMP" ]] || rm -rf "$PASTA_TEMP"; }
+trap limpar EXIT
+
 principal() {
   cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
@@ -42,11 +47,10 @@ principal() {
   echo "NOVA=${sha:0:7}"
 
   # Migrações: o classificador vem do commit NOVO (assim uma correção dele vale já neste deploy).
-  local tmp saida
-  tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' EXIT
-  if git show "${sha}:scripts/migracoes-perigosas.mjs" >"$tmp/classificar.mjs" 2>/dev/null; then
-    saida="$(node "$tmp/classificar.mjs" "$atual" "$sha")" || falhar "não consegui comparar as migrações"
+  local saida
+  PASTA_TEMP="$(mktemp -d)"
+  if git show "${sha}:scripts/migracoes-perigosas.mjs" >"$PASTA_TEMP/classificar.mjs" 2>/dev/null; then
+    saida="$(node "$PASTA_TEMP/classificar.mjs" "$atual" "$sha")" || falhar "não consegui comparar as migrações"
   else
     saida=$'NOVAS=1\nPERIGOSA=true\nMIGRACAO (esta versão não traz o classificador) PERIGOSA: sem como conferir'
   fi
