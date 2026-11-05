@@ -164,10 +164,12 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/aprovacao/[to
             <div className="text-xs text-muted-foreground">Contrato</div>
             <div className="text-sm">{c.cliente.contrato}</div>
           </div>
-          <div>
-            <div className="text-xs text-muted-foreground">Total de horas presenciais</div>
-            <div className="text-2xl font-semibold text-primary">{horas}</div>
-          </div>
+          {visitas.length > 0 && (
+            <div>
+              <div className="text-xs text-muted-foreground">Total de horas presenciais</div>
+              <div className="text-2xl font-semibold text-primary">{horas}</div>
+            </div>
+          )}
           {c.minutosOnline > 0 && (
             <div>
               <div className="text-xs text-muted-foreground">Treinamento online</div>
@@ -194,6 +196,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/aprovacao/[to
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Atendimentos</h2>
+        {visitas.length === 0 && <p className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">Nenhuma visita registrada no período.</p>}
         {visitas.map((v, i) => (
           <details key={v.id} open={i === 0} className="group rounded-xl border bg-card">
             <summary className="flex cursor-pointer list-none items-center gap-3 p-4">

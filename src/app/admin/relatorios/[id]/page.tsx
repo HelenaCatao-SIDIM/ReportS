@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Download, Eye, FileText, Lock, Mail, MessageSquareWarning } from "lucide-react";
 import { montarConteudo } from "@/lib/repo/relatorios";
+import { conteudoParaEmitir } from "@/lib/regras-relatorio";
 import { dataLocal, formatarDataHora } from "@/lib/datas";
 import { formatarDataCurta, formatarMinutos } from "@/lib/visitas";
 import { StatusRelatorioBadge } from "@/components/relatorio/status";
@@ -126,6 +127,10 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
             aprovadores={contrato.aprovadores.filter((a) => a.ativo).map((a) => ({ nome: a.nome, email: a.email }))}
             visitas={c.visitas.length}
             horas={formatarMinutos(c.minutosPresenciais)}
+            bloqueio={(() => {
+              const pode = conteudoParaEmitir(c.visitas.length, dados.suporte);
+              return pode.ok ? null : pode.motivo;
+            })()}
           />
         )}
       </div>

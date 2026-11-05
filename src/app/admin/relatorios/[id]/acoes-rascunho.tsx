@@ -15,10 +15,12 @@ interface Props {
   aprovadores: { nome: string; email: string }[];
   visitas: number;
   horas: string;
+  /** Motivo de não poder emitir agora (ex.: período sem visitas e sem chamados), ou null. */
+  bloqueio: string | null;
 }
 
 /** Ações do rascunho: recalcular visitas, excluir e emitir (PDF + e-mail aos aprovadores). */
-export function AcoesRascunho({ id, podeExcluir, proximaVersao, aprovadores, visitas, horas }: Props) {
+export function AcoesRascunho({ id, podeExcluir, proximaVersao, aprovadores, visitas, horas, bloqueio }: Props) {
   const [pendente, start] = useTransition();
   const [confirmando, setConfirmando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -48,10 +50,11 @@ export function AcoesRascunho({ id, podeExcluir, proximaVersao, aprovadores, vis
           Excluir rascunho
         </Button>
       )}
-      <Button disabled={pendente || visitas === 0} onClick={() => setConfirmando(true)}>
+      <Button disabled={pendente || !!bloqueio} title={bloqueio ?? undefined} onClick={() => setConfirmando(true)}>
         <Send />
         {proximaVersao > 1 ? `Emitir v${proximaVersao}` : "Emitir e enviar"}
       </Button>
+      {bloqueio && <p className="basis-full text-xs text-muted-foreground">{bloqueio}</p>}
 
       <Dialog open={confirmando} onOpenChange={(o) => !pendente && setConfirmando(o)}>
         <DialogContent className="sm:max-w-md">

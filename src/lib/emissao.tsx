@@ -7,6 +7,7 @@ import { buscarSistema } from "@/lib/repo/sistemas";
 import { congelarCronograma } from "@/lib/repo/cronograma";
 import { dataLocal } from "@/lib/datas";
 import { formatarDataCurta } from "@/lib/visitas";
+import { conteudoParaEmitir } from "@/lib/regras-relatorio";
 import { RelatorioPdf, type ImagensPdf } from "@/lib/pdf/relatorio-pdf";
 import { lerImagemPorUrl, salvarArquivo } from "@/lib/repo/arquivos";
 import { congelar, montarConteudo, registrarEmissao } from "@/lib/repo/relatorios";
@@ -49,9 +50,15 @@ export async function emitirRelatorio(id: string) {
   let c = await montarConteudo(id);
   if (!c) throw new Error("Relatório não encontrado");
   if (c.relatorio.status !== "rascunho" && c.relatorio.status !== "ajuste_solicitado") throw new Error("Este relatório não pode ser emitido agora");
-  if (!c.visitas.length) return { erro: "O relatório não tem visitas." };
   if (!c.cliente.cnpj) return { erro: "O cliente está com o CNPJ pendente. Informe o CNPJ no cadastro do cliente antes de emitir." };
   if (!c.contrato.aprovadores.some((a) => a.ativo)) return { erro: `O contrato de ${c.contrato.sistemaNome} não tem aprovadores ativos.` };
+
+  // Chamados de suporte do período, congelados junto com a versão (PDF, página do aprovador e versões antigas mostram o mesmo número).
+  // Os chamados são do sistema do contrato: o "Nome no Fortics" do sistema vai como filtro.
+  const suporte = chamadosSuporte() ? await buscarResumoSuporte(c.cliente, c.relatorio.de, c.relatorio.ate, (await buscarSistema(c.contrato.sistema))?.nomeFortics) : null;
+  // Sem visitas, só emite se o período tem chamados de suporte.
+  const pode = conteudoParaEmitir(c.visitas.length, suporte);
+  if (!pode.ok) return { erro: pode.motivo };
 
   // A versão congelada é o que o cliente vê: converte antes os locais que ainda estão sem CEP.
   if ((await preencherCepsPendentes(c.visitas)) > 0) {
@@ -62,13 +69,11 @@ export async function emitirRelatorio(id: string) {
   const conteudo = congelar(c);
   const numero = c.relatorio.versoes.length + 1;
   const emitidoEm = new Date().toISOString();
-  // Chamados de suporte congelados junto com a versão: PDF, página do aprovador e versões antigas mostram o mesmo número.
-  // Os chamados são do sistema do contrato: o "Nome no Fortics" do sistema vai como filtro.
-  if (chamadosSuporte()) conteudo.suporte = await buscarResumoSuporte(c.cliente, c.relatorio.de, c.relatorio.ate, (await buscarSistema(c.contrato.sistema))?.nomeFortics);
+  if (suporte) conteudo.suporte = suporte;
   // Cronograma de implantação do contrato, na situação do dia da emissão: o cliente vê o mesmo na página e no PDF.
   conteudo.cronograma = await congelarCronograma(c.contrato.id, dataLocal(Date.parse(emitidoEm)));
   const pdf = await renderToBuffer(
-    <RelatorioPdf conteudo={conteudo} versao={numero} emitidoEm={emitidoEm} imagens={await carregarImagens(conteudo)} mostrarSuporte={chamadosSuportePdf()} />,
+    <RelatorioPdf conteudo={conteudo} versao={numero} emitidoEm={emitidoEm} imagens={await carregarImagens(conteudo)} mostrarSuporte={chamadosSuportePdf() || !conteudo.visitas.length} />,
   );
   const arquivo = await salvarArquivo(pdf, "application/pdf");
 
@@ -84,7 +89,7 @@ export async function emitirRelatorio(id: string) {
       html: [
         `<p>Olá, ${esc(l.aprovadorNome)}.</p>`,
         `<p>Segue o relatório de atendimento da SIDIM referente ao sistema <b>${esc(conteudo.sistema.nome)}</b>, período de <b>${periodo}</b>${versao.numero > 1 ? `, versão <b>v${versao.numero}</b> (com os ajustes solicitados)` : ""}.</p>`,
-        `<p>${conteudo.visitas.length === 1 ? "1 visita registrada" : `${conteudo.visitas.length} visitas registradas`}. ${anexa ? "O PDF segue em anexo." : "O PDF ficou grande para anexar; baixe-o pela página do relatório."}</p>`,
+        `<p>${conteudo.visitas.length === 0 ? "Nenhuma visita registrada no período; o relatório traz os chamados de suporte atendidos" : conteudo.visitas.length === 1 ? "1 visita registrada" : `${conteudo.visitas.length} visitas registradas`}. ${anexa ? "O PDF segue em anexo." : "O PDF ficou grande para anexar; baixe-o pela página do relatório."}</p>`,
         `<p>Use o botão abaixo para ver o relatório completo e <b>aprovar</b> ou <b>pedir ajuste</b>. Basta a decisão de um dos aprovadores.</p>`,
       ].join(""),
       anexos: anexa ? [{ nome: `relatorio-${conteudo.de.slice(0, 7)}-v${versao.numero}.pdf`, url: arquivo.url, tamanho: pdf.length }] : [],

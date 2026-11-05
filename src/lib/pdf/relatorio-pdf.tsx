@@ -286,46 +286,51 @@ export function RelatorioPdf({
           </View>
         </View>
 
-        <View style={[s.caixa, { flexDirection: "row" }]}>
-          <View style={{ width: "50%" }}>
-            <Text style={s.rotulo}>Total de horas presenciais</Text>
-            <Text style={s.destaque}>{formatarMinutos(c.minutosPresenciais)}</Text>
-          </View>
-          {c.minutosOnline > 0 && (
+        {c.visitas.length > 0 && (
+          <View style={[s.caixa, { flexDirection: "row" }]}>
             <View style={{ width: "50%" }}>
-              <Text style={s.rotulo}>Treinamento online</Text>
-              <Text style={[s.destaque, { fontSize: 14 }]}>{formatarMinutos(c.minutosOnline)}</Text>
+              <Text style={s.rotulo}>Total de horas presenciais</Text>
+              <Text style={s.destaque}>{formatarMinutos(c.minutosPresenciais)}</Text>
             </View>
-          )}
-        </View>
+            {c.minutosOnline > 0 && (
+              <View style={{ width: "50%" }}>
+                <Text style={s.rotulo}>Treinamento online</Text>
+                <Text style={[s.destaque, { fontSize: 14 }]}>{formatarMinutos(c.minutosOnline)}</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {mostrarSuporte && c.suporte && <ChamadosSuportePdf r={c.suporte} />}
 
         {c.cronograma && <CronogramaPdf c={c.cronograma} />}
 
         <Text style={s.secao}>Visitas do período</Text>
-        <View style={s.tabela}>
-          <View style={[s.linha, s.cabecalho]}>
-            <Text style={{ width: "14%" }}>Data</Text>
-            <Text style={{ width: "22%" }}>Tipo</Text>
-            <Text style={{ width: "30%" }}>Estabelecimento / setor</Text>
-            <Text style={{ width: "20%" }}>Horário</Text>
-            <Text style={{ width: "14%" }}>Duração</Text>
-          </View>
-          {c.visitas.map((v) => (
-            <View key={v.id} style={s.linha} wrap={false}>
-              <Text style={{ width: "14%" }}>{formatarData(v.entrada)}</Text>
-              <Text style={{ width: "22%" }}>{rotuloTipo(v.tipo)}</Text>
-              <Text style={{ width: "30%" }}>
-                {v.unidadeNome} · {rotuloSetores(v)}
-              </Text>
-              <Text style={{ width: "20%" }}>
-                {formatarHora(v.entrada)}–{v.saida ? formatarHora(v.saida) : "—"}
-              </Text>
-              <Text style={{ width: "14%" }}>{v.saida ? formatarDuracao(v.entrada, v.saida) : "—"}</Text>
+        {c.visitas.length === 0 && <Text style={[s.vazio, { marginBottom: 6 }]}>Nenhuma visita registrada no período.</Text>}
+        {c.visitas.length > 0 && (
+          <View style={s.tabela}>
+            <View style={[s.linha, s.cabecalho]}>
+              <Text style={{ width: "14%" }}>Data</Text>
+              <Text style={{ width: "22%" }}>Tipo</Text>
+              <Text style={{ width: "30%" }}>Estabelecimento / setor</Text>
+              <Text style={{ width: "20%" }}>Horário</Text>
+              <Text style={{ width: "14%" }}>Duração</Text>
             </View>
-          ))}
-        </View>
+            {c.visitas.map((v) => (
+              <View key={v.id} style={s.linha} wrap={false}>
+                <Text style={{ width: "14%" }}>{formatarData(v.entrada)}</Text>
+                <Text style={{ width: "22%" }}>{rotuloTipo(v.tipo)}</Text>
+                <Text style={{ width: "30%" }}>
+                  {v.unidadeNome} · {rotuloSetores(v)}
+                </Text>
+                <Text style={{ width: "20%" }}>
+                  {formatarHora(v.entrada)}–{v.saida ? formatarHora(v.saida) : "—"}
+                </Text>
+                <Text style={{ width: "14%" }}>{v.saida ? formatarDuracao(v.entrada, v.saida) : "—"}</Text>
+              </View>
+            ))}
+          </View>
+        )}
         <Text style={s.vazio}>Os CPFs dos participantes aparecem mascarados neste documento.</Text>
         <Rodape conteudo={c} versao={versao} />
       </Page>
