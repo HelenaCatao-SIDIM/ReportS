@@ -14,7 +14,7 @@ export function conteudoParaEmitir(visitas: number, suporte: Pick<ResumoSuporte,
     case "nao_configurado":
       return { ok: false, motivo: "O período não tem visitas e a conexão com o n8n ainda não foi configurada (Administração → Configurações), então não há chamados para mostrar." };
     case "sem_vinculo":
-      return { ok: false, motivo: "O período não tem visitas e o cliente está sem “Nome no SINC” para buscar os chamados de suporte. Preencha o nome no cadastro do cliente." };
+      return { ok: false, motivo: "O período não tem visitas e o cliente está sem nome no cadastro para buscar os chamados de suporte." };
     default:
       return { ok: false, motivo: "O período não tem visitas e não foi possível consultar os chamados de suporte agora. Tente de novo em instantes." };
   }

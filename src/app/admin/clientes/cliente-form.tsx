@@ -127,14 +127,14 @@ export function ClienteForm({ acao, cliente, sistemasDisponiveis, sistemasAtuais
       <Card key={`sinc-${JSON.stringify(state.valores ?? null)}`}>
         <CardHeader>
           <CardTitle>Chamados de suporte</CardTitle>
-          <CardDescription>Liga este cliente aos atendimentos do suporte, para o relatório mostrar os chamados abertos e fechados no período.</CardDescription>
+          <CardDescription>O relatório busca os chamados pelo nome do cliente no SINC, sem você digitar nada. Preencha abaixo só se o Fortics grava este cliente com outro nome.</CardDescription>
         </CardHeader>
         <CardContent>
           <Campo
             id="nomesFortics"
-            label="Nome no SINC"
+            label="Outros nomes nos atendimentos (opcional)"
             erro={e.nomesFortics}
-            dica="O nome do cliente no SINC, o mesmo que aparece no campo Cliente / Município dos atendimentos (ex.: Prefeitura de Vale Verde / Vale Verde). Um por linha; pode ter mais de um."
+            dica="Como o cliente aparece no campo Cliente / Município dos atendimentos do Fortics, quando é diferente do nome dele no SINC (ex.: Prefeitura de Vale Verde / Vale Verde). Um por linha; até 10."
           >
             <Textarea
               id="nomesFortics"

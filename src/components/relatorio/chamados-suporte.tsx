@@ -35,6 +35,17 @@ function Tabela({ titulo, itens }: { titulo: string; itens: ContagemSuporte[] })
   );
 }
 
+/** Só para a Administração: por quais nomes do cliente os chamados foram buscados, para conferir quando o resultado parece errado. */
+function NomesBuscados({ nomes, aviso = false }: { nomes?: string[]; aviso?: boolean }) {
+  if (!nomes?.length) return null;
+  return (
+    <p className="text-xs text-muted-foreground">
+      Chamados buscados pelo nome: {nomes.join(" · ")}.{" "}
+      {aviso && "Se o Fortics grava este cliente com outro nome, cadastre-o em Clientes → editar → “Outros nomes nos atendimentos”. "}
+    </p>
+  );
+}
+
 /**
  * Bloco "Chamados de suporte" do relatório.
  * `publico="aprovador"`: só totais e tabelas (sem a lista de chamados e sem nome de agente);
@@ -45,7 +56,7 @@ export function ChamadosSuporte({ resumo: r, publico }: { resumo: ResumoSuporte;
 
   let corpo: React.ReactNode;
   if (r.situacao === "sem_vinculo") {
-    corpo = <p className="text-sm text-muted-foreground">Cliente sem vínculo com o SINC. Informe o “Nome no SINC” no cadastro do cliente.</p>;
+    corpo = <p className="text-sm text-muted-foreground">Cliente sem nome no cadastro: não há pelo que buscar os chamados.</p>;
   } else if (r.situacao === "nao_configurado") {
     corpo = (
       <p className="text-sm text-muted-foreground">
@@ -59,7 +70,12 @@ export function ChamadosSuporte({ resumo: r, publico }: { resumo: ResumoSuporte;
   } else if (r.situacao === "indisponivel") {
     corpo = <p className="text-sm text-muted-foreground">Dados de suporte indisponíveis no momento.</p>;
   } else if (r.totalAbertosEFechados === 0) {
-    corpo = <p className="text-sm text-muted-foreground">Nenhum chamado no período.</p>;
+    corpo = (
+      <div className="space-y-1">
+        <p className="text-sm text-muted-foreground">Nenhum chamado no período.</p>
+        {publico === "administracao" && <NomesBuscados nomes={r.nomesBuscados} aviso />}
+      </div>
+    );
   } else {
     corpo = (
       <div className="space-y-4">
@@ -75,6 +91,7 @@ export function ChamadosSuporte({ resumo: r, publico }: { resumo: ResumoSuporte;
             </div>
           )}
         </div>
+        {publico === "administracao" && <NomesBuscados nomes={r.nomesBuscados} />}
         {publico === "administracao" && r.sistemaFiltro !== undefined && (
           <p className="text-xs text-muted-foreground">
             {r.sistemaFiltro
