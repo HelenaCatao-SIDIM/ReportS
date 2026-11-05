@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ChevronDown, Headset } from "lucide-react";
 import type { ContagemSuporte, ResumoSuporte } from "@/lib/types";
 import { formatarDataHora } from "@/lib/datas";
@@ -40,11 +41,21 @@ function Tabela({ titulo, itens }: { titulo: string; itens: ContagemSuporte[] })
  * cliente sem vínculo com o SINC não mostra nada para o aprovador.
  */
 export function ChamadosSuporte({ resumo: r, publico }: { resumo: ResumoSuporte; publico: "administracao" | "aprovador" }) {
-  if (publico === "aprovador" && r.situacao === "sem_vinculo") return null;
+  if (publico === "aprovador" && (r.situacao === "sem_vinculo" || r.situacao === "nao_configurado")) return null;
 
   let corpo: React.ReactNode;
   if (r.situacao === "sem_vinculo") {
     corpo = <p className="text-sm text-muted-foreground">Cliente sem vínculo com o SINC. Informe o “Nome no SINC” no cadastro do cliente.</p>;
+  } else if (r.situacao === "nao_configurado") {
+    corpo = (
+      <p className="text-sm text-muted-foreground">
+        A conexão com o n8n ainda não foi configurada, então os chamados não aparecem no relatório. Configure em{" "}
+        <Link href="/admin/configuracoes" className="font-medium text-primary hover:underline">
+          Administração → Configurações
+        </Link>
+        .
+      </p>
+    );
   } else if (r.situacao === "indisponivel") {
     corpo = <p className="text-sm text-muted-foreground">Dados de suporte indisponíveis no momento.</p>;
   } else if (r.totalAbertosEFechados === 0) {

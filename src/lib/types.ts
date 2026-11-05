@@ -368,7 +368,8 @@ export interface ChamadoSuporte {
 
 /** Resumo dos chamados de suporte do cliente no período, vindo do n8n (congelado na emissão). */
 export interface ResumoSuporte {
-  situacao: "ok" | "sem_vinculo" | "indisponivel";
+  /** "nao_configurado": a conexão com o n8n ainda não foi informada em Administração → Configurações. */
+  situacao: "ok" | "sem_vinculo" | "indisponivel" | "nao_configurado";
   totalAbertosEFechados: number;
   porSistema: ContagemSuporte[];
   /**

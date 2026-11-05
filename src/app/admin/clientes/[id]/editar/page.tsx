@@ -7,7 +7,6 @@ import { listarSistemas } from "@/lib/repo/sistemas";
 import { PageHeader } from "@/components/shell/placeholder";
 import { ClienteForm } from "../../cliente-form";
 import { editarCliente } from "../../actions";
-import { chamadosSuporte } from "@/lib/config-suporte";
 
 export default function EditarClientePage({ params }: PageProps<"/admin/clientes/[id]/editar">) {
   return (
@@ -29,7 +28,6 @@ async function Formulario({ params }: Pick<PageProps<"/admin/clientes/[id]/edita
     <ClienteForm
       acao={editarCliente.bind(null, id)}
       cliente={cliente}
-      chamadosAtivos={chamadosSuporte()}
       sistemasAtuais={atuais}
       sistemasDisponiveis={ativos.filter((s) => !jaTem.has(s.codigo))}
     />

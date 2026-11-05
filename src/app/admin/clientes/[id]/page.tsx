@@ -12,7 +12,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Unidades } from "./unidades";
 import { buscaCoordenadas } from "@/lib/config";
-import { chamadosSuporte } from "@/lib/config-suporte";
 import { exigirAdministracao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
 
@@ -69,12 +68,8 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/cliente
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {cliente.cnpj ? `CNPJ ${formatarCnpj(cliente.cnpj)}` : "CNPJ pendente"} · {cliente.origem === "sinc" ? "veio do SINC" : "criado no ReportS"}
-            {chamadosSuporte() && (
-              <>
-                {" "}
-                · Nome no SINC (chamados de suporte): {cliente.nomesFortics.length ? cliente.nomesFortics.join(" · ") : "não informado"}
-              </>
-            )}
+            {" "}
+            · Nome no SINC (chamados de suporte): {cliente.nomesFortics.length ? cliente.nomesFortics.join(" · ") : "não informado"}
           </p>
         </div>
         {podeCadastrar && (

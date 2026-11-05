@@ -30,7 +30,7 @@ bin/deploy
 O que deve aparecer, em ordem:
 
 1. `git pull`, `npm ci` (instala `read-excel-file` e `write-excel-file`), a conferência da estrutura da plataforma e o `build`.
-2. Em "migrações do banco reports": `20261103145715_cronograma`, `20261104130000_visita_setores` e `20261104190000_presenca_validacao`. Se Equipes ainda não estava no ar, aparece também `20261103220617_equipes` (todas funcionam em qualquer ordem e só acrescentam tabela ou coluna).
+2. Em "migrações do banco reports": `20261103145715_cronograma`, `20261104130000_visita_setores`, `20261104190000_presenca_validacao` e `20261105150000_configuracoes` (a tabela das configurações editadas na Administração). Se Equipes ainda não estava no ar, aparece também `20261103220617_equipes` (todas funcionam em qualquer ordem e só acrescentam tabela ou coluna).
 3. `deploy finalizado`, com o `reports-web` ativo (running).
 
 **Se parar em "estrutura do banco plataforma confere?":** o SINC mudou uma tabela que o ReportS lê. O app antigo continua no ar. Rode `npm run db:plataforma:ler`, revise o `git diff` de `prisma/plataforma/schema.prisma` e avise o time de desenvolvimento antes de mexer em qualquer outra coisa.

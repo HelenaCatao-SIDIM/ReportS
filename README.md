@@ -334,22 +334,16 @@ suporte já são filtrados pelo sistema do contrato (Fase 2). A **Fase 5** (jun�
 6. Contrato e relatório quando o cliente tem dois tenants do mesmo sistema (QA-043 do SINC, decidida em 30/10/2026: pode): hoje cada contrato
    mostra o mesmo número de chamados do cliente naquele sistema; falta decidir se o contrato é por cliente ou por tenant.
 
-## Chamados de suporte no relatório (opcional)
+## Chamados de suporte no relatório
 
-Mostra no relatório quantos chamados de suporte o cliente **abriu e teve fechados** no período, a partir dos
-atendimentos do Fortics que o n8n da SIDIM já guarda (tabela `atendimentos`). Desligado por padrão.
+Todo relatório mostra quantos chamados de suporte o cliente **abriu e teve fechados** no período, a partir dos
+atendimentos do Fortics que o n8n da SIDIM já guarda (tabela `atendimentos`). É **sempre ativo**: não há como desligar.
 
-```bash
-CHAMADOS_SUPORTE=true
-CHAMADOS_SUPORTE_PDF=false
-N8N_RESUMO_CHAMADOS_URL=https://<seu-n8n>/webhook/resumo-chamados-cliente
-N8N_RESUMO_CHAMADOS_CHAVE=<a mesma chave da credencial "Chave Reports Sidim" no n8n>
-```
-
+- **Conexão com o n8n (na tela, sem variável de ambiente):** Administração → **Configurações** → "Chamados de suporte (n8n)". Informe o endereço do webhook de produção e a chave do fluxo, e clique em **Salvar e testar**. A chave fica **cifrada no banco** (AES-256-GCM, com chave derivada do `SESSION_SECRET`) e nunca volta para a tela; chave em branco ao salvar mantém a guardada. Se o `SESSION_SECRET` mudar, a chave guardada deixa de abrir e é preciso digitá-la de novo. Quem tem `reports.relatorios.gerenciar` acessa a tela. Em produção o endereço precisa ser `https://`.
 - O fluxo do n8n está em `docs/n8n-resumo-chamados.json` (importar no n8n) e o passo a passo em `docs/n8n-resumo-chamados.md`.
-- Em cada cliente, preencha **"Nome no SINC"** (o nome do cliente no SINC, o mesmo do campo Cliente / Município dos atendimentos). O campo só aparece com `CHAMADOS_SUPORTE=true`.
+- Em cada cliente, preencha **"Nome no SINC"** (o nome do cliente no SINC, o mesmo do campo Cliente / Município dos atendimentos). Sem ele, o relatório não busca chamados daquele cliente.
 - Os números são buscados na emissão e **congelados na versão**: PDF, página do aprovador e versões antigas mostram sempre o mesmo número.
-- Só o servidor chama o n8n, com a chave. Se o n8n falhar, o relatório é emitido com "Dados de suporte indisponíveis".
-- O aprovador vê só os totais e as contagens (sem a lista de chamados e sem nomes de atendentes).
+- Só o servidor chama o n8n, com a chave. Se o n8n falhar, o relatório é emitido com "Dados de suporte indisponíveis". Enquanto a conexão não estiver configurada, o bloco não aparece para o cliente (nem no PDF); a Administração vê o aviso no rascunho.
+- O resumo (totais e contagens) sai no relatório, na página do aprovador e na capa do PDF. A lista de chamados, com o atendente, só a Administração vê.
 - **Por sistema:** se o sistema do contrato tem **"Nome no Fortics"** cadastrado (no SINC, em Configurações > Sistemas), o pedido ao n8n leva `sistema` e só entram os chamados desse sistema. Sem esse nome, entram todos os do cliente e a Administração vê um aviso. O fluxo do n8n precisa estar na versão com o parâmetro `sistema`.
-- `CHAMADOS_SUPORTE_PDF=true` coloca o resumo também na capa do PDF.
+- **Mês sem visitas:** o relatório sai assim mesmo, só com os chamados e o cronograma.
