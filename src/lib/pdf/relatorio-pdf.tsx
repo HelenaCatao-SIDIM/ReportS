@@ -6,7 +6,7 @@ import { formatarData, formatarDataHora, formatarDuracao, formatarHora } from "@
 import { formatarCbo, formatarCnpj, mascararCpf } from "@/lib/format";
 import { ROTULO_MEIO } from "@/lib/meio";
 import { ehPresencial, formatarDataCurta, formatarMinutos, nomesDosSetores, rotuloSetores, rotuloTipo } from "@/lib/visitas";
-import { ROTULO_SITUACAO, resumoCronograma } from "@/lib/cronograma";
+import { ROTULO_SITUACAO_RELATORIO, resumoCronograma, situacaoNoRelatorio } from "@/lib/cronograma";
 
 // Sem hifenização automática: em colunas estreitas o padrão quebrava palavras ("Recursos Hu-manos").
 Font.registerHyphenationCallback((palavra) => [palavra]);
@@ -240,7 +240,7 @@ export function CronogramaPdf({ c }: { c: CronogramaCongelado }) {
             <Text style={{ width: "18%" }}>{rotuloTipo(i.tipo)}</Text>
             <Text style={{ width: "14%" }}>{formatarDataCurta(i.prazo)}</Text>
             <Text style={{ width: "18%" }}>
-              {ROTULO_SITUACAO[i.situacao]}
+              {ROTULO_SITUACAO_RELATORIO[situacaoNoRelatorio(i.situacao)]}
               {i.cumpridoEm ? ` (${formatarDataCurta(i.cumpridoEm)})` : ""}
             </Text>
           </View>

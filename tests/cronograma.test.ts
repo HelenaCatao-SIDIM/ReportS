@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DIAS_A_VENCER, calcularSituacao, contarPorSituacao, descreverPrazo, diasEntre, estaPendente, prazoValido, resumoCronograma, urgencia, type VisitaParaCronograma } from "@/lib/cronograma";
+import { DIAS_A_VENCER, ROTULO_SITUACAO_RELATORIO, calcularSituacao, contarPorSituacao, descreverPrazo, diasEntre, estaPendente, prazoValido, resumoCronograma, situacaoNoRelatorio, urgencia, type VisitaParaCronograma } from "@/lib/cronograma";
 import type { CronogramaCongelado, ItemCronograma } from "@/lib/types";
 
 const item = (o: Partial<ItemCronograma> = {}): ItemCronograma => ({
@@ -96,6 +96,15 @@ test("textos do prazo e resumo do relatório", () => {
 
   const i = (situacao: CronogramaCongelado["itens"][number]["situacao"]) => ({ unidadeNome: "Sede", setorNome: null, tipo: "treinamento" as const, prazo: "2026-11-20", situacao, cumpridoEm: null });
   assert.equal(resumoCronograma({ em: "2026-11-01", itens: [i("cumprido")] }), "1 de 1 item cumprido");
-  assert.equal(resumoCronograma({ em: "2026-11-01", itens: [i("cumprido"), i("cumprido_com_atraso"), i("atrasado"), i("atrasado"), i("no_prazo")] }), "2 de 5 itens cumpridos · 2 atrasados");
-  assert.equal(resumoCronograma({ em: "2026-11-01", itens: [i("a_vencer"), i("atrasado")] }), "0 de 2 itens cumpridos · 1 atrasado");
+  assert.equal(resumoCronograma({ em: "2026-11-01", itens: [i("cumprido"), i("cumprido_com_atraso"), i("atrasado"), i("atrasado"), i("no_prazo")] }), "2 de 5 itens cumpridos");
+  assert.equal(resumoCronograma({ em: "2026-11-01", itens: [i("a_vencer"), i("atrasado")] }), "0 de 2 itens cumpridos");
+});
+
+test("o cliente não lê atraso: cumprido com atraso vira Cumprido e atrasado vira Pendente", () => {
+  assert.equal(ROTULO_SITUACAO_RELATORIO[situacaoNoRelatorio("cumprido_com_atraso")], "Cumprido");
+  assert.equal(ROTULO_SITUACAO_RELATORIO[situacaoNoRelatorio("atrasado")], "Pendente");
+  assert.equal(ROTULO_SITUACAO_RELATORIO[situacaoNoRelatorio("cumprido")], "Cumprido");
+  assert.equal(ROTULO_SITUACAO_RELATORIO[situacaoNoRelatorio("a_vencer")], "A vencer");
+  assert.equal(ROTULO_SITUACAO_RELATORIO[situacaoNoRelatorio("no_prazo")], "No prazo");
+  for (const r of Object.values(ROTULO_SITUACAO_RELATORIO)) assert.doesNotMatch(r, /atras/i);
 });
