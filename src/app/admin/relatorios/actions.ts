@@ -6,7 +6,7 @@ import { exigirPermissaoAcao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
 import { buscarContrato } from "@/lib/repo/contratos";
 import { atualizarVisitasDoRascunho, criarRascunho, excluirRascunho } from "@/lib/repo/relatorios";
-import { emitirRelatorio } from "@/lib/emissao";
+import { emitirRelatorio, enviarRelatorio } from "@/lib/emissao";
 import { limparCacheSuporte } from "@/lib/suporte";
 
 export interface NovoRelatorioState {
@@ -57,11 +57,21 @@ export async function apagarRascunho(id: string) {
   redirect("/admin/relatorios?ok=excluido");
 }
 
+/** Emite a próxima versão (PDF) sem enviar nada. Dá para emitir de novo (v2, v3…) até o relatório ser aprovado. */
 export async function emitir(id: string): Promise<string | null> {
   await exigirPermissaoAcao(PERMISSOES.relatoriosGerenciar);
   const r = await emitirRelatorio(id);
   if ("erro" in r) return r.erro ?? "Não foi possível emitir.";
   revalidatePath("/admin/relatorios", "layout");
+  redirect(`/admin/relatorios/${id}?ok=emitido&versao=${r.versao}`);
+}
+
+/** Envia por e-mail a última versão emitida aos aprovadores do contrato (também para reenviar). */
+export async function enviar(id: string): Promise<string | null> {
+  await exigirPermissaoAcao(PERMISSOES.relatoriosGerenciar);
+  const r = await enviarRelatorio(id);
+  if ("erro" in r) return r.erro ?? "Não foi possível enviar.";
+  revalidatePath("/admin/relatorios", "layout");
   revalidatePath("/admin/emails");
-  redirect(`/admin/relatorios/${id}?ok=emitido&destinatarios=${r.destinatarios}&falhas=${r.falhas}`);
+  redirect(`/admin/relatorios/${id}?ok=enviado&versao=${r.versao}&destinatarios=${r.destinatarios}&falhas=${r.falhas}`);
 }

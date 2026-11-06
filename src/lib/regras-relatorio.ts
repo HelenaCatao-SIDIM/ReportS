@@ -1,4 +1,4 @@
-import type { ResumoSuporte } from "@/lib/types";
+import type { ResumoSuporte, StatusRelatorio } from "@/lib/types";
 
 /**
  * Regra de emissão do relatório, compartilhada entre servidor e navegador (não acessa banco).
@@ -19,3 +19,13 @@ export function conteudoParaEmitir(visitas: number, suporte: Pick<ResumoSuporte,
       return { ok: false, motivo: "O período não tem visitas e não foi possível consultar os chamados de suporte agora. Tente de novo em instantes." };
   }
 }
+
+/**
+ * O relatório pode ser atualizado (visitas e chamados) e ganhar uma versão nova (v2, v3…) enquanto não foi aprovado.
+ * Depois da aprovação ele fica travado, junto com as visitas.
+ */
+export const podeAtualizarRelatorio = (status: StatusRelatorio) => status !== "aprovado";
+
+/** Enviar por e-mail: só uma versão já emitida e ainda não decidida (reenviar vale para a que já foi enviada). */
+export const podeEnviarRelatorio = (status: StatusRelatorio) => status === "emitido" || status === "enviado";
+

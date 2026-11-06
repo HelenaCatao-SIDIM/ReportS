@@ -69,7 +69,7 @@ export async function salvarContratoDoSistema(clienteId: string, sistemaDoClient
     else if (await buscarAprovadorPorEmail(a.email)) errosNovos[i] = "Este e-mail já está no cadastro: marque a pessoa na lista.";
     vistos.add(a.email);
   }
-  if (marcados.filter((a) => a.ativo).length + d.novos.length === 0) erros.aprovadores = "Escolha pelo menos um aprovador (ou cadastre um novo).";
+  // Aprovador é opcional: sem ele o relatório é emitido e o PDF é baixado para enviar por fora; só o envio por e-mail precisa de aprovador.
 
   if (Object.keys(erros).length || Object.keys(errosNovos).length) return { erros, errosNovos, valores: d };
 

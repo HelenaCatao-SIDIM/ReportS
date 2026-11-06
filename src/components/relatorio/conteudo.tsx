@@ -41,7 +41,7 @@ export function ConteudoRelatorio({ c, tituloVisitas, linkVisitas }: { c: DadosC
               </div>
               <div>
                 <dt className="text-xs text-muted-foreground">CNPJ</dt>
-                <dd className="text-sm">{formatarCnpj(c.cliente.cnpj)}</dd>
+                <dd className="text-sm">{formatarCnpj(c.cliente.cnpj) || "—"}</dd>
               </div>
               <div>
                 <dt className="text-xs text-muted-foreground">Sistema</dt>

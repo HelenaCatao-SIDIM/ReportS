@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Download, Eye, FileText, Lock, Mail, MessageSquareWarning } from "lucide-react";
 import { montarConteudo } from "@/lib/repo/relatorios";
-import { conteudoParaEmitir } from "@/lib/regras-relatorio";
+import { conteudoParaEmitir, podeAtualizarRelatorio } from "@/lib/regras-relatorio";
 import { dataLocal, formatarDataHora } from "@/lib/datas";
 import { formatarDataCurta, formatarMinutos } from "@/lib/visitas";
 import { StatusRelatorioBadge } from "@/components/relatorio/status";
@@ -18,7 +18,7 @@ import { congelarCronograma } from "@/lib/repo/cronograma";
 import { agendarCepPendente, locaisPendentes } from "@/lib/cep-visitas";
 import { horaDoServidor } from "@/lib/agora";
 import { AtualizarEnquantoPendente } from "@/components/visita/atualizar-enquanto-pendente";
-import { AcoesRascunho } from "./acoes-rascunho";
+import { AcoesRelatorio } from "./acoes-relatorio";
 
 export default function RelatorioPage({ params, searchParams }: PageProps<"/admin/relatorios/[id]">) {
   return (
@@ -44,10 +44,13 @@ function Mensagem({ sp }: { sp: Record<string, string | string[] | undefined> })
   }
   const falhas = Number(sp.falhas) || 0;
   if (sp.ok === "emitido") {
+    texto = `Versão v${Number(sp.versao) || ""} emitida: PDF gerado. Nada foi enviado por e-mail: baixe o PDF na lista de versões abaixo ou use “Enviar por e-mail”.`;
+  }
+  if (sp.ok === "enviado") {
     const total = Number(sp.destinatarios) || 0;
     texto = emailReal()
-      ? `Relatório emitido: PDF gerado e e-mail enviado a ${total - falhas} de ${total} aprovador(es). Veja na Caixa de saída.`
-      : `Relatório emitido: PDF gerado e e-mail simulado para ${total} aprovador(es) (envio real desligado). Veja na Caixa de saída.`;
+      ? `Versão v${Number(sp.versao) || ""} enviada: e-mail para ${total - falhas} de ${total} aprovador(es). Veja na Caixa de saída.`
+      : `Versão v${Number(sp.versao) || ""} enviada: e-mail simulado para ${total} aprovador(es) (envio real desligado). Veja na Caixa de saída.`;
   }
   if (!texto) return null;
   return (
@@ -56,11 +59,11 @@ function Mensagem({ sp }: { sp: Record<string, string | string[] | undefined> })
         <CheckCircle2 />
         <AlertDescription className="text-emerald-800">{texto}</AlertDescription>
       </Alert>
-      {sp.ok === "emitido" && falhas > 0 && (
+      {sp.ok === "enviado" && falhas > 0 && (
         <Alert className="border-amber-300 bg-amber-50 text-amber-900">
           <AlertTriangle />
           <AlertDescription className="text-amber-900">
-            O envio falhou para {falhas} aprovador(es). O relatório está emitido e os links existem; veja o motivo na Caixa de saída.
+            O envio falhou para {falhas} aprovador(es). A versão está emitida e os links existem; veja o motivo na Caixa de saída e use “Reenviar”.
           </AlertDescription>
         </Alert>
       )}
@@ -73,18 +76,18 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
   const c = await montarConteudo(id);
   if (!c) notFound();
   const { relatorio: r, cliente, contrato } = c;
-  const editavel = r.status === "rascunho" || r.status === "ajuste_solicitado";
+  // Até a aprovação o relatório pode ser atualizado e ganhar uma versão nova (v2, v3…); a página mostra os dados de agora.
+  const editavel = podeAtualizarRelatorio(r.status);
   const ultima = r.versoes.at(-1);
 
-  // Emitido com conteúdo congelado: mostra o que o cliente recebeu (o CEP já foi congelado junto). Em edição, ou sem
-  // conteúdo congelado (como o relatório de exemplo), mostra os dados atuais: as visitas sem CEP começam a ser
+  // Aprovado: mostra o conteúdo congelado da versão aprovada (o CEP já foi congelado junto). Antes disso, ou sem conteúdo
+  // congelado (como o relatório de exemplo), mostra os dados atuais: as visitas sem CEP começam a ser
   // convertidas agora, e a tela se atualiza sozinha.
   const congelado = !editavel && !!ultima?.conteudo;
   const agora = await horaDoServidor();
   if (!congelado) for (const v of c.visitas) agendarCepPendente(v, agora);
   const pendentes = congelado ? 0 : locaisPendentes(c.visitas);
 
-  // Emitido: mostra o conteúdo congelado da última versão (o que o cliente recebeu); em edição, os dados atuais.
   const dados: DadosConteudo =
     congelado && ultima?.conteudo
       ? ultima.conteudo
@@ -120,10 +123,12 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
           </p>
         </div>
         {editavel && (
-          <AcoesRascunho
+          <AcoesRelatorio
             id={r.id}
             podeExcluir={r.status === "rascunho" && r.versoes.length === 0}
             proximaVersao={r.versoes.length + 1}
+            ultimaVersao={r.versoes.length}
+            jaEnviada={r.status === "enviado"}
             aprovadores={contrato.aprovadores.filter((a) => a.ativo).map((a) => ({ nome: a.nome, email: a.email }))}
             visitas={c.visitas.length}
             horas={formatarMinutos(c.minutosPresenciais)}
@@ -146,8 +151,8 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
             </div>
             <p className="mt-1 italic">“{ultima.decisao.motivo}”</p>
             <p className="mt-2 text-xs">
-              Abra as visitas abaixo e use “Corrigir” (o motivo fica no histórico). Se faltou ou sobrou visita, use “Atualizar visitas e chamados”. Depois, emita a
-              v{r.versoes.length + 1}: os links da v{ultima.numero} deixam de valer e os aprovadores recebem a nova versão.
+              Abra as visitas abaixo e use “Corrigir” (o motivo fica no histórico). Se faltou ou sobrou visita, use “Atualizar”. Depois, emita a v{r.versoes.length + 1} e
+              envie: os links da v{ultima.numero} deixam de valer.
             </p>
           </AlertDescription>
         </Alert>
@@ -162,7 +167,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
         </Alert>
       )}
 
-      {r.status === "ajuste_solicitado" && ultima?.conteudo && (
+      {editavel && ultima?.conteudo && (
         <Mudancas
           titulo={`O que mudou desde a v${ultima.numero} (entrará na v${r.versoes.length + 1})`}
           visitas={c.visitas}
@@ -190,7 +195,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
                     </div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                       <Mail className="size-3" />
-                      {v.enviadoPara.map((p) => p.nome).join(", ")}
+                      {v.enviadoPara.length ? `Enviada para ${v.enviadoPara.map((p) => p.nome).join(", ")}` : "Ainda não enviada por e-mail"}
                     </div>
                     <div className="mt-1 text-xs">
                       {v.decisao ? (
@@ -204,10 +209,10 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
                           </span>
                         )
                       ) : v.numero < r.versoes.length ? (
-                        <span className="text-muted-foreground">Substituída pela v{v.numero + 1} sem decisão.</span>
-                      ) : (
+                        <span className="text-muted-foreground">Substituída pela v{v.numero + 1}.</span>
+                      ) : v.enviadoPara.length ? (
                         <span className="text-muted-foreground">Aguardando decisão do cliente.</span>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -222,9 +227,8 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
                     )}
                     {v.pdfUrl && (
                       <a
-                        href={v.pdfUrl}
-                        target="_blank"
-                        rel="noreferrer"
+                        href={`/admin/relatorios/${r.id}/versoes/${v.numero}/pdf`}
+                        download
                         className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-sm hover:bg-muted"
                       >
                         <Download className="size-4" />
@@ -246,8 +250,8 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/relator
       />
       <p className="text-xs text-muted-foreground">
         {editavel
-          ? "Prévia do conteúdo como o cliente verá (CPF mascarado). Para corrigir uma visita, abra-a e use “Corrigir”."
-          : "Conteúdo exatamente como foi enviado ao cliente."}
+          ? "Prévia do conteúdo como o cliente verá (CPF mascarado). Para corrigir uma visita, abra-a e use “Corrigir”. “Atualizar” busca de novo as visitas e os chamados."
+          : "Conteúdo exatamente como foi aprovado pelo cliente."}
       </p>
     </div>
   );

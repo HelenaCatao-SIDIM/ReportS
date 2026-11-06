@@ -57,7 +57,7 @@ Se o técnico tiver uma visita em andamento de testes anteriores, encerre-a (che
 
 1. Com `admin@teste.local`, em **Cronograma**: **Protocolo** e **Recursos Humanos** estão **Cumpridos** (o de Recursos Humanos foi cumprido por ter sido acrescentado à visita); **Tributação** continua "No prazo".
 2. Em **Visitas**, abra a visita: **Setores: Protocolo, Recursos Humanos**.
-3. **Relatórios** → **Novo relatório** (Prefeitura de Vale Verde, SERP, período que inclua hoje) → **Gerar rascunho**: a visita aparece como "Sede · Protocolo, Recursos Humanos". **Emitir e enviar** e baixe o PDF: os dois setores aparecem na lista de visitas e no quadro da visita ("Setores").
+3. **Relatórios** → **Novo relatório** (Prefeitura de Vale Verde, SERP, período que inclua hoje) → **Gerar rascunho**: a visita aparece como "Sede · Protocolo, Recursos Humanos". **Emitir v1** e baixe o PDF na lista de versões: os dois setores aparecem na lista de visitas e no quadro da visita ("Setores").
 
 ## 5. Contrato nominal (SCA)
 
