@@ -10,14 +10,18 @@ import { normalizar } from "@/lib/format";
  * só pela memória: nunca é gravada, registrada em log nem enviada ao navegador de volta. O que sobra é uma "prova"
  * assinada de curta duração, que a ação de presença confere (o navegador nunca decide sozinho que o login passou).
  *
- * Desligado por padrão, por tenant, com variáveis do servidor (tenant em maiúsculas e sem símbolos):
- *   SAUDE_API_<TENANT>_URL                 endereço da API do tenant (ex.: https://.../api_parademinas)
- *   SAUDE_API_<TENANT>_LOGIN_PARTICIPANTE  "true" para ligar
- * A senha viaja até a API: **em produção só liga com https://** (em desenvolvimento, http:// é aceito para testar).
+ * Uma chave só, para todos os clientes: SAUDE_LOGIN_PARTICIPANTE=true (desligado por padrão). O endereço da API de cada
+ * cliente vem do diretório de servidores do Saúde (SAUDE_SERVIDORES_URL; padrão: o da SIDIM), não de variável por cliente:
+ *   o tenant do sistema do cliente (ex.: saude_parademinas) é comparado com a pasta da logo de cada servidor
+ *   (".../saude_parademinas/Imagens/Logo_Prefeitura.png", a pasta antes de /Imagens/, em qualquer host); o servidor
+ *   que bater, e só um, dá o endereço da API ("endereco").
+ * A senha viaja até a API, e o diretório decide para onde: os dois são chamados **em https://**. O diretório publica a
+ * maioria dos endereços como http://, mas as APIs respondem em https:// no mesmo endereço: o http:// vira https://.
+ * Cliente não encontrado no diretório (ou encontrado mais de uma vez) fica sem o login, com a presença de antes.
  */
 
-/** "saude_parademinas" → "SAUDE_API_SAUDE_PARADEMINAS". */
-export const prefixoDoTenant = (tenant: string) => `SAUDE_API_${normalizar(tenant).toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "")}`;
+/** Diretório de servidores do Saúde da SIDIM: [{ idServidor, descricao, endereco, imagem }]. */
+export const DIRETORIO_PADRAO = "https://sidim.no-ip.net/servidores_saude/api/servidorsaude";
 
 /** Em produção só https://; fora dela, também http:// (para testar com uma API de desenvolvimento). */
 export function urlPermitida(url: string, producao: boolean): boolean {
@@ -45,25 +49,125 @@ export function enderecoBase(valor: string | undefined): string | undefined {
   return url || undefined;
 }
 
-/** Configuração do login do participante no tenant, ou null se estiver desligado (ou sem endereço, ou http:// em produção). */
-export function configLoginDoTenant(
+const avisar = (chave: string, mensagem: string) => {
+  if (avisados.has(chave)) return;
+  avisados.add(chave);
+  console.warn(`[saude-login] ${mensagem}`);
+};
+
+/**
+ * http:// vira https:// (as APIs do Saúde respondem nos dois no mesmo endereço, e a senha não pode ir aberta). Fora de
+ * produção, um endereço local (localhost, 127.0.0.1) fica como está, para testar com uma API falsa.
+ */
+export function emHttps(url: string, producao: boolean): string | null {
+  try {
+    const u = new URL(url);
+    if (u.protocol === "https:") return u.toString();
+    if (u.protocol !== "http:") return null;
+    if (!producao && (u.hostname === "localhost" || u.hostname === "127.0.0.1")) return u.toString();
+    u.protocol = "https:";
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+/** Pasta da logo do servidor: a que vem antes de /Imagens/, em qualquer host (".../saude_florestal/Imagens/x.png" → "saude_florestal"). */
+export function pastaDaImagem(imagem: unknown): string | null {
+  if (typeof imagem !== "string" || !imagem.trim()) return null;
+  try {
+    const partes = new URL(imagem.trim()).pathname.split("/").filter(Boolean);
+    const i = partes.findIndex((p) => p.toLowerCase() === "imagens");
+    return i > 0 ? normalizar(decodeURIComponent(partes[i - 1])) : null;
+  } catch {
+    return null;
+  }
+}
+
+export interface ServidorSaude {
+  endereco: string;
+  pasta: string | null;
+}
+
+/** A lista do diretório. `undefined` = a resposta não é uma lista (formato inesperado). */
+export function lerServidores(json: unknown): ServidorSaude[] | undefined {
+  if (!Array.isArray(json)) return undefined;
+  return json.flatMap((item): ServidorSaude[] => {
+    if (!item || typeof item !== "object") return [];
+    const o = item as Record<string, unknown>;
+    const endereco = typeof o.endereco === "string" ? o.endereco.trim() : "";
+    return endereco ? [{ endereco, pasta: pastaDaImagem(o.imagem) }] : [];
+  });
+}
+
+/** Endereço da API do tenant no diretório, já em https:// e sem o /api do fim. Null se não achar, ou se achar mais de um. */
+export function enderecoDoTenant(servidores: ServidorSaude[], tenant: string, producao: boolean): string | null {
+  const alvo = normalizar(tenant);
+  const achados = servidores.filter((s) => s.pasta === alvo);
+  if (achados.length !== 1) {
+    if (achados.length > 1) avisar(`dup:${alvo}`, `o tenant ${tenant} aparece em ${achados.length} servidores do diretório: o login do participante fica desligado nele.`);
+    return null;
+  }
+  const url = emHttps(achados[0].endereco, producao);
+  const base = url ? enderecoBase(url) : undefined;
+  return base && urlPermitida(base, producao) ? base : null;
+}
+
+// ---------- Diretório de servidores ----------
+
+/** A lista muda pouco: guardada por 10 minutos. Se o diretório falhar, vale a última lista boa. */
+const VALIDADE_MS = 10 * 60_000;
+const g = globalThis as unknown as { __diretorioSaude?: { url: string; em: number; servidores: ServidorSaude[] } };
+
+export function limparDiretorioGuardado() {
+  g.__diretorioSaude = undefined;
+}
+
+async function servidoresDoDiretorio(env: Record<string, string | undefined>, producao: boolean, agora = Date.now()): Promise<ServidorSaude[] | null> {
+  const url = emHttps(env.SAUDE_SERVIDORES_URL?.trim() || DIRETORIO_PADRAO, producao);
+  if (!url || !urlPermitida(url, producao)) {
+    avisar("diretorio-url", "SAUDE_SERVIDORES_URL não é um endereço https:// válido: o login do participante fica desligado.");
+    return null;
+  }
+  const guardado = g.__diretorioSaude?.url === url ? g.__diretorioSaude : undefined;
+  if (guardado && agora - guardado.em < VALIDADE_MS) return guardado.servidores;
+  try {
+    const r = await fetch(url, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(TIMEOUT_MS), cache: "no-store", redirect: "error" });
+    const servidores = r.ok ? lerServidores(await r.json().catch(() => undefined)) : undefined;
+    if (servidores) {
+      g.__diretorioSaude = { url, em: agora, servidores };
+      return servidores;
+    }
+  } catch {
+    // cai na última lista boa, abaixo
+  }
+  avisar(`diretorio-falha:${Math.floor(agora / VALIDADE_MS)}`, "o diretório de servidores do Saúde não respondeu: valendo a última lista boa, se houver.");
+  return guardado?.servidores ?? null;
+}
+
+/**
+ * Endereço da API do Saúde do tenant, tirado do diretório de servidores (em https:// e sem o /api do fim). Null se o tenant
+ * estiver vazio ou não estiver no diretório. Serve ao login do participante e à busca de estabelecimentos.
+ */
+export async function enderecoApiDoTenant(
   tenant: string | null,
   env: Record<string, string | undefined> = process.env,
   producao: boolean = process.env.NODE_ENV === "production",
-): ConfigLogin | null {
+): Promise<string | null> {
   if (!tenant?.trim()) return null;
-  const p = prefixoDoTenant(tenant);
-  if (env[`${p}_LOGIN_PARTICIPANTE`]?.trim().toLowerCase() !== "true") return null;
-  const url = enderecoBase(env[`${p}_URL`]);
-  if (!url) return null;
-  if (!urlPermitida(url, producao)) {
-    if (!avisados.has(p)) {
-      avisados.add(p);
-      console.warn(`[saude-login] ${p}_LOGIN_PARTICIPANTE está ligado, mas ${p}_URL não é https://: em produção o login do participante fica desligado.`);
-    }
-    return null;
-  }
-  return { url };
+  const servidores = await servidoresDoDiretorio(env, producao);
+  return servidores ? enderecoDoTenant(servidores, tenant, producao) : null;
+}
+
+/** Configuração do login do participante no tenant, ou null se estiver desligado ou se o tenant não estiver no diretório. */
+export async function configLoginDoTenant(
+  tenant: string | null,
+  env: Record<string, string | undefined> = process.env,
+  producao: boolean = process.env.NODE_ENV === "production",
+): Promise<ConfigLogin | null> {
+  if (env.SAUDE_LOGIN_PARTICIPANTE?.trim().toLowerCase() !== "true") return null;
+  const url = await enderecoApiDoTenant(tenant, env, producao);
+  return url ? { url } : null;
 }
 
 // ---------- Login na API ----------

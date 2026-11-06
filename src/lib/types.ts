@@ -96,6 +96,8 @@ export interface Unidade {
   longitude: number | null;
   /** Raio de verificação do check-in, em metros. Fora dele gera alerta para a administração; nunca bloqueia o técnico. */
   raioMetros: number;
+  /** CNES, quando o estabelecimento veio do Saúde com ele; vazio nos cadastrados à mão. */
+  cnes: string;
 }
 
 export interface Setor {

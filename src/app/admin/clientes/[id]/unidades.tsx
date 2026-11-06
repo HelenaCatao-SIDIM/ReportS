@@ -1,12 +1,15 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
-import { Check, ChevronDown, ExternalLink, Loader2, MapPin, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, CloudDownload, ExternalLink, Loader2, MapPin, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import type { UnidadeComSetores } from "@/lib/repo/clientes";
 import type { Setor } from "@/lib/types";
 import { RAIO_PADRAO_METROS } from "@/lib/distancia";
 import { cn } from "@/lib/utils";
 import { removerSetor, removerUnidade, salvarSetor, salvarUnidade, type UnidadeFormState } from "../actions";
+import { buscarEstabelecimentosSaude, importarEstabelecimentosSaude, type BuscaSaudeState, type ResultadoImportacao } from "../saude-actions";
+import type { EstabelecimentoSaude } from "@/lib/saude-estabelecimentos";
+import { normalizar } from "@/lib/format";
 import { buscarCoordenadas, type RespostaBusca } from "../geo-actions";
 import { Campo } from "@/components/form/campo";
 import { Button } from "@/components/ui/button";
@@ -309,6 +312,7 @@ function CartaoUnidade({ unidade, inicialAberta, onEditar, podeEditar }: { unida
                   <span>·</span>
                 </>
               )}
+              {unidade.cnes && <span className="shrink-0">CNES {unidade.cnes} ·</span>}
               <span className="shrink-0">
                 {n} {n === 1 ? "setor" : "setores"}
               </span>
@@ -356,12 +360,218 @@ function CartaoUnidade({ unidade, inicialAberta, onEditar, podeEditar }: { unida
   );
 }
 
+// ---------- Busca no Saúde ----------
+
+/** Endereço da ficha do CNES; sem ela, o logradouro e o CEP que o Saúde tiver (a maioria vem vazia). */
+const enderecoNaLista = (i: EstabelecimentoSaude) => i.cnesEndereco || [i.logradouro, i.cep && `CEP ${i.cep}`].filter(Boolean).join(" · ");
+
+/** A lista que veio do Saúde: escolher o que trazer (todos marcados no começo) e importar para o cliente. */
+function ListaSaude({ clienteId, itens, jaImportados }: { clienteId: string; itens: EstabelecimentoSaude[]; jaImportados: string[] }) {
+  const importados = new Set(jaImportados);
+  const [soComCnes, setSoComCnes] = useState(false);
+  const [busca, setBusca] = useState("");
+  const [marcados, setMarcados] = useState(() => new Set(itens.map((i) => i.codigo)));
+  const [resultado, setResultado] = useState<ResultadoImportacao | null>(null);
+  const [pending, start] = useTransition();
+
+  // "Só os com CNES" vale para a importação; a busca só filtra o que aparece (o que foi marcado continua marcado).
+  const base = soComCnes ? itens.filter((i) => i.cnes) : itens;
+  const termo = normalizar(busca);
+  const visiveis = termo ? base.filter((i) => [i.nome, i.codigo, i.cnes, enderecoNaLista(i)].some((c) => normalizar(c).includes(termo))) : base;
+  const escolhidos = base.filter((i) => marcados.has(i.codigo));
+  const comCnes = itens.filter((i) => i.cnes).length;
+  const todosMarcados = visiveis.length > 0 && visiveis.every((i) => marcados.has(i.codigo));
+
+  const alternar = (codigo: string) =>
+    setMarcados((m) => {
+      const n = new Set(m);
+      if (n.has(codigo)) n.delete(codigo);
+      else n.add(codigo);
+      return n;
+    });
+  const marcarVisiveis = (sim: boolean) =>
+    setMarcados((m) => {
+      const n = new Set(m);
+      for (const i of visiveis) {
+        if (sim) n.add(i.codigo);
+        else n.delete(i.codigo);
+      }
+      return n;
+    });
+  const importar = () =>
+    start(async () => {
+      setResultado(await importarEstabelecimentosSaude(clienteId, escolhidos).catch((): ResultadoImportacao => ({ ok: false, erro: "Não foi possível importar. Tente de novo." })));
+    });
+
+  if (resultado?.ok) {
+    return (
+      <div className="grid gap-2 text-sm">
+        <p className="flex items-center gap-2 font-medium text-emerald-800">
+          <Check className="size-4" />
+          Importação concluída: {resultado.incluidos} {resultado.incluidos === 1 ? "incluído" : "incluídos"} e {resultado.atualizados}{" "}
+          {resultado.atualizados === 1 ? "atualizado" : "atualizados"}.
+        </p>
+        <p className="text-muted-foreground">Os estabelecimentos já aparecem na lista do cliente. Ajuste a localização e o raio de cada um quando precisar.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+        <p>
+          <span className="font-medium">{itens.length} no Saúde</span> · {comCnes} com CNES · {itens.length - comCnes} sem CNES
+          {importados.size > 0 && ` · ${itens.filter((i) => importados.has(i.codigo)).length} já importados`}
+        </p>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" className="size-4 accent-primary" checked={soComCnes} onChange={(ev) => setSoComCnes(ev.target.checked)} />
+          Só os com CNES
+        </label>
+      </div>
+      <div className="relative">
+        <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          aria-label="Buscar estabelecimento"
+          placeholder="Buscar por nome, endereço, código ou CNES"
+          value={busca}
+          onChange={(ev) => setBusca(ev.target.value)}
+          className="h-9 pl-8"
+        />
+      </div>
+      <div className="max-h-[55vh] overflow-auto rounded-md border">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 bg-muted text-left text-xs text-muted-foreground">
+            <tr>
+              <th className="w-10 px-3 py-2">
+                <input
+                  type="checkbox"
+                  aria-label="Marcar todos"
+                  className="size-4 accent-primary"
+                  checked={todosMarcados}
+                  onChange={(ev) => marcarVisiveis(ev.target.checked)}
+                />
+              </th>
+              <th className="px-3 py-2 font-medium">Código</th>
+              <th className="px-3 py-2 font-medium">Nome</th>
+              <th className="px-3 py-2 font-medium">Endereço</th>
+              <th className="px-3 py-2 font-medium">CNES</th>
+              <th className="px-3 py-2 font-medium">Município (IBGE)</th>
+              <th className="px-3 py-2 font-medium">Situação</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {visiveis.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
+                  Nenhum estabelecimento encontrado.
+                </td>
+              </tr>
+            )}
+            {visiveis.map((i) => (
+              <tr key={i.codigo} className="cursor-pointer hover:bg-muted/50" onClick={() => alternar(i.codigo)}>
+                <td className="px-3 py-1.5">
+                  <input
+                    type="checkbox"
+                    aria-label={`Importar ${i.nome}`}
+                    className="size-4 accent-primary"
+                    checked={marcados.has(i.codigo)}
+                    onChange={() => alternar(i.codigo)}
+                    onClick={(ev) => ev.stopPropagation()}
+                  />
+                </td>
+                <td className="px-3 py-1.5 tabular-nums text-muted-foreground">{i.codigo}</td>
+                <td className="px-3 py-1.5">
+                  {i.nome}
+                  {i.cnesNome && normalizar(i.cnesNome) !== normalizar(i.nome) && (
+                    <span className="block text-xs text-muted-foreground">No CNES: {i.cnesNome}</span>
+                  )}
+                </td>
+                <td className="px-3 py-1.5 text-muted-foreground">
+                  {enderecoNaLista(i) || "—"}
+                  {i.latitude !== null && (
+                    <span className="flex items-center gap-0.5 text-xs text-emerald-700">
+                      <MapPin className="size-3" />
+                      com localização
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 py-1.5 tabular-nums">{i.cnes || <span className="text-muted-foreground">—</span>}</td>
+                <td className="px-3 py-1.5 tabular-nums">{i.municipio || <span className="text-muted-foreground">—</span>}</td>
+                <td className="px-3 py-1.5 text-xs">
+                  {importados.has(i.codigo) ? <span className="text-muted-foreground">Já importado</span> : <span className="text-emerald-700">Novo</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {resultado && !resultado.ok && (
+        <p role="alert" className="text-sm text-destructive">
+          {resultado.erro}
+        </p>
+      )}
+      <DialogFooter>
+        <Button onClick={importar} disabled={pending || escolhidos.length === 0}>
+          {pending ? <Loader2 className="animate-spin" /> : <CloudDownload />}
+          Importar {escolhidos.length} {escolhidos.length === 1 ? "selecionado" : "selecionados"}
+        </Button>
+      </DialogFooter>
+    </div>
+  );
+}
+
+/** Pede um usuário e uma senha do Saúde e mostra, só para ver, os estabelecimentos cadastrados lá. Não grava nada. */
+function BuscaSaude({ clienteId }: { clienteId: string }) {
+  const [state, action, pending] = useActionState<BuscaSaudeState, FormData>(buscarEstabelecimentosSaude.bind(null, clienteId), {});
+  const e = state.erros ?? {};
+
+  if (state.itens) return <ListaSaude clienteId={clienteId} itens={state.itens} jaImportados={state.jaImportados ?? []} />;
+
+  return (
+    <form action={action} noValidate className="grid gap-4">
+      <Campo id="s-usuario" label="Usuário do Saúde" erro={e.usuario}>
+        <Input id="s-usuario" name="usuario" defaultValue={state.usuario ?? ""} autoComplete="off" className="h-9" aria-invalid={!!e.usuario} />
+      </Campo>
+      <Campo id="s-senha" label="Senha" erro={e.senha} dica="Usada só para buscar a lista. O ReportS não guarda a senha.">
+        <Input id="s-senha" name="senha" type="password" autoComplete="off" className="h-9" aria-invalid={!!e.senha} />
+      </Campo>
+      {e.geral && (
+        <p role="alert" className="text-sm text-destructive">
+          {e.geral}
+        </p>
+      )}
+      <DialogFooter>
+        <Button type="submit" disabled={pending}>
+          {pending ? <Loader2 className="animate-spin" /> : <CloudDownload />}
+          Buscar
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
 // ---------- Seção ----------
 
-/** `podeEditar`: com a permissão de cadastrar clientes; sem ela a lista é só de consulta. */
-export function Unidades({ clienteId, unidades, buscaAtiva = false, podeEditar = true }: { clienteId: string; unidades: UnidadeComSetores[]; buscaAtiva?: boolean; podeEditar?: boolean }) {
+/**
+ * `podeEditar`: com a permissão de cadastrar clientes; sem ela a lista é só de consulta.
+ * `temSaude`: o cliente tem o sistema Saúde, então dá para buscar os estabelecimentos cadastrados lá.
+ */
+export function Unidades({
+  clienteId,
+  unidades,
+  buscaAtiva = false,
+  podeEditar = true,
+  temSaude = false,
+}: {
+  clienteId: string;
+  unidades: UnidadeComSetores[];
+  buscaAtiva?: boolean;
+  podeEditar?: boolean;
+  temSaude?: boolean;
+}) {
   // null = fechado; "nova" = criando; id = editando
   const [dialogo, setDialogo] = useState<string | null>(null);
+  const [buscandoSaude, setBuscandoSaude] = useState(false);
   const editando = unidades.find((u) => u.id === dialogo);
 
   return (
@@ -374,12 +584,31 @@ export function Unidades({ clienteId, unidades, buscaAtiva = false, podeEditar =
           </p>
         </div>
         {podeEditar && (
-          <Button variant="outline" onClick={() => setDialogo("nova")}>
-            <Plus />
-            Novo estabelecimento
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {temSaude && (
+              <Button variant="outline" onClick={() => setBuscandoSaude(true)}>
+                <CloudDownload />
+                Buscar do Saúde
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setDialogo("nova")}>
+              <Plus />
+              Novo estabelecimento
+            </Button>
+          </div>
         )}
       </div>
+
+      <Dialog open={buscandoSaude} onOpenChange={setBuscandoSaude}>
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Buscar estabelecimentos do Saúde</DialogTitle>
+            <DialogDescription>Entre com um usuário do Saúde deste cliente para ver os estabelecimentos cadastrados lá.</DialogDescription>
+          </DialogHeader>
+          {/* Remonta a cada abertura: começa de novo, sem a lista nem o usuário da vez anterior */}
+          {buscandoSaude && <BuscaSaude clienteId={clienteId} />}
+        </DialogContent>
+      </Dialog>
 
       {unidades.length === 0 ? (
         <Card className="items-center py-10 text-center text-sm text-muted-foreground">

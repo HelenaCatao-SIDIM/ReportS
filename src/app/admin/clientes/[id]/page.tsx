@@ -167,7 +167,14 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/cliente
         </div>
       </section>
 
-      <Unidades clienteId={id} unidades={unidades} buscaAtiva={buscaCoordenadas()} podeEditar={podeCadastrar} />
+      <Unidades
+        clienteId={id}
+        unidades={unidades}
+        buscaAtiva={buscaCoordenadas()}
+        podeEditar={podeCadastrar}
+        temSaude={sistemas.some((x) => x.sistema === "saude")}
+      />
+
     </div>
   );
 }

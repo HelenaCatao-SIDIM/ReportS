@@ -198,6 +198,7 @@ const paraUnidade = (u: LinhaUnidade): Unidade => ({
   latitude: u.latitude,
   longitude: u.longitude,
   raioMetros: u.raioMetros,
+  cnes: u.cnes,
 });
 
 const paraSetor = (s: { id: string; estabelecimentoId: string; nome: string }): Setor => ({ id: s.id, unidadeId: s.estabelecimentoId, nome: s.nome });
@@ -214,7 +215,8 @@ export async function buscarUnidade(id: string): Promise<Unidade | null> {
   return u ? paraUnidade(u) : null;
 }
 
-export type DadosUnidade = Omit<Unidade, "id" | "clienteId">;
+/** O CNES só vem da importação do Saúde: o formulário não mexe nele. */
+export type DadosUnidade = Omit<Unidade, "id" | "clienteId" | "cnes">;
 
 export async function criarUnidade(clienteId: string, dados: DadosUnidade): Promise<Unidade> {
   const chave = idPlataforma(clienteId);
@@ -224,6 +226,58 @@ export async function criarUnidade(clienteId: string, dados: DadosUnidade): Prom
 
 export async function atualizarUnidade(id: string, dados: DadosUnidade): Promise<void> {
   await reports.estabelecimento.updateMany({ where: { id }, data: dados });
+}
+
+/** Códigos do Saúde dos estabelecimentos já trazidos do Saúde para este cliente. */
+export async function codigosSaudeDoCliente(clienteId: string): Promise<string[]> {
+  const chave = idPlataforma(clienteId);
+  if (chave === null) return [];
+  const linhas = await reports.estabelecimento.findMany({ where: { clienteId: chave, codigoSaude: { not: null } }, select: { codigoSaude: true } });
+  return linhas.map((l) => l.codigoSaude!);
+}
+
+export interface EstabelecimentoDoSaude {
+  codigo: string;
+  nome: string;
+  cnes: string;
+  endereco: string;
+  /** Da ficha do CNES; nulas quando não há. */
+  latitude: number | null;
+  longitude: number | null;
+}
+
+/**
+ * Traz para o cliente os estabelecimentos escolhidos na busca do Saúde, pelo código do Saúde: o que é novo é criado (com o
+ * raio padrão e a localização do CNES); o que já veio antes tem nome e CNES atualizados, o endereço só quando há um, e a
+ * localização só quando ainda não tem (a ajustada à mão não muda). Raio e setores feitos no ReportS não mudam.
+ */
+export async function importarEstabelecimentosDoSaude(
+  clienteId: string,
+  itens: EstabelecimentoDoSaude[],
+  raioPadrao: number,
+): Promise<{ incluidos: number; atualizados: number }> {
+  const chave = idPlataforma(clienteId);
+  if (chave === null) throw new Error("Cliente não encontrado");
+  const linhas = await reports.estabelecimento.findMany({
+    where: { clienteId: chave, codigoSaude: { not: null } },
+    select: { codigoSaude: true, latitude: true, longitude: true },
+  });
+  const existentes = new Map(linhas.map((l) => [l.codigoSaude!, l.latitude !== null && l.longitude !== null]));
+  await reports.$transaction(
+    itens.map((i) => {
+      const local = i.latitude !== null && i.longitude !== null ? { latitude: i.latitude, longitude: i.longitude } : {};
+      return existentes.has(i.codigo)
+        ? reports.estabelecimento.update({
+            where: { clienteId_codigoSaude: { clienteId: chave, codigoSaude: i.codigo } },
+            data: { nome: i.nome, cnes: i.cnes, ...(i.endereco ? { endereco: i.endereco } : {}), ...(existentes.get(i.codigo) ? {} : local) },
+          })
+        : reports.estabelecimento.create({
+            data: { id: crypto.randomUUID(), clienteId: chave, codigoSaude: i.codigo, nome: i.nome, cnes: i.cnes, endereco: i.endereco, raioMetros: raioPadrao, ...local },
+          });
+    }),
+  );
+  const atualizados = itens.filter((i) => existentes.has(i.codigo)).length;
+  return { incluidos: itens.length - atualizados, atualizados };
 }
 
 /** Estabelecimento ou setor com visita registrada não pode ser removido: a visita aponta para ele. */
