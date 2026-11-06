@@ -55,7 +55,8 @@ export function lerResposta(json: unknown): Omit<ResumoSuporte, "situacao" | "co
     motivoEncerramento: txt(c.motivoEncerramento),
     agente: txt(c.agente),
     solicitante: txt(c.solicitante),
-    duracaoMin: naoNegativo(c.duracaoMin) ? (c.duracaoMin as number) : null,
+    // O fluxo atual do n8n manda o tempo real de atendimento (TMA) como tempoAtendimentoMin; o formato antigo, como duracaoMin.
+    duracaoMin: naoNegativo(c.duracaoMin) ? (c.duracaoMin as number) : naoNegativo(c.tempoAtendimentoMin) ? (c.tempoAtendimentoMin as number) : null,
   }));
   return { totalAbertosEFechados: total as number, porSistema, porTopico, porMotivoEncerramento, tempoMedioEsperaMin: (espera as number | null | undefined) ?? null, chamados };
 }

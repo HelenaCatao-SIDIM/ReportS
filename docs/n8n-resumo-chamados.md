@@ -1,13 +1,13 @@
 # Fluxo do n8n: resumo de chamados por cliente
 
 Arquivo para importar: `docs/n8n-resumo-chamados.json` (nome no n8n: **Reports Sidim - Resumo de chamados por cliente**).
-Ele **não altera** o fluxo de captura que já existe ("SIDIM - Suporte (Reset + Relatório + Captura)"): só lê a tabela `atendimentos`.
+Ele **não altera** o fluxo de captura que já existe ("SIDIM - Suporte (Reset + Relatório + Captura)"): só lê as tabelas `atendimentos` e `historico_atendimentos_geral` (esta, para o tempo de atendimento).
 
 ## Importar
 
 1. No n8n: **Workflows → ⋯ → Import from File** e escolha `docs/n8n-resumo-chamados.json`.
 2. Nó **Webhook**: o fluxo **não usa chave nem credencial** (*Authentication: None*). Como o endereço é a única proteção, troque o **Path** por um texto longo e aleatório (ex.: `resumo-chamados-` e mais 32 letras e números, que você pode gerar com `node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"`) e **não divulgue o endereço**: quem o souber consulta os chamados de qualquer cliente. Se puder, restrinja também por rede, para só o servidor do ReportS chamar o webhook.
-3. Nó **Ler atendimentos**: confira se a tabela escolhida é **atendimentos** (o arquivo já aponta para ela; se o n8n pedir, escolha de novo na lista).
+3. Nós **Ler atendimentos** e **Ler histórico (TMA)**: confira se as tabelas escolhidas são **atendimentos** e **historico_atendimentos_geral** (o arquivo já aponta para elas; se o n8n pedir, escolha de novo na lista).
 4. Nó **Montar resumo**: confira a constante `FUSO_DATAS` (abaixo).
 5. Salve e **ative** o fluxo. A URL de produção fica em `https://<seu-n8n>/webhook/resumo-chamados-cliente` → vai no ReportS, em Administração → Configurações (campo "Endereço do webhook"); o botão **Salvar e testar** confere o endereço.
 
@@ -15,7 +15,7 @@ Ele **não altera** o fluxo de captura que já existe ("SIDIM - Suporte (Reset +
 
 ```
 Webhook (POST) → Validar entrada → Entrada válida?
-   ├─ sim → Ler atendimentos → Montar resumo → Responder resumo (200)
+   ├─ sim → Ler atendimentos → Ler histórico (TMA) → Montar resumo → Responder resumo (200)
    └─ não → Responder erro (400)
 ```
 
@@ -27,11 +27,17 @@ Pedido:
 
 - `clientes`: 1 a 10 nomes, como no campo Cliente / Município dos atendimentos: o ReportS manda o nome do cliente no SINC e os "Outros nomes nos atendimentos" cadastrados. A comparação ignora acentos, maiúsculas e espaços extras.
 - `inicio`/`fim`: datas AAAA-MM-DD (horário de Brasília), inclusive, no máximo 12 meses.
-- `sistema` (**opcional**): o nome do sistema como o Fortics grava no campo **sistema** da tabela `atendimentos`. Com ele, o fluxo conta só os chamados desse sistema (mesma comparação sem acento, maiúsculas e espaços extras); sem ele, conta todos os sistemas do cliente, como antes. O Reports manda o **"Nome no Fortics" do sistema do contrato do relatório**, cadastrado no SINC em Configurações > Sistemas. Sistema sem esse nome cadastrado vai sem o campo (e a Administração vê o aviso no bloco de chamados). Texto de até 120 caracteres; outro tipo dá erro 400.
-- Conta o chamado quando a `data_abertura` está no período. Toda linha da tabela já é um chamado encerrado.
+- `sistema` (**opcional**): o nome do sistema como o Fortics grava no campo **sistema** da tabela `atendimentos`. Com ele, o fluxo conta só os chamados desse sistema (mesma comparação sem acento, maiúsculas e espaços extras); sem ele, conta todos os sistemas do cliente, como antes. O Reports manda o **"Nome no Fortics" do sistema do contrato do relatório**, cadastrado no SINC em Configurações > Sistemas. Sistema sem esse nome cadastrado vai sem o campo (e a Administração vê o aviso no bloco de chamados). Texto de até 60 caracteres (mais que isso dá erro 400; um número é lido como texto).
+- Conta o chamado quando a `data_abertura` está no período. Toda linha da tabela já é um chamado encerrado. O mesmo protocolo conta uma vez só.
 
-Resposta: `sistema` (o filtro usado, ou `null`), `totalAbertosEFechados`, `porSistema`, `porTopico`, `porMotivoEncerramento`, `tempoMedioEsperaMin` e `chamados`
-(protocolo, abertura, encerramento, sistema, tópico, motivo, atendente, **solicitante** e **duracaoMin**). **Nunca** devolve a transcrição nem as avaliações das IAs.
+Resposta: `periodo`, `clientes`, `sistema` (o filtro usado, ou `null`), `totalAbertosEFechados`, `porSistema`, `porTopico`, `porMotivoEncerramento` (e `porTabulacao`, a mesma contagem),
+`tempoMedioEsperaMin`, `tempoMedioAtendimentoMin` (TMA médio) e `chamados` (protocolo, abertura, encerramento, **solicitante**, sistema, tópico, motivo/tabulação, atendente,
+`tempoEsperaMin` e **`tempoAtendimentoMin`**). **Nunca** devolve a transcrição nem as avaliações das IAs.
+
+Abertura e encerramento saem como `AAAA-MM-DD HH:MM:SS`, no horário de Brasília.
+
+O ReportS lê o tempo de cada chamado em `tempoAtendimentoMin` (o formato antigo, `duracaoMin`, continua aceito) e calcula sozinho o "atendimento médio" e o "tempo total" a partir da lista;
+o `tempoMedioAtendimentoMin` do topo é só informativo. Chamado sem TMA no histórico (`tempoAtendimentoMin: null`) cai no encerramento menos a abertura.
 
 ## Fuso das datas (`FUSO_DATAS`)
 
@@ -68,15 +74,18 @@ curl -s -X POST "https://<seu-n8n>/webhook-test/<path do webhook>" \
 | `"inicio":"2026-10-31","fim":"2026-10-01"` | status 400 com `erro` |
 | `"sistema":"SERP"` | só os chamados com sistema SERP (sem acento, maiúsculas e espaços extras), e `"sistema":"SERP"` na resposta |
 | Sem `sistema` | todos os sistemas do cliente, e `"sistema":null` na resposta |
-| `"sistema":123` | status 400 com `erro` |
+| `"sistema"` com mais de 60 caracteres | status 400 com `erro` |
+| Chamado com protocolo no `historico_atendimentos_geral` | `tempoAtendimentoMin` preenchido (o `tma_min` do histórico) |
 
-Se a tabela ficar muito grande, troque a leitura "Return All" por um filtro na própria consulta.
+Se as tabelas ficarem muito grandes, troque a leitura "Return All" por um filtro na própria consulta (o fluxo lê as duas inteiras a cada chamada).
 
 ## Solicitante e tempo de atendimento (relatório analítico)
 
-O fluxo devolve, em cada chamado, o **solicitante** (o nome de quem pediu o atendimento) e a **duração em minutos**. O nó **Montar resumo** procura esses dados nas colunas da lista no começo do código, usando a primeira que existir na tabela e tiver valor:
+O fluxo devolve, em cada chamado, o **solicitante** e o **tempo de atendimento em minutos**:
 
-- `COLUNAS_SOLICITANTE`: `nome_solicitante`, `solicitante`, `nome_usuario`, `usuario`, `nome_contato`, `contato`.
-- `COLUNAS_TEMPO_MIN`: `tempo_atendimento_min`, `duracao_min`, `tempo_atendimento`.
+- **Solicitante**: a coluna `nome_usuario` da tabela `atendimentos` (vazio se a coluna não tiver valor; a lista do relatório mostra "—").
+- **Tempo de atendimento (TMA)**: a coluna `tma_min` da tabela `historico_atendimentos_geral`, cruzada com o chamado pelo protocolo (`protocolo` no histórico = `id_atendimento` em `atendimentos`).
+  Protocolo sem linha no histórico, ou com `tma_min` vazio ou negativo, fica com `tempoAtendimentoMin: null`.
+- **Espera**: a coluna `tempo_espera_agente_min` da tabela `atendimentos`.
 
-**Confira os nomes reais das colunas da tabela `atendimentos`** e ajuste essas duas listas se for preciso. Sem coluna de tempo, o ReportS usa o encerramento menos a abertura. Sem coluna de solicitante, a lista do relatório analítico mostra "—" nessa coluna. Depois de mudar o fluxo, reimporte o arquivo no n8n (e confira o *Path* e a autenticação do nó Webhook).
+Depois de mudar o fluxo, reimporte o arquivo no n8n (e confira o *Path* e a autenticação do nó Webhook).
