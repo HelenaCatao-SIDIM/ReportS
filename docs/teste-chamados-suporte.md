@@ -28,5 +28,5 @@ Pré-requisito: o fluxo do n8n importado e ativo (`docs/n8n-resumo-chamados.md`)
     - **Sintético:** emita um relatório. O PDF traz o painel (atendimentos, espera média, atendimento médio, tempo total e "por tabulação", com barras, quantidades, porcentagens e linhas finas) e **não** traz a lista nem nomes de solicitantes.
     - Troque para **Analítico**, salve, e emita outro período. O rascunho mostra o selo "Relatório analítico". O PDF traz o mesmo painel e, depois da capa, "Atendimentos do suporte — lista completa", com todos os atendimentos do mais antigo ao mais recente (20 por página, cabeçalho repetido): data e horário, tempo, solicitante, técnico, assunto e tabulação, **sem protocolo**. O texto do PDF confere com a contagem do painel.
     - A página do aprovador mostra só o painel, nos dois tipos. A Administração vê a lista completa em "Ver os N atendimentos".
-    - Sem o dado no n8n (fluxo antigo, sem solicitante ou tempo): a lista mostra "—" e o tempo é calculado pelo encerramento menos a abertura.
+    - Sem o dado no n8n (sem solicitante ou sem TMA no histórico): a lista mostra "—" e o chamado sem TMA fica fora do atendimento médio e do tempo total. Relatórios emitidos antes de 06/11/2026 continuam como foram enviados (tempo pelo encerramento menos a abertura).
 
