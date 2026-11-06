@@ -37,7 +37,7 @@ Resposta: `periodo`, `clientes`, `sistema` (o filtro usado, ou `null`), `totalAb
 Abertura e encerramento saem como `AAAA-MM-DD HH:MM:SS`, no horário de Brasília.
 
 O ReportS lê o tempo de cada chamado em `tempoAtendimentoMin` (o formato antigo, `duracaoMin`, continua aceito) e calcula sozinho o "atendimento médio" e o "tempo total" a partir da lista;
-o `tempoMedioAtendimentoMin` do topo é só informativo. Chamado sem TMA no histórico (`tempoAtendimentoMin: null`) cai no encerramento menos a abertura.
+o `tempoMedioAtendimentoMin` do topo é só informativo. Chamado sem TMA no histórico (`tempoAtendimentoMin: null`) aparece com "—" no tempo da lista e fica fora do atendimento médio e do tempo total (o ReportS não calcula o tempo pelo encerramento menos a abertura, que inclui a espera).
 
 ## Fuso das datas (`FUSO_DATAS`)
 

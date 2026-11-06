@@ -46,18 +46,23 @@ export function lerResposta(json: unknown): Omit<ResumoSuporte, "situacao" | "co
   if (!naoNegativo(total) || !Number.isInteger(total) || !porSistema || !porTopico || !porMotivoEncerramento) return null;
   if (espera !== null && espera !== undefined && !naoNegativo(espera)) return null;
   if (json.chamados !== undefined && !Array.isArray(json.chamados)) return null;
-  const chamados: ChamadoSuporte[] = (Array.isArray(json.chamados) ? json.chamados : []).filter(ehObjeto).map((c) => ({
-    protocolo: txt(c.protocolo),
-    abertura: txt(c.abertura),
-    encerramento: txt(c.encerramento),
-    sistema: txt(c.sistema),
-    topico: txt(c.topico),
-    motivoEncerramento: txt(c.motivoEncerramento),
-    agente: txt(c.agente),
-    solicitante: txt(c.solicitante),
+  const chamados: ChamadoSuporte[] = (Array.isArray(json.chamados) ? json.chamados : []).filter(ehObjeto).map((c) => {
     // O fluxo atual do n8n manda o tempo real de atendimento (TMA) como tempoAtendimentoMin; o formato antigo, como duracaoMin.
-    duracaoMin: naoNegativo(c.duracaoMin) ? (c.duracaoMin as number) : naoNegativo(c.tempoAtendimentoMin) ? (c.tempoAtendimentoMin as number) : null,
-  }));
+    const tempo = naoNegativo(c.duracaoMin) ? (c.duracaoMin as number) : naoNegativo(c.tempoAtendimentoMin) ? (c.tempoAtendimentoMin as number) : null;
+    return {
+      protocolo: txt(c.protocolo),
+      abertura: txt(c.abertura),
+      encerramento: txt(c.encerramento),
+      sistema: txt(c.sistema),
+      topico: txt(c.topico),
+      motivoEncerramento: txt(c.motivoEncerramento),
+      agente: txt(c.agente),
+      solicitante: txt(c.solicitante),
+      duracaoMin: tempo,
+      // Sem TMA: não se inventa o tempo (encerramento menos abertura inclui a espera). A lista mostra "—".
+      ...(tempo === null ? { semTempo: true } : {}),
+    };
+  });
   return { totalAbertosEFechados: total as number, porSistema, porTopico, porMotivoEncerramento, tempoMedioEsperaMin: (espera as number | null | undefined) ?? null, chamados };
 }
 

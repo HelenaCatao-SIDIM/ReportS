@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { duracaoDoChamado } from "@/lib/chamados";
+import { duracaoDoChamado, indicadores, linhaDoAtendimento } from "@/lib/chamados";
 import { lerResposta } from "@/lib/suporte";
 
 const base = { totalAbertosEFechados: 1, porSistema: [{ nome: "SCA", quantidade: 1 }], porTopico: [{ nome: "Senha", quantidade: 1 }], porMotivoEncerramento: [{ nome: "Resolvido", quantidade: 1 }] };
@@ -18,12 +18,22 @@ test("o tempo do atendimento vem de tempoAtendimentoMin (fluxo atual do n8n) ou 
   assert.equal(ambos?.chamados[0].duracaoMin, 20, "o campo antigo, se vier, continua valendo");
 });
 
-test("chamado sem tempo (ou com tempo inválido) cai no encerramento menos a abertura", () => {
+test("chamado sem TMA (ausente, nulo ou inválido) fica sem tempo: aparece como — e não entra na média", () => {
   for (const extra of [{}, { tempoAtendimentoMin: null }, { tempoAtendimentoMin: -4 }, { tempoAtendimentoMin: "12" }]) {
     const r = lerResposta({ ...base, chamados: [{ ...chamado, ...extra }] });
     assert.equal(r?.chamados[0].duracaoMin, null);
-    assert.equal(duracaoDoChamado(r!.chamados[0]), 35);
+    assert.equal(r?.chamados[0].semTempo, true);
+    assert.equal(duracaoDoChamado(r!.chamados[0]), null, "não usa o encerramento menos a abertura (35), que inclui a espera");
+    assert.equal(linhaDoAtendimento(r!.chamados[0]).tempo, "—");
   }
+  const comTempo = lerResposta({ ...base, chamados: [{ ...chamado, tempoAtendimentoMin: 0 }] });
+  assert.equal(comTempo?.chamados[0].duracaoMin, 0, "zero é um tempo válido");
+  assert.equal(comTempo?.chamados[0].semTempo, undefined);
+});
+
+test("atendimento médio e tempo total ignoram os chamados sem TMA", () => {
+  const r = lerResposta({ ...base, totalAbertosEFechados: 3, chamados: [{ ...chamado, tempoAtendimentoMin: 10 }, { ...chamado, protocolo: "P2", tempoAtendimentoMin: 30 }, { ...chamado, protocolo: "P3", tempoAtendimentoMin: null }] });
+  assert.deepEqual(indicadores({ totalAbertosEFechados: 3, tempoMedioEsperaMin: null, chamados: r!.chamados }), { total: 3, esperaMediaMin: null, atendimentoMedioMin: 20, tempoTotalMin: 40 });
 });
 
 test("campos a mais do fluxo atual (tabulação, espera, TMA médio) são ignorados sem quebrar a leitura", () => {
