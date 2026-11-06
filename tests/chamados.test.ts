@@ -21,8 +21,12 @@ test("tempo entre a abertura e o encerramento", () => {
   assert.equal(minutosEntre("2026-10-05 10:00:00", ""), null);
 });
 
-test("duração: a que o n8n mandou, ou encerramento menos abertura", () => {
+test("duração: a que o n8n mandou; sem ela, — (semTempo); só resumo antigo, sem a marca, usa encerramento menos abertura", () => {
   assert.equal(duracaoDoChamado(ch({ duracaoMin: 12 })), 12);
+  assert.equal(duracaoDoChamado(ch({ duracaoMin: 0 })), 0);
+  assert.equal(duracaoDoChamado(ch({ duracaoMin: null, semTempo: true })), null, "o n8n não trouxe o TMA: não se inventa o tempo");
+  assert.equal(duracaoDoChamado(ch({ duracaoMin: 12, semTempo: true })), 12);
+  // Resumos guardados antes de 06/11/2026 não têm a marca: o que já foi enviado continua igual.
   assert.equal(duracaoDoChamado(ch()), 35);
   assert.equal(duracaoDoChamado(ch({ duracaoMin: null })), 35);
   assert.equal(duracaoDoChamado(ch({ duracaoMin: -3 })), 35, "valor negativo é ignorado");
@@ -41,6 +45,8 @@ test("formato dos tempos", () => {
 test("indicadores: atendimento médio e tempo total saem dos chamados que têm tempo", () => {
   const r = { totalAbertosEFechados: 3, tempoMedioEsperaMin: 9.3, chamados: [ch({ duracaoMin: 10 }), ch({ duracaoMin: 30 }), ch({ encerramento: "" })] };
   assert.deepEqual(indicadores(r), { total: 3, esperaMediaMin: 9.3, atendimentoMedioMin: 20, tempoTotalMin: 40 });
+  const semTma = { ...r, chamados: [ch({ duracaoMin: 10 }), ch({ duracaoMin: 30 }), ch({ duracaoMin: null, semTempo: true })] };
+  assert.deepEqual(indicadores(semTma), { total: 3, esperaMediaMin: 9.3, atendimentoMedioMin: 20, tempoTotalMin: 40 }, "o chamado sem TMA fica fora");
   assert.deepEqual(indicadores({ totalAbertosEFechados: 0, tempoMedioEsperaMin: null, chamados: [] }), { total: 0, esperaMediaMin: null, atendimentoMedioMin: null, tempoTotalMin: null });
 });
 
@@ -64,6 +70,7 @@ test("linha da lista analítica: sem protocolo, com — onde o Fortics não trou
   assert.equal(l.tecnico, "—");
   assert.equal(l.horario, "09:10 – 06/10 08:15");
   assert.ok(!("protocolo" in l));
+  assert.equal(linhaDoAtendimento(ch({ duracaoMin: null, semTempo: true })).tempo, "—");
 });
 
 test("ordena do mais antigo ao mais recente sem mudar a lista original", () => {

@@ -26,9 +26,13 @@ export function minutosEntre(abertura: string, encerramento: string): number | n
   return a === null || e === null || e < a ? null : Math.round((e - a) / 60000);
 }
 
-/** Tempo dedicado ao atendimento: o que o n8n mandou, ou o encerramento menos a abertura. */
-export function duracaoDoChamado(c: Pick<ChamadoSuporte, "abertura" | "encerramento" | "duracaoMin">): number | null {
+/**
+ * Tempo dedicado ao atendimento (TMA): o que o n8n mandou; null se ele não trouxe (`semTempo`).
+ * Só os resumos guardados antes de 06/11/2026, sem a marca `semTempo`, seguem com o encerramento menos a abertura (o que já foi enviado não muda).
+ */
+export function duracaoDoChamado(c: Pick<ChamadoSuporte, "abertura" | "encerramento" | "duracaoMin" | "semTempo">): number | null {
   if (typeof c.duracaoMin === "number" && Number.isFinite(c.duracaoMin) && c.duracaoMin >= 0) return c.duracaoMin;
+  if (c.semTempo) return null;
   return minutosEntre(c.abertura, c.encerramento);
 }
 
