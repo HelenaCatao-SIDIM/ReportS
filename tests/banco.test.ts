@@ -353,7 +353,7 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     await relatorios.excluirRascunho(criado.relatorio.id);
   });
 
-  test("relatório: rascunho, emissão, primeira decisão vale e as visitas travam", async () => {
+  test("relatório: emitir não envia, nova versão a qualquer momento, envio à parte, primeira decisão vale e as visitas travam", async () => {
     const v = await checkin();
     await encerrar(v.id);
     const hoje = new Date().toISOString().slice(0, 10);
@@ -362,31 +362,84 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     const r = criado.relatorio;
     assert.deepEqual(r.visitaIds, [v.id]);
     assert.ok("erro" in (await relatorios.criarRascunho(contratoId, hoje, hoje)), "período sobreposto é recusado");
+    const nova = async () =>
+      relatorios.registrarEmissao(r.id, { conteudo: relatorios.congelar((await relatorios.montarConteudo(r.id))!), pdfUrl: "/arquivos/pdf", pdfTamanho: 10, emitidoEm: new Date().toISOString() });
 
-    const conteudo = relatorios.congelar((await relatorios.montarConteudo(r.id))!);
-    const { versao, links } = await relatorios.registrarEmissao(r.id, { conteudo, pdfUrl: "/arquivos/pdf", pdfTamanho: 10, emitidoEm: new Date().toISOString() });
-    assert.equal(versao.numero, 1);
-    assert.equal(links.length, 2);
-    await assert.rejects(relatorios.registrarEmissao(r.id, { conteudo, pdfUrl: "/arquivos/pdf", pdfTamanho: 10, emitidoEm: new Date().toISOString() }));
+    await assert.rejects(relatorios.registrarEnvio(r.id), /Emita a versão/, "sem versão emitida não há o que enviar");
+
+    // Emitir não envia nada, não cria link e não muda para "enviado".
+    const e1 = await nova();
+    assert.equal(e1.versao.numero, 1);
+    assert.deepEqual(e1.versao.enviadoPara, []);
+    let atual = (await relatorios.buscarRelatorio(r.id))!;
+    assert.equal(atual.status, "emitido");
+    assert.deepEqual(atual.versoes[0].enviadoPara, []);
+
+    // Dá para emitir de novo (v2) antes de enviar.
+    assert.equal((await nova()).versao.numero, 2);
+    assert.equal((await relatorios.buscarRelatorio(r.id))!.status, "emitido");
+
+    // Envio à parte: um link por aprovador ativo, na última versão.
+    const e = await relatorios.registrarEnvio(r.id);
+    assert.equal(e.versao.numero, 2);
+    assert.equal(e.links.length, 2);
+    assert.equal(e.versao.enviadoPara.length, 2);
+    atual = (await relatorios.buscarRelatorio(r.id))!;
+    assert.equal(atual.status, "enviado");
+    assert.equal(atual.versoes[1].enviadoPara.length, 2);
+    assert.deepEqual(atual.versoes[0].enviadoPara, [], "a v1 nunca foi enviada");
+
+    // Reenviar mantém os links que valem.
+    const de2 = await relatorios.registrarEnvio(r.id);
+    assert.deepEqual(de2.links.map((l) => l.token).sort(), e.links.map((l) => l.token).sort());
+
+    // Depois de enviada, ainda dá para emitir v3: os links da v2 deixam de valer e o relatório volta a "emitido".
+    assert.equal((await nova()).versao.numero, 3);
+    assert.equal((await relatorios.buscarRelatorio(r.id))!.status, "emitido");
+    assert.equal((await relatorios.buscarPorLink(e.links[0].token))?.podeDecidir, false, "link da versão substituída não decide");
+    const v3 = await relatorios.registrarEnvio(r.id);
+    assert.equal(v3.versao.numero, 3);
+    assert.ok(v3.links.every((l) => !e.links.some((x) => x.token === l.token)), "a v3 tem links novos");
 
     // Os dois aprovadores decidem ao mesmo tempo: só um vale.
     const [d1, d2] = await Promise.all([
-      relatorios.registrarDecisao(links[0].token, "aprovado", null),
-      relatorios.registrarDecisao(links[1].token, "ajuste", "Faltou um nome"),
+      relatorios.registrarDecisao(v3.links[0].token, "aprovado", null),
+      relatorios.registrarDecisao(v3.links[1].token, "ajuste", "Faltou um nome"),
     ]);
     assert.equal([d1, d2].filter((d) => d.ok).length, 1);
     const final = (await relatorios.buscarRelatorio(r.id))!;
     assert.ok(final.status === "aprovado" || final.status === "ajuste_solicitado");
-    assert.ok(final.versoes[0].decisao);
-    assert.equal((await relatorios.buscarPorLink(links[0].token))?.podeDecidir, false);
+    assert.ok(final.versoes[2].decisao);
+    assert.equal((await relatorios.buscarPorLink(v3.links[0].token))?.podeDecidir, false);
 
     if (final.status === "aprovado") {
+      await assert.rejects(nova(), /não pode ser emitido/, "aprovado não ganha versão nova");
+      await assert.rejects(relatorios.atualizarVisitasDoRascunho(r.id), /aprovado/);
       assert.equal((await visitas.buscarVisita(v.id))?.travada, true);
       await assert.rejects(
         visitas.corrigirPelaAdministracao(v.id, { ...(await visitas.buscarVisita(v.id))!, saida: new Date().toISOString(), removerPresencas: [], removerFotos: [], observacoes: "x" }, tecnico, "teste"),
         /relatório aprovado/,
       );
+    } else {
+      // Com ajuste pedido, emite a v4 e envia de novo.
+      assert.equal((await nova()).versao.numero, 4);
+      assert.equal((await relatorios.registrarEnvio(r.id)).versao.numero, 4);
     }
+  });
+
+  test("relatório: emitir não exige aprovador nem CNPJ, mas enviar por e-mail exige aprovador ativo", async () => {
+    const v = await checkin();
+    await encerrar(v.id);
+    const sem = await contratos.salvarContrato(sistemaDoClienteId, { texto: "Contrato", nivel: "nominal", exigeCpf: false, ativo: true, aprovadorIds: [] });
+    assert.deepEqual((await contratos.buscarContrato(sem.id))!.aprovadores, []);
+    const criado = await relatorios.criarRascunho(sem.id, "2000-01-01", new Date().toISOString().slice(0, 10));
+    assert.ok("relatorio" in criado);
+    const id = criado.relatorio.id;
+    const { versao } = await relatorios.registrarEmissao(id, { conteudo: relatorios.congelar((await relatorios.montarConteudo(id))!), pdfUrl: "/arquivos/pdf", pdfTamanho: 10, emitidoEm: new Date().toISOString() });
+    assert.equal(versao.numero, 1);
+    assert.equal((await relatorios.buscarRelatorio(id))!.status, "emitido");
+    await assert.rejects(relatorios.registrarEnvio(id), /não tem aprovadores ativos/);
+    assert.equal((await relatorios.buscarRelatorio(id))!.status, "emitido", "a falha no envio não muda o status");
   });
 
   test("excluir rascunho libera as visitas", async () => {

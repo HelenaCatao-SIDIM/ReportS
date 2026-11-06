@@ -1,5 +1,6 @@
 import { lerArquivo } from "@/lib/repo/arquivos";
 import { arquivosDaVersao, buscarPorLink } from "@/lib/repo/relatorios";
+import { cabecalhoDeDownload, nomeDoArquivoPdf } from "@/lib/nome-pdf";
 
 /**
  * Arquivos para o aprovador (sem login): só abre o que faz parte da versão do relatório deste link
@@ -14,12 +15,14 @@ export async function GET(_: Request, { params }: RouteContext<"/aprovacao/[toke
   const arquivo = await lerArquivo(id);
   if (!arquivo) return new Response("Não encontrado", { status: 404 });
   const ehPdf = arquivo.tipo === "application/pdf";
+  const c = acesso.versao.conteudo;
+  const nomePdf = nomeDoArquivoPdf({ tipo: c?.relatorioAtendimentos, cliente: c?.cliente.nome ?? "Cliente", sistema: c?.sistema.nome ?? "", de: acesso.relatorio.de, ate: acesso.relatorio.ate, versao: acesso.versao.numero });
   return new Response(new Uint8Array(arquivo.dados), {
     headers: {
       "Content-Type": arquivo.tipo,
       "Cache-Control": "private, max-age=3600",
       "X-Robots-Tag": "noindex",
-      ...(ehPdf ? { "Content-Disposition": `attachment; filename="relatorio-v${acesso.versao.numero}.pdf"` } : {}),
+      ...(ehPdf ? { "Content-Disposition": cabecalhoDeDownload(nomePdf) } : {}),
     },
   });
 }

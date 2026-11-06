@@ -35,6 +35,7 @@ export const ROTULO_STATUS: Record<StatusVisita, string> = {
 
 export const ROTULO_STATUS_RELATORIO = {
   rascunho: "Rascunho",
+  emitido: "Emitido",
   enviado: "Enviado",
   ajuste_solicitado: "Ajuste solicitado",
   aprovado: "Aprovado",

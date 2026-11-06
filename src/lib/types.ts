@@ -40,7 +40,7 @@ export interface Aprovador {
 export interface Cliente {
   id: string;
   nome: string;
-  /** Somente dígitos (14). Vazio = "CNPJ pendente" (cliente que veio do SINC); só é exigido ao emitir relatório. */
+  /** Somente dígitos (14). Vazio = "CNPJ pendente" (cliente que veio do SINC); não impede emitir relatório (o PDF mostra "—"). */
   cnpj: string;
   ativo: boolean;
   /** De onde o cliente veio: criado à mão no ReportS (implantação) ou pelo SINC. */
@@ -304,7 +304,8 @@ export interface Visita {
   historico: AlteracaoVisita[];
 }
 
-export type StatusRelatorio = "rascunho" | "enviado" | "ajuste_solicitado" | "aprovado";
+/** "emitido": a versão está pronta (PDF gerado), mas ainda não foi enviada por e-mail. */
+export type StatusRelatorio = "rascunho" | "emitido" | "enviado" | "ajuste_solicitado" | "aprovado";
 
 /** Decisão do aprovador do cliente sobre uma versão. */
 export interface DecisaoRelatorio {

@@ -3,6 +3,7 @@ import { Prisma } from "@/generated/reports/client";
 import { idPlataforma, idTexto, reports } from "@/lib/db";
 import { fimDoDia, inicioDoDia } from "@/lib/datas";
 import { ehPresencial } from "@/lib/visitas";
+import { podeAtualizarRelatorio, podeEnviarRelatorio } from "@/lib/regras-relatorio";
 import type { Cliente, ConteudoCongelado, DecisaoRelatorio, Relatorio, StatusRelatorio, TokenAprovacao, VersaoRelatorio } from "@/lib/types";
 import { buscarCliente } from "./clientes";
 import { aprovadoresAtivosDoContrato, buscarContrato, listarContratos, type ContratoDetalhado } from "./contratos";
@@ -131,10 +132,10 @@ export async function criarRascunho(contratoId: string, de: string, ate: string)
   return { relatorio: (await buscarRelatorio(id))! };
 }
 
-/** Recalcula as visitas do rascunho (ex.: uma visita esquecida foi encerrada depois). */
+/** Recalcula as visitas do relatório (ex.: uma visita esquecida foi encerrada depois). Vale até a aprovação. */
 export async function atualizarVisitasDoRascunho(id: string): Promise<{ antes: number; depois: number }> {
   const r = await buscarRelatorio(id);
-  if (!r || r.status === "aprovado" || r.status === "enviado") throw new Error("Só rascunhos (ou relatórios em ajuste) podem ser recalculados");
+  if (!r || !podeAtualizarRelatorio(r.status)) throw new Error("Relatório aprovado não pode ser atualizado");
   const antes = r.visitaIds.length;
   const ids = await idsElegiveis(r);
   await reports.$transaction(async (tx) => {
@@ -211,17 +212,15 @@ export function congelar(c: ConteudoRelatorio): ConteudoCongelado {
 const novoToken = () => crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
 
 /**
- * Registra a nova versão (v1, v2…), muda o status para "enviado", invalida os links da versão anterior
- * e cria um link por aprovador, numa transação. Devolve a versão e os links criados.
+ * Registra a nova versão (v1, v2…) e muda o status para "emitido". Não envia nada e não exige aprovador: o PDF pode ser baixado e
+ * enviado por fora. Os links de aprovação da versão anterior deixam de valer (a versão antiga fica "substituída").
  */
 export async function registrarEmissao(
   id: string,
   dados: { conteudo: ConteudoCongelado; pdfUrl: string; pdfTamanho: number; emitidoEm: string },
-): Promise<{ versao: VersaoRelatorio; links: TokenAprovacao[] }> {
+): Promise<{ versao: VersaoRelatorio }> {
   const r = await buscarRelatorio(id);
-  if (!r || (r.status !== "rascunho" && r.status !== "ajuste_solicitado")) throw new Error("Este relatório não pode ser emitido agora");
-  const aprovadores = await aprovadoresAtivosDoContrato(r.contratoId);
-  if (!aprovadores.length) throw new Error("O contrato não tem aprovadores ativos");
+  if (!r || !podeAtualizarRelatorio(r.status)) throw new Error("Este relatório não pode ser emitido agora");
 
   const emitidoEm = new Date(dados.emitidoEm);
   const versao: VersaoRelatorio = {
@@ -230,46 +229,78 @@ export async function registrarEmissao(
     visitaIds: [...r.visitaIds],
     pdfUrl: dados.pdfUrl,
     pdfTamanho: dados.pdfTamanho,
-    enviadoPara: aprovadores.map((a) => ({ nome: a.nome, email: a.email })),
+    enviadoPara: [],
     conteudo: dados.conteudo,
     decisao: null,
   };
-  const links = aprovadores.map((a) => ({
-    token: novoToken(),
-    relatorioId: id,
-    versao: versao.numero,
-    aprovadorId: a.id,
-    aprovadorNome: a.nome,
-    aprovadorCargo: a.cargo,
-    aprovadorEmail: a.email,
-    criadoEm: emitidoEm,
-    invalidadoEm: null,
-  }));
 
-  await reports.$transaction(async (tx) => {
-    // Duas emissões ao mesmo tempo: só a primeira muda o status; a segunda para aqui.
-    const { count } = await tx.relatorio.updateMany({
-      where: { id, status: { in: ["rascunho", "ajuste_solicitado"] } },
-      data: { status: "enviado", atualizadoEm: emitidoEm },
+  try {
+    await reports.$transaction(async (tx) => {
+      // Aprovado entre a conferência e aqui: não emite. Duas emissões ao mesmo tempo: a segunda bate no número da versão.
+      const { count } = await tx.relatorio.updateMany({
+        where: { id, status: { not: "aprovado" } },
+        data: { status: "emitido", atualizadoEm: emitidoEm },
+      });
+      if (!count) throw new Error("Este relatório não pode ser emitido agora");
+      await tx.versaoRelatorio.create({
+        data: {
+          id: crypto.randomUUID(),
+          relatorioId: id,
+          numero: versao.numero,
+          emitidoEm,
+          visitaIds: versao.visitaIds,
+          pdfUrl: versao.pdfUrl,
+          pdfTamanho: versao.pdfTamanho,
+          enviadoPara: [],
+          conteudo: dados.conteudo as unknown as Prisma.InputJsonValue,
+        },
+      });
+      await tx.linkAprovacao.updateMany({ where: { relatorioId: id, invalidadoEm: null }, data: { invalidadoEm: emitidoEm } });
     });
-    if (!count) throw new Error("Este relatório não pode ser emitido agora");
-    await tx.versaoRelatorio.create({
-      data: {
-        id: crypto.randomUUID(),
-        relatorioId: id,
-        numero: versao.numero,
-        emitidoEm,
-        visitaIds: versao.visitaIds,
-        pdfUrl: versao.pdfUrl,
-        pdfTamanho: versao.pdfTamanho,
-        enviadoPara: versao.enviadoPara,
-        conteudo: dados.conteudo as unknown as Prisma.InputJsonValue,
-      },
-    });
-    await tx.linkAprovacao.updateMany({ where: { relatorioId: id, invalidadoEm: null }, data: { invalidadoEm: emitidoEm } });
-    await tx.linkAprovacao.createMany({ data: links });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") throw new Error("Este relatório acabou de ganhar uma versão nova. Recarregue a página.");
+    throw e;
+  }
+  return { versao };
+}
+
+/**
+ * Prepara o envio da última versão aos aprovadores ativos do contrato: muda o status para "enviado", guarda para quem foi e devolve
+ * um link por aprovador. Reenviar mantém os links que ainda valem (o e-mail anterior continua funcionando) e cria os que faltam.
+ */
+export async function registrarEnvio(id: string): Promise<{ versao: VersaoRelatorio; links: TokenAprovacao[] }> {
+  const r = await buscarRelatorio(id);
+  if (!r || !podeEnviarRelatorio(r.status)) throw new Error("Emita a versão antes de enviar");
+  const versao = r.versoes.at(-1);
+  if (!versao) throw new Error("Emita a versão antes de enviar");
+  const aprovadores = await aprovadoresAtivosDoContrato(r.contratoId);
+  if (!aprovadores.length) throw new Error("O contrato não tem aprovadores ativos");
+
+  const agora = new Date();
+  const enviadoPara = aprovadores.map((a) => ({ nome: a.nome, email: a.email }));
+  const links = await reports.$transaction(async (tx) => {
+    const { count } = await tx.relatorio.updateMany({ where: { id, status: { in: ["emitido", "enviado"] } }, data: { status: "enviado", atualizadoEm: agora } });
+    if (!count) throw new Error("Este relatório não pode ser enviado agora");
+    // Só vale enviar a última versão: confere de novo dentro da transação.
+    const ultima = await tx.versaoRelatorio.count({ where: { relatorioId: id } });
+    if (ultima !== versao.numero) throw new Error("Saiu uma versão nova. Recarregue a página.");
+    await tx.versaoRelatorio.updateMany({ where: { relatorioId: id, numero: versao.numero }, data: { enviadoPara } });
+    const vigentes = await tx.linkAprovacao.findMany({ where: { relatorioId: id, versao: versao.numero, invalidadoEm: null } });
+    const porAprovador = new Map(vigentes.map((l) => [l.aprovadorId, l]));
+    const resultado = [];
+    for (const a of aprovadores) {
+      const existente = porAprovador.get(a.id);
+      if (existente) {
+        resultado.push(existente);
+        continue;
+      }
+      const novo = { token: novoToken(), relatorioId: id, versao: versao.numero, aprovadorId: a.id, aprovadorNome: a.nome, aprovadorCargo: a.cargo, aprovadorEmail: a.email, criadoEm: agora, invalidadoEm: null };
+      await tx.linkAprovacao.create({ data: novo });
+      resultado.push(novo);
+    }
+    return resultado;
   });
-  return { versao, links: links.map(paraLink) };
+  return { versao: { ...versao, enviadoPara }, links: links.map(paraLink) };
 }
 
 // ---------- Aprovação pelo link ----------
