@@ -9,6 +9,7 @@ import { ROTULO_MEIO } from "@/lib/meio";
 import { ehPresencial, formatarDataCurta, formatarMinutos, nomesDosSetores, rotuloSetores, rotuloTipo } from "@/lib/visitas";
 import { ROTULO_SITUACAO_RELATORIO, resumoCronograma, situacaoNoRelatorio } from "@/lib/cronograma";
 import { ASSINANTE, ASSINATURA, LOGO, linhasDaEmpresa } from "@/lib/sidim";
+import { nomeDoRelatorio } from "@/lib/nome-pdf";
 import type { MarcaPdf } from "@/lib/pdf/marca";
 
 // Sem hifenização automática: em colunas estreitas o padrão quebrava palavras ("Recursos Hu-manos").
@@ -344,6 +345,7 @@ export function RelatorioPdf({
   emitidoEm,
   imagens,
   marca,
+  previa = false,
 }: {
   conteudo: ConteudoCongelado;
   versao: number;
@@ -351,16 +353,23 @@ export function RelatorioPdf({
   imagens: ImagensPdf;
   /** Logo e assinatura da SIDIM (ver `carregarMarcaPdf`). Sem elas, o PDF sai com o cabeçalho em texto e a linha de assinatura em branco. */
   marca?: MarcaPdf;
+  /** Prévia do relatório (ainda não emitido): leva um aviso na capa e "PRÉVIA" no nome. */
+  previa?: boolean;
 }) {
   const c = conteudo;
   return (
-    <Document title={`Relatório ${c.cliente.nome} ${c.sistema.nome} ${formatarDataCurta(c.de)} a ${formatarDataCurta(c.ate)} v${versao}`} author="SIDIM" language="pt-BR">
+    <Document title={nomeDoRelatorio({ tipo: c.relatorioAtendimentos, cliente: c.cliente.nome, sistema: c.sistema.nome, de: c.de, ate: c.ate, versao, previa })} author="SIDIM" language="pt-BR">
       <Page size="A4" style={s.pagina}>
         <CabecalhoPdf marca={marca} />
         <Text style={s.titulo}>Relatório de atendimento</Text>
         <Text style={s.subtitulo}>
-          Período de {formatarDataCurta(c.de)} a {formatarDataCurta(c.ate)} · versão v{versao}
+          Período de {formatarDataCurta(c.de)} a {formatarDataCurta(c.ate)} · {previa ? `prévia da versão v${versao} (ainda não emitida)` : `versão v${versao}`}
         </Text>
+        {previa && (
+          <View style={{ backgroundColor: "#fef3c7", borderWidth: 1, borderColor: "#fcd34d", borderRadius: 4, padding: 6, marginBottom: 10 }}>
+            <Text style={{ fontSize: 8.5, color: "#92400e", fontFamily: "Helvetica-Bold" }}>PRÉVIA: este documento ainda não foi emitido e pode mudar até a emissão.</Text>
+          </View>
+        )}
 
         <View style={s.caixa}>
           <View style={s.grade}>

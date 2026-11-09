@@ -22,7 +22,7 @@ EMAIL_REDIRECIONAR_PARA=<o seu e-mail, para receber os testes>
 
    O `EMAIL_REMETENTE` é obrigatório: o usuário do OCI não é um e-mail, e o remetente precisa estar aprovado lá. Não defina `SMTP_SEGURO`.
 2. Reinicie o `npm run dev`.
-3. Entre como `gestor@sidim.com.br`, gere um relatório (ex.: Prefeitura de Vale Verde, 01/10 a 31/10) e clique em **Emitir e enviar**.
+3. Entre como `gestor@sidim.com.br`, gere um relatório (ex.: Prefeitura de Vale Verde, 01/10 a 31/10) e clique em **Emitir v1** e depois em **Enviar v1 por e-mail**.
 4. A página avisa "e-mail enviado a 2 de 2 aprovador(es)". Na **Caixa de saída**, cada e-mail aparece como **Enviado**, com o
    identificador da mensagem e o aviso da trava de teste.
 5. Abra a caixa de entrada **e o spam**. Devem chegar dois e-mails, com assunto `[TESTE → Nome <e-mail do aprovador>] Relatório de

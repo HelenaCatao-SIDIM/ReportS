@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { conteudoParaEmitir } from "@/lib/regras-relatorio";
+import { conteudoParaEmitir, podeAtualizarRelatorio, podeEnviarRelatorio } from "@/lib/regras-relatorio";
 
 const suporte = (situacao: "ok" | "sem_vinculo" | "indisponivel" | "nao_configurado", total: number) => ({ situacao, totalAbertosEFechados: total });
 
@@ -27,4 +27,12 @@ test("sem visitas, só não emite se os chamados não puderam ser consultados", 
     assert.equal(r.ok, false);
     if (!r.ok) assert.match(r.motivo, trecho);
   }
+});
+
+test("atualizar e emitir versão nova vale até a aprovação; enviar só uma versão já emitida", () => {
+  for (const s of ["rascunho", "emitido", "enviado", "ajuste_solicitado"] as const) assert.equal(podeAtualizarRelatorio(s), true, s);
+  assert.equal(podeAtualizarRelatorio("aprovado"), false);
+  assert.equal(podeEnviarRelatorio("emitido"), true);
+  assert.equal(podeEnviarRelatorio("enviado"), true, "reenviar");
+  for (const s of ["rascunho", "ajuste_solicitado", "aprovado"] as const) assert.equal(podeEnviarRelatorio(s), false, s);
 });

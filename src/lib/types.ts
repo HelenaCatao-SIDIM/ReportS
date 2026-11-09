@@ -40,7 +40,7 @@ export interface Aprovador {
 export interface Cliente {
   id: string;
   nome: string;
-  /** Somente dígitos (14). Vazio = "CNPJ pendente" (cliente que veio do SINC); só é exigido ao emitir relatório. */
+  /** Somente dígitos (14). Vazio = "CNPJ pendente" (cliente que veio do SINC); não impede emitir relatório (o PDF mostra "—"). */
   cnpj: string;
   ativo: boolean;
   /** De onde o cliente veio: criado à mão no ReportS (implantação) ou pelo SINC. */
@@ -306,7 +306,8 @@ export interface Visita {
   historico: AlteracaoVisita[];
 }
 
-export type StatusRelatorio = "rascunho" | "enviado" | "ajuste_solicitado" | "aprovado";
+/** "emitido": a versão está pronta (PDF gerado), mas ainda não foi enviada por e-mail. */
+export type StatusRelatorio = "rascunho" | "emitido" | "enviado" | "ajuste_solicitado" | "aprovado";
 
 /** Decisão do aprovador do cliente sobre uma versão. */
 export interface DecisaoRelatorio {
@@ -374,8 +375,13 @@ export interface ChamadoSuporte {
   agente: string;
   /** Nome de quem pediu o atendimento (o usuário do cliente). Opcional: versões antigas e fluxos antigos do n8n não têm. */
   solicitante?: string;
-  /** Tempo dedicado ao atendimento, em minutos. Sem ele, conta-se do encerramento menos a abertura. */
+  /** Tempo dedicado ao atendimento (TMA), em minutos. O n8n manda como tempoAtendimentoMin (ou duracaoMin, no formato antigo). */
   duracaoMin?: number | null;
+  /**
+   * O ReportS marca quando o n8n não trouxe o tempo deste chamado: a lista mostra "—" e ele fica fora do atendimento médio e do tempo total.
+   * Versões emitidas antes de 06/11/2026 não têm a marca e seguem com o tempo calculado pelo encerramento menos a abertura (o que já foi enviado não muda).
+   */
+  semTempo?: boolean;
 }
 
 /** Resumo dos chamados de suporte do cliente no período, vindo do n8n (congelado na emissão). */

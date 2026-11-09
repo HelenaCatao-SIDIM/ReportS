@@ -38,11 +38,11 @@ async function Conteudo({ params }: Pick<PageProps<"/admin/relatorios/[id]/verso
             {cliente?.nome} · {v.conteudo.sistema?.nome} · versão v{v.numero}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {formatarDataCurta(r.de)} a {formatarDataCurta(r.ate)} · emitida em {formatarDataHora(v.emitidoEm)} · conteúdo congelado como foi enviado
+            {formatarDataCurta(r.de)} a {formatarDataCurta(r.ate)} · emitida em {formatarDataHora(v.emitidoEm)} · conteúdo congelado na emissão
           </p>
         </div>
         {v.pdfUrl && (
-          <a href={v.pdfUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border bg-background px-3 py-2 text-sm hover:bg-muted">
+          <a href={`/admin/relatorios/${id}/versoes/${v.numero}/pdf`} download className="inline-flex items-center gap-1.5 rounded-lg border bg-background px-3 py-2 text-sm hover:bg-muted">
             <Download className="size-4" />
             PDF da v{v.numero}
           </a>
@@ -53,14 +53,16 @@ async function Conteudo({ params }: Pick<PageProps<"/admin/relatorios/[id]/verso
         <CardContent className="space-y-1 text-sm">
           <div className="flex flex-wrap items-center gap-1 text-muted-foreground">
             <Mail className="size-3.5" />
-            Enviada para {v.enviadoPara.map((p) => `${p.nome} (${p.email})`).join(", ")}
+            {v.enviadoPara.length ? `Enviada para ${v.enviadoPara.map((p) => `${p.nome} (${p.email})`).join(", ")}` : "Ainda não enviada por e-mail"}
           </div>
           <div>
             {v.decisao
               ? `${v.decisao.tipo === "aprovado" ? "Aprovada" : "Ajuste pedido"} por ${v.decisao.aprovadorNome} em ${formatarDataHora(v.decisao.em)}${v.decisao.motivo ? `: “${v.decisao.motivo}”` : ""}`
               : v.numero < r.versoes.length
-                ? `Substituída pela v${v.numero + 1} sem decisão.`
-                : "Aguardando decisão do cliente."}
+                ? `Substituída pela v${v.numero + 1}.`
+                : v.enviadoPara.length
+                  ? "Aguardando decisão do cliente."
+                  : "Esta versão ainda não foi enviada ao cliente."}
           </div>
         </CardContent>
       </Card>

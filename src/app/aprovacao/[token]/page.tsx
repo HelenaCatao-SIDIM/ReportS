@@ -154,7 +154,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/aprovacao/[to
         <CardContent className="grid gap-4 sm:grid-cols-3">
           <div>
             <div className="text-xs text-muted-foreground">CNPJ</div>
-            <div className="text-sm">{formatarCnpj(c.cliente.cnpj)}</div>
+            <div className="text-sm">{formatarCnpj(c.cliente.cnpj) || "—"}</div>
           </div>
           <div className="sm:col-span-2">
             <div className="text-xs text-muted-foreground">Contrato</div>

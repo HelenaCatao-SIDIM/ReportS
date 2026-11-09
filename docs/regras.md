@@ -220,8 +220,9 @@ Onde: `src/app/admin/visitas/actions.ts`, `src/lib/repo/visitas.ts`, `src/compon
 | Status | Exibido como | Significado |
 |---|---|---|
 | `rascunho` | Rascunho | criado, ainda não emitido |
-| `enviado` | Enviado | versão emitida, aguardando a decisão do cliente |
-| `ajuste_solicitado` | Ajuste solicitado | o aprovador pediu correção; a Administração emite nova versão |
+| `emitido` | Emitido | versão gerada (PDF pronto), **ainda não enviada** por e-mail |
+| `enviado` | Enviado | a última versão foi enviada por e-mail, aguardando a decisão do cliente |
+| `ajuste_solicitado` | Ajuste solicitado | o aprovador pediu correção; a Administração emite nova versão e envia |
 | `aprovado` | **Aprovado** | aprovado; relatório e visitas travados |
 
 ### Rascunho
@@ -235,21 +236,25 @@ Onde: `src/app/admin/visitas/actions.ts`, `src/lib/repo/visitas.ts`, `src/compon
 - **Excluir** só vale para rascunho nunca emitido e libera as visitas.
 - O relatório soma as **horas presenciais** e as **horas online** separadamente (saída − entrada de cada visita).
 
-### Emissão
+### Emissão, prévia e envio
 
-- Só pode emitir um relatório em rascunho ou com ajuste solicitado, com pelo menos uma visita, e o contrato precisa ter pelo menos um aprovador ativo.
-- Cada emissão cria uma **versão** (v1, v2, …) com o conteúdo **congelado**: o PDF e a página do aprovador mostram exatamente o que foi emitido. Correções feitas depois não mudam uma versão já emitida.
+**Emitir** e **enviar por e-mail** são ações separadas.
+
+- **Emitir** gera o PDF e registra uma **versão** (v1, v2, …) com o conteúdo **congelado**: o PDF e a página do aprovador mostram exatamente o que foi emitido. **Não envia e-mail.** O status passa a **Emitido**. Não exige aprovador nem CNPJ (CNPJ pendente sai como "—" no PDF). Exige visitas **ou** chamados no período (ver "Período sem visitas"). Os chamados e o cronograma são buscados de novo na emissão.
+- **Nova versão a qualquer momento:** enquanto o relatório não é aprovado, dá para **Atualizar** (visitas e chamados, de novo) e **Emitir** a versão seguinte (v2, v3…), tenha ou não sido enviada. A tela mostra os dados de agora e "o que mudou desde a última versão"; as versões antigas ficam no histórico, com o PDF de cada uma. Emitir uma versão nova invalida os links de aprovação da anterior. Depois da **aprovação** o relatório e as visitas ficam travados.
+- **Baixar prévia:** um PDF dos dados de agora, marcado "PRÉVIA" na capa e no nome do arquivo, **sem registrar versão** e sem enviar nada.
+- **Enviar por e-mail** (só com uma versão emitida): manda a **última versão** a cada aprovador ativo do contrato, com o **link pessoal** ("Ver relatório"). O PDF vai **anexo até 8 MB**; acima disso, só o link. O status passa a **Enviado**. **Reenviar** manda de novo e **mantém os links que ainda valem**. Sem aprovador ativo no contrato, o envio fica desabilitado: baixe o PDF e envie por fora.
+- **Nome do PDF** (download, anexo do e-mail e título do documento): `Relatório Analítico - Cliente - Sistema - 01-10-2026 a 31-10-2026 - v1.pdf` (tipo do relatório de atendimentos, cliente, sistema, período de vigência e versão; a prévia leva "PRÉVIA - " na frente). O assunto do e-mail é o mesmo nome.
 - O **PDF** traz os CPFs mascarados. Fotos e assinaturas entram no PDF quando são PNG ou JPEG; WebP fica de fora.
-- Cada aprovador recebe um **e-mail** com o **link pessoal** ("Ver relatório"). O PDF vai **anexo até 8 MB**; acima disso, o e-mail leva só o link, e o PDF é baixado pela página.
-- O status passa a **Enviado** e os links da versão anterior deixam de valer.
-- **Todo e-mail fica registrado no banco** e aparece em Administração → Caixa de saída (os 300 mais recentes). O envio real é pelo SMTP da SIDIM e só liga com `EMAIL_REAL` e `SMTP_HOST`; enquanto `EMAIL_REDIRECIONAR_PARA` estiver definida, todo e-mail vai para esse endereço (trava de teste). Uma falha de envio nunca desfaz a emissão: aparece como "Falhou" na Caixa de saída.
+- **Todo e-mail fica registrado no banco** e aparece em Administração → Caixa de saída (os 300 mais recentes). O envio real é pelo SMTP da SIDIM e só liga com `EMAIL_REAL` e `SMTP_HOST`; enquanto `EMAIL_REDIRECIONAR_PARA` estiver definida, todo e-mail vai para esse endereço (trava de teste).
+- **Contrato sem aprovador é permitido:** o aprovador é opcional no cadastro do contrato; só o envio por e-mail precisa dele.
 
 ### Aprovação pelo cliente
 
 - Há **um link por aprovador e por versão**, sem login.
 - **Basta a decisão de um aprovador** e vale a primeira (a situação é conferida no próprio `UPDATE`, então dois aprovadores ao mesmo tempo não decidem os dois): os links dos demais aprovadores daquela versão param de aceitar decisão, e eles recebem um e-mail avisando quem decidiu.
 - **Aprovar** → status **Aprovado**; as visitas ficam travadas.
-- **Pedir ajuste** → motivo obrigatório (de 10 a 2.000 caracteres) → status **Ajuste solicitado**. A Administração corrige as visitas, atualiza a lista se precisar e emite a próxima versão.
+- **Pedir ajuste** → motivo obrigatório (de 10 a 2.000 caracteres) → status **Ajuste solicitado**. A Administração corrige as visitas, usa **Atualizar** se precisar, emite a próxima versão e a envia.
 - A partir da v2, a página do aprovador mostra **o que mudou** em relação à versão anterior.
 - Um link já decidido ou de versão substituída continua abrindo **só para consulta**.
 - Pelo link, o aprovador só baixa os arquivos que fazem parte da versão daquele link (PDF, fotos e assinaturas).
@@ -261,7 +266,7 @@ Onde: `src/app/admin/visitas/actions.ts`, `src/lib/repo/visitas.ts`, `src/compon
 
 Todo relatório mostra os **atendimentos do suporte** do cliente no período, a partir dos atendimentos do Fortics guardados pelo n8n. A contagem é do **sistema do contrato**: o ReportS manda o "Nome no Fortics" do sistema, e o n8n filtra pelo campo `sistema`. Os atendimentos do cliente são buscados pelo **nome dele no SINC** (do cadastro) e pelos "Outros nomes nos atendimentos", se a Administração os cadastrou para quando o Fortics grava o cliente de outra forma. Sistema sem "Nome no Fortics": contam todos os sistemas do cliente, e só a Administração vê o aviso. A conexão com o n8n (só o endereço do webhook, sem chave) se configura em **Administração → Configurações** (permissão de relatórios), guardada no banco; sem a conexão, o bloco some do relatório do cliente e a Administração vê o aviso. Detalhes em `docs/n8n-resumo-chamados.md`.
 
-- **Painel (igual nos dois tipos de relatório):** quatro indicadores (**atendimentos**, **espera média**, **atendimento médio** e **tempo total dedicado**) e a contagem **por tabulação** (o motivo de encerramento), com barra proporcional, quantidade, porcentagem e uma linha fina entre as linhas. O "por assunto" saiu: o assunto é texto livre e quase não se repete; ele aparece em cada linha da lista analítica. O atendimento médio e o tempo total saem da lista (tempo dedicado de cada atendimento: o do n8n, ou o encerramento menos a abertura).
+- **Painel (igual nos dois tipos de relatório):** quatro indicadores (**atendimentos**, **espera média**, **atendimento médio** e **tempo total dedicado**) e a contagem **por tabulação** (o motivo de encerramento), com barra proporcional, quantidade, porcentagem e uma linha fina entre as linhas. O "por assunto" saiu: o assunto é texto livre e quase não se repete; ele aparece em cada linha da lista analítica. O atendimento médio e o tempo total saem da lista (tempo dedicado de cada atendimento: o TMA do n8n; atendimento sem TMA mostra "—" e fica fora das duas contas). Relatórios emitidos antes de 06/11/2026 não mudam: neles o tempo é o encerramento menos a abertura.
 - **Tipo do relatório, por contrato** (Administração → Clientes → contrato → "Relatório de atendimentos do suporte"): **Sintético** (padrão, e como ficam os contratos que já existiam) = só o painel. **Analítico** = o painel e, no **PDF**, a **lista de todos os atendimentos** do período, do mais antigo ao mais recente, em páginas próprias depois da capa: data e horário (início e fim), tempo, **solicitante** (o usuário do cliente), **técnico** que atendeu, assunto e tabulação. **Sem o número de protocolo.** O tipo vale no momento da emissão e fica congelado na versão.
 - **Quem vê o quê:** o PDF traz o painel (e a lista, no analítico); a página do aprovador mostra só o painel, sem nomes; a Administração vê o painel e a lista completa no rascunho ("Ver os N atendimentos"), com um selo do tipo do contrato.
 - **Campos que o Fortics não trouxer** (solicitante, tempo) saem como "—" na lista, e o painel usa só os atendimentos que têm o dado.

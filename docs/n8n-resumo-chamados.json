@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## Resumo de chamados por cliente (Reports Sidim)\nRecebe `{ clientes, inicio, fim, incluirLista, sistema? }` e devolve quantos chamados **abertos e fechados** o cliente teve no período, lendo a tabela **atendimentos**. O `sistema` é opcional: com ele, conta só os chamados cujo campo **sistema** é igual a esse nome (o \"Nome no Fortics\" do sistema, cadastrado no SINC); sem ele, conta todos os sistemas do cliente.\n\nAntes de ativar:\n1. O nó **Webhook** está sem autenticação (Authentication: None). Para o endereço não ser adivinhado, troque o *Path* por um texto longo e aleatório (ex.: resumo-chamados-<32 letras e números>) e informe o endereço de produção no Reports, em Administração → Configurações.\n2. No nó **Ler atendimentos**, confira se a tabela escolhida é **atendimentos**.\n3. No nó **Montar resumo**, confira `FUSO_DATAS` (veja o guia).\n\nNunca devolve transcrição nem avaliações das IAs.",
+        "content": "## Resumo de chamados por cliente (Reports Sidim)\nO servidor do ReportS envia `{ clientes, inicio, fim, incluirLista, sistema? }` e recebe os chamados **abertos e fechados** do cliente no período.\n\n- Resumo: total, tempo médio de espera, tempo médio de atendimento (TMA, da tabela **historico_atendimentos_geral**), contagens por sistema, assunto e tabulação.\n- Lista (`incluirLista: true`, contratos analíticos): protocolo, início, fim, usuário, sistema, assunto, tabulação, atendente, espera e atendimento.\n- `sistema` é opcional. Sem autenticação (decisão de 05/11/2026).\n- Datas no horário de Brasília (`FUSO_DATAS = 'brasilia'`).",
         "height": 420,
         "width": 420,
         "color": 4
@@ -12,7 +12,7 @@
       "typeVersion": 1,
       "position": [
         -560,
-        -180
+        -176
       ],
       "id": "50338c2a-e0bf-4a44-adc1-5356205fe1b3",
       "name": "Nota - Como usar"
@@ -36,12 +36,12 @@
     },
     {
       "parameters": {
-        "jsCode": "// Valida o corpo recebido pelo webhook. Saída: { ok, erro?, clientes, inicio, fim, incluirLista, sistema }.\nconst corpo = $input.first().json.body || {};\nconst DATA = /^\\d{4}-\\d{2}-\\d{2}$/;\nconst valida = (d) => DATA.test(d) && !Number.isNaN(Date.parse(d + 'T00:00:00Z'));\n\nconst clientes = Array.isArray(corpo.clientes)\n  ? [...new Set(corpo.clientes.map((c) => String(c ?? '').trim()).filter(Boolean))]\n  : [];\nconst inicio = String(corpo.inicio ?? '');\nconst fim = String(corpo.fim ?? '');\n// Opcional: o nome do sistema como o Fortics grava no campo \"sistema\" (\"Nome no Fortics\" do cadastro de sistemas).\nconst sistema = corpo.sistema === undefined || corpo.sistema === null ? '' : typeof corpo.sistema === 'string' ? corpo.sistema.trim() : null;\n\nlet erro = null;\nif (clientes.length < 1 || clientes.length > 10) erro = 'Informe de 1 a 10 nomes em \"clientes\".';\nelse if (clientes.some((c) => c.length > 120)) erro = 'Cada nome em \"clientes\" pode ter até 120 caracteres.';\nelse if (sistema === null || sistema.length > 120) erro = '\"sistema\" deve ser um texto de até 120 caracteres.';\nelse if (!valida(inicio) || !valida(fim)) erro = 'Use datas no formato AAAA-MM-DD em \"inicio\" e \"fim\".';\nelse if (inicio > fim) erro = '\"inicio\" precisa ser igual ou anterior a \"fim\".';\nelse if ((Date.parse(fim) - Date.parse(inicio)) / 86400000 > 366) erro = 'O período pode ter no máximo 12 meses.';\n\nreturn [{ json: { ok: !erro, erro, clientes, inicio, fim, incluirLista: corpo.incluirLista !== false, sistema: sistema || '' } }];\n"
+        "jsCode": "// Valida o corpo recebido pelo webhook. Saída: { ok, erro?, clientes, inicio, fim, sistema, incluirLista }.\n// \"sistema\" é opcional: quando vem, conta só os chamados daquele sistema; sem ele, conta todos.\nconst corpo = $input.first().json.body || {};\nconst DATA = /^\\d{4}-\\d{2}-\\d{2}$/;\nconst valida = (d) => DATA.test(d) && !Number.isNaN(Date.parse(d + 'T00:00:00Z'));\n\nconst clientes = Array.isArray(corpo.clientes)\n  ? [...new Set(corpo.clientes.map((c) => String(c ?? '').trim()).filter(Boolean))]\n  : [];\nconst inicio = String(corpo.inicio ?? '');\nconst fim = String(corpo.fim ?? '');\nconst sistema = corpo.sistema == null ? '' : String(corpo.sistema).trim();\n\nlet erro = null;\nif (clientes.length < 1 || clientes.length > 10) erro = 'Informe de 1 a 10 nomes em \"clientes\".';\nelse if (clientes.some((c) => c.length > 120)) erro = 'Cada nome em \"clientes\" pode ter até 120 caracteres.';\nelse if (!valida(inicio) || !valida(fim)) erro = 'Use datas no formato AAAA-MM-DD em \"inicio\" e \"fim\".';\nelse if (inicio > fim) erro = '\"inicio\" precisa ser igual ou anterior a \"fim\".';\nelse if ((Date.parse(fim) - Date.parse(inicio)) / 86400000 > 366) erro = 'O período pode ter no máximo 12 meses.';\nelse if (sistema.length > 60) erro = '\"sistema\" pode ter até 60 caracteres.';\n\nreturn [{ json: { ok: !erro, erro, clientes, inicio, fim, sistema: sistema || null, incluirLista: corpo.incluirLista !== false } }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        220,
+        224,
         0
       ],
       "id": "07323214-a897-439c-bb44-41be760f222f",
@@ -75,7 +75,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        440,
+        448,
         0
       ],
       "id": "9897a243-f64d-45fe-92cd-599407d917eb",
@@ -96,8 +96,8 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1,
       "position": [
-        680,
-        -100
+        608,
+        -96
       ],
       "id": "980b52a7-2e47-4e54-9399-7b5033a931d8",
       "name": "Ler atendimentos",
@@ -105,20 +105,19 @@
     },
     {
       "parameters": {
-        "jsCode": "// Resume os chamados (abertos e fechados) do cliente no período. Nunca devolve transcrição nem avaliações das IAs.\nconst entrada = $('Validar entrada').first().json;\n\n// Colunas da tabela atendimentos com o nome de quem pediu o atendimento (o usuário do cliente) e o tempo dedicado, em minutos.\n// Vale o primeiro nome da lista que existir na tabela e tiver valor; confira os nomes reais e ajuste a lista se for preciso.\n// Sem coluna de tempo, o ReportS calcula o encerramento menos a abertura.\nconst COLUNAS_SOLICITANTE = ['nome_solicitante', 'solicitante', 'nome_usuario', 'usuario', 'nome_contato', 'contato'];\nconst COLUNAS_TEMPO_MIN = ['tempo_atendimento_min', 'duracao_min', 'tempo_atendimento'];\nconst primeiro = (r, colunas) => {\n  for (const c of colunas) {\n    const v = r[c];\n    if (v !== null && v !== undefined && String(v).trim() !== '') return v;\n  }\n  return null;\n};\n\n// Fuso de data_abertura na tabela. Conferido em 26/10/2026: os horários gravados vão das 07h às 17h e o\n// último chamado bate com o horário de Brasília, embora o texto termine em \"Z\". Ou seja, o \"Z\" não é UTC de\n// verdade: 'brasilia' usa a data como está gravada. Use 'utc' só se o capturador passar a gravar UTC real.\nconst FUSO_DATAS = 'brasilia';\n\nconst normalizar = (s) => String(s || '')\n  .normalize('NFD').replace(/[̀-ͯ]/g, '')\n  .toLowerCase().replace(/\\s+/g, ' ').trim();\n\nfunction diaBrasilia(texto) {\n  const s = String(texto || '');\n  const m = s.match(/^(\\d{4}-\\d{2}-\\d{2})[T ](\\d{2}):(\\d{2})/);\n  if (!m) return s.slice(0, 10);\n  if (FUSO_DATAS !== 'utc') return m[1];\n  const iso = /(Z|[+-]\\d{2}:?\\d{2})$/.test(s) ? s.replace(' ', 'T') : s.replace(' ', 'T') + 'Z';\n  const t = Date.parse(iso);\n  return Number.isNaN(t) ? m[1] : new Date(t - 3 * 3600000).toISOString().slice(0, 10);\n}\n\nconst alvos = new Set(entrada.clientes.map(normalizar));\nconst { inicio, fim } = entrada;\n// Com \"sistema\", só os chamados desse sistema (comparação sem acento, maiúsculas e espaços extras). Sem ele, todos.\nconst sistemaAlvo = normalizar(entrada.sistema);\n\nconst linhas = $input.all().map((i) => i.json).filter((r) => {\n  if (!r || !r.id_atendimento || !alvos.has(normalizar(r.cliente_municipio))) return false;\n  if (sistemaAlvo && normalizar(r.sistema) !== sistemaAlvo) return false;\n  const d = diaBrasilia(r.data_abertura);\n  return d >= inicio && d <= fim;\n});\n\n// O mesmo protocolo conta uma vez só.\nconst porProtocolo = new Map();\nfor (const r of linhas) if (!porProtocolo.has(String(r.id_atendimento))) porProtocolo.set(String(r.id_atendimento), r);\nconst chamados = [...porProtocolo.values()];\n\nconst contar = (campo, vazio) => {\n  const m = new Map();\n  for (const r of chamados) {\n    const k = (r[campo] && String(r[campo]).trim()) || vazio;\n    m.set(k, (m.get(k) || 0) + 1);\n  }\n  return [...m.entries()].map(([nome, quantidade]) => ({ nome, quantidade })).sort((a, b) => b.quantidade - a.quantidade || a.nome.localeCompare(b.nome));\n};\n\nconst esperas = chamados\n  .map((r) => r.tempo_espera_agente_min)\n  .filter((v) => v !== null && v !== undefined && v !== '')\n  .map(Number)\n  .filter((n) => Number.isFinite(n) && n >= 0);\nconst tempoMedioEsperaMin = esperas.length ? Math.round((esperas.reduce((a, b) => a + b, 0) / esperas.length) * 10) / 10 : null;\n\nconst resposta = {\n  periodo: { inicio, fim },\n  clientes: entrada.clientes,\n  sistema: entrada.sistema || null,\n  totalAbertosEFechados: chamados.length,\n  porSistema: contar('sistema', 'Não informado'),\n  porTopico: contar('topico', 'Não identificado'),\n  porMotivoEncerramento: contar('motivo_encerramento', 'Não informado'),\n  tempoMedioEsperaMin,\n  geradoEm: new Date().toISOString(),\n  chamados: [],\n};\n\nif (entrada.incluirLista) {\n  resposta.chamados = chamados\n    .sort((a, b) => String(a.data_abertura).localeCompare(String(b.data_abertura)))\n    .map((r) => ({\n      protocolo: String(r.id_atendimento),\n      abertura: String(r.data_abertura || ''),\n      encerramento: String(r.data_encerramento || ''),\n      sistema: r.sistema || '',\n      topico: r.topico || 'Não identificado',\n      motivoEncerramento: r.motivo_encerramento || '',\n      agente: r.agente || '',\n      solicitante: String(primeiro(r, COLUNAS_SOLICITANTE) ?? '').trim(),\n      duracaoMin: (() => {\n        const t = primeiro(r, COLUNAS_TEMPO_MIN);\n        const v = t === null ? NaN : Number(t);\n        return Number.isFinite(v) && v >= 0 ? v : null;\n      })(),\n    }));\n}\n\nreturn [{ json: resposta }];\n"
+        "jsCode": "// Resume os chamados (abertos e fechados) do cliente no período. Nunca devolve transcrição nem avaliações das IAs.\n// Entradas: tabela \"atendimentos\" (nó Ler atendimentos) e, para o tempo de atendimento (TMA), a tabela\n// \"historico_atendimentos_geral\" (nó Ler histórico (TMA)), cruzadas pelo protocolo.\nconst entrada = $('Validar entrada').first().json;\nconst atendimentos = $('Ler atendimentos').all().map((i) => i.json);\nconst tmaPorProtocolo = new Map();\nfor (const i of $input.all()) {\n  const g = i.json || {};\n  const t = g.tma_min;\n  if (g.protocolo && t !== null && t !== undefined && t !== '' && Number.isFinite(Number(t))) tmaPorProtocolo.set(String(g.protocolo), Number(t));\n}\n\n// Fuso de data_abertura na tabela. Conferido em 26/10/2026: os horários gravados vão das 07h às 17h e o\n// último chamado bate com o horário de Brasília, embora o texto termine em \"Z\". Ou seja, o \"Z\" não é UTC de\n// verdade: 'brasilia' usa a data como está gravada. Use 'utc' só se o capturador passar a gravar UTC real.\nconst FUSO_DATAS = 'brasilia';\n\nconst normalizar = (s) => String(s || '')\n  .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')\n  .toLowerCase().replace(/\\s+/g, ' ').trim();\n\nfunction diaBrasilia(texto) {\n  const s = String(texto || '');\n  const m = s.match(/^(\\d{4}-\\d{2}-\\d{2})[T ](\\d{2}):(\\d{2})/);\n  if (!m) return s.slice(0, 10);\n  if (FUSO_DATAS !== 'utc') return m[1];\n  const iso = /(Z|[+-]\\d{2}:?\\d{2})$/.test(s) ? s.replace(' ', 'T') : s.replace(' ', 'T') + 'Z';\n  const t = Date.parse(iso);\n  return Number.isNaN(t) ? m[1] : new Date(t - 3 * 3600000).toISOString().slice(0, 10);\n}\n\nconst alvos = new Set(entrada.clientes.map(normalizar));\nconst { inicio, fim } = entrada;\n// Sistema opcional (ex.: \"SCA\"); compara sem acento e sem maiúsculas, como o cliente.\nconst sistemaAlvo = entrada.sistema ? normalizar(entrada.sistema) : null;\n\nconst linhas = atendimentos.filter((r) => {\n  if (!r || !r.id_atendimento || !alvos.has(normalizar(r.cliente_municipio))) return false;\n  if (sistemaAlvo && normalizar(r.sistema) !== sistemaAlvo) return false;\n  const d = diaBrasilia(r.data_abertura);\n  return d >= inicio && d <= fim;\n});\n\n// O mesmo protocolo conta uma vez só.\nconst porProtocolo = new Map();\nfor (const r of linhas) if (!porProtocolo.has(String(r.id_atendimento))) porProtocolo.set(String(r.id_atendimento), r);\nconst chamados = [...porProtocolo.values()];\n\nconst contar = (campo, vazio) => {\n  const m = new Map();\n  for (const r of chamados) {\n    const k = (r[campo] && String(r[campo]).trim()) || vazio;\n    m.set(k, (m.get(k) || 0) + 1);\n  }\n  return [...m.entries()].map(([nome, quantidade]) => ({ nome, quantidade })).sort((a, b) => b.quantidade - a.quantidade || a.nome.localeCompare(b.nome));\n};\n\nconst numero = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) || Number(v) < 0 ? null : Number(v));\nconst umaCasa = (n) => (n === null ? null : Math.round(n * 10) / 10);\nconst media = (lista) => { const v = lista.filter((n) => n !== null); return v.length ? umaCasa(v.reduce((a, b) => a + b, 0) / v.length) : null; };\nconst espera = (r) => numero(r.tempo_espera_agente_min);\nconst atendimento = (r) => numero(tmaPorProtocolo.get(String(r.id_atendimento)));\nconst tempoMedioEsperaMin = media(chamados.map(espera));\nconst tempoMedioAtendimentoMin = media(chamados.map(atendimento));\n\n// \"2026-10-01T09:25:12.000000Z\" → \"2026-10-01 09:25:12\". O horário gravado já é o de Brasília (o \"Z\" não vale).\nconst dataHora = (v) => {\n  const m = String(v || '').match(/^(\\d{4}-\\d{2}-\\d{2})[T ](\\d{2}:\\d{2}:\\d{2})/);\n  return m ? `${m[1]} ${m[2]}` : String(v || '');\n};\n\nconst resposta = {\n  periodo: { inicio, fim },\n  clientes: entrada.clientes,\n  sistema: entrada.sistema,\n  totalAbertosEFechados: chamados.length,\n  porSistema: contar('sistema', 'Não informado'),\n  porTopico: contar('topico', 'Não identificado'),\n  porMotivoEncerramento: contar('motivo_encerramento', 'Não informado'),\n  porTabulacao: contar('motivo_encerramento', 'Não informado'),\n  tempoMedioEsperaMin,\n  tempoMedioAtendimentoMin,\n  geradoEm: new Date().toISOString(),\n  chamados: [],\n};\n\nif (entrada.incluirLista) {\n  resposta.chamados = chamados\n    .sort((a, b) => String(a.data_abertura).localeCompare(String(b.data_abertura)))\n    .map((r) => ({\n      protocolo: String(r.id_atendimento),\n      abertura: dataHora(r.data_abertura),\n      encerramento: dataHora(r.data_encerramento),\n      solicitante: r.nome_usuario || '',\n      sistema: r.sistema || '',\n      topico: r.topico || 'Não identificado',\n      motivoEncerramento: r.motivo_encerramento || '',\n      tabulacao: r.motivo_encerramento || '',\n      agente: r.agente || '',\n      tempoEsperaMin: umaCasa(espera(r)),\n      tempoAtendimentoMin: umaCasa(atendimento(r)),\n    }));\n}\n\nreturn [{ json: resposta }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        900,
-        -100
+        992,
+        -96
       ],
       "id": "903280f4-726b-4f3a-a040-44ee7217d9a7",
       "name": "Montar resumo"
     },
     {
       "parameters": {
-        "respondWith": "firstIncomingItem",
         "options": {
           "responseCode": 200
         }
@@ -126,8 +125,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1120,
-        -100
+        1200,
+        -96
       ],
       "id": "fd237ad5-adc2-4a13-89b5-8d1244202c03",
       "name": "Responder resumo"
@@ -143,11 +142,34 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        680,
-        120
+        688,
+        128
       ],
       "id": "70198a92-ffd4-4b7b-96da-b07acdd9dc7c",
       "name": "Responder erro (400)"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "surK3cVHUG4rh15B",
+          "mode": "list",
+          "cachedResultName": "historico_atendimentos_geral",
+          "cachedResultUrl": "/projects/CS7nYMP9EVeHGGqz/datatables/surK3cVHUG4rh15B"
+        },
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        800,
+        -96
+      ],
+      "id": "1a370c64-11c5-4531-bb38-6b1bef67698e",
+      "name": "Ler histórico (TMA)",
+      "executeOnce": true,
+      "alwaysOutputData": true
     }
   ],
   "connections": {
@@ -195,7 +217,7 @@
       "main": [
         [
           {
-            "node": "Montar resumo",
+            "node": "Ler histórico (TMA)",
             "type": "main",
             "index": 0
           }
@@ -207,6 +229,17 @@
         [
           {
             "node": "Responder resumo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler histórico (TMA)": {
+      "main": [
+        [
+          {
+            "node": "Montar resumo",
             "type": "main",
             "index": 0
           }

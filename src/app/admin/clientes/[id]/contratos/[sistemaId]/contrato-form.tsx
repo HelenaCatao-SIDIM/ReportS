@@ -194,7 +194,8 @@ export function ContratoForm({
         <CardHeader>
           <CardTitle>Aprovadores</CardTitle>
           <CardDescription>
-            Quem recebe o relatório deste contrato por e-mail e aprova pelo link, sem senha. Basta um deles aprovar. A mesma pessoa pode aprovar para vários contratos.
+            Opcional. Quem recebe o relatório deste contrato por e-mail e aprova pelo link, sem senha; basta um deles aprovar. A mesma pessoa pode aprovar para vários contratos. Sem
+            aprovador, o relatório é emitido do mesmo jeito e você baixa o PDF para enviar por fora.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
