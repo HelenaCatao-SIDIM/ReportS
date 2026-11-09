@@ -10,8 +10,8 @@ import { normalizar } from "@/lib/format";
  * só pela memória: nunca é gravada, registrada em log nem enviada ao navegador de volta. O que sobra é uma "prova"
  * assinada de curta duração, que a ação de presença confere (o navegador nunca decide sozinho que o login passou).
  *
- * Uma chave só, para todos os clientes: SAUDE_LOGIN_PARTICIPANTE=true (desligado por padrão). O endereço da API de cada
- * cliente vem do diretório de servidores do Saúde (SAUDE_SERVIDORES_URL; padrão: o da SIDIM), não de variável por cliente:
+ * Sempre ligado, para todos os clientes do Saúde que estão no diretório (sem chave de ligar nem configuração por cliente).
+ * O endereço da API de cada cliente vem do diretório de servidores do Saúde da SIDIM:
  *   o tenant do sistema do cliente (ex.: saude_parademinas) é comparado com a pasta da logo de cada servidor
  *   (".../saude_parademinas/Imagens/Logo_Prefeitura.png", a pasta antes de /Imagens/, em qualquer host); o servidor
  *   que bater, e só um, dá o endereço da API ("endereco").
@@ -123,12 +123,9 @@ export function limparDiretorioGuardado() {
   g.__diretorioSaude = undefined;
 }
 
-async function servidoresDoDiretorio(env: Record<string, string | undefined>, producao: boolean, agora = Date.now()): Promise<ServidorSaude[] | null> {
-  const url = emHttps(env.SAUDE_SERVIDORES_URL?.trim() || DIRETORIO_PADRAO, producao);
-  if (!url || !urlPermitida(url, producao)) {
-    avisar("diretorio-url", "SAUDE_SERVIDORES_URL não é um endereço https:// válido: o login do participante fica desligado.");
-    return null;
-  }
+async function servidoresDoDiretorio(diretorio: string, producao: boolean, agora = Date.now()): Promise<ServidorSaude[] | null> {
+  const url = emHttps(diretorio, producao);
+  if (!url || !urlPermitida(url, producao)) return null;
   const guardado = g.__diretorioSaude?.url === url ? g.__diretorioSaude : undefined;
   if (guardado && agora - guardado.em < VALIDADE_MS) return guardado.servidores;
   try {
@@ -151,22 +148,24 @@ async function servidoresDoDiretorio(env: Record<string, string | undefined>, pr
  */
 export async function enderecoApiDoTenant(
   tenant: string | null,
-  env: Record<string, string | undefined> = process.env,
+  diretorio: string = DIRETORIO_PADRAO,
   producao: boolean = process.env.NODE_ENV === "production",
 ): Promise<string | null> {
   if (!tenant?.trim()) return null;
-  const servidores = await servidoresDoDiretorio(env, producao);
+  const servidores = await servidoresDoDiretorio(diretorio, producao);
   return servidores ? enderecoDoTenant(servidores, tenant, producao) : null;
 }
 
-/** Configuração do login do participante no tenant, ou null se estiver desligado ou se o tenant não estiver no diretório. */
+/**
+ * Configuração do login do participante no tenant. Sempre ligado: null só quando o cliente não tem tenant ou o tenant não
+ * está no diretório (aí a presença é a de antes, sem login). `diretorio` só muda nos testes.
+ */
 export async function configLoginDoTenant(
   tenant: string | null,
-  env: Record<string, string | undefined> = process.env,
+  diretorio: string = DIRETORIO_PADRAO,
   producao: boolean = process.env.NODE_ENV === "production",
 ): Promise<ConfigLogin | null> {
-  if (env.SAUDE_LOGIN_PARTICIPANTE?.trim().toLowerCase() !== "true") return null;
-  const url = await enderecoApiDoTenant(tenant, env, producao);
+  const url = await enderecoApiDoTenant(tenant, diretorio, producao);
   return url ? { url } : null;
 }
 

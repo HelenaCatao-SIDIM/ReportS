@@ -113,15 +113,14 @@ before(async () => {
 });
 after(() => servidor?.close());
 
-test("uma chave liga para todos; o endereço vem do diretório, que fica guardado e cobre a própria falha", async () => {
-  const env = { SAUDE_LOGIN_PARTICIPANTE: "true", SAUDE_SERVIDORES_URL: `${base}/servidores_saude/api/servidorsaude` };
+test("sempre ligado para todos; o endereço vem do diretório, que fica guardado e cobre a própria falha", async () => {
+  const env = `${base}/servidores_saude/api/servidorsaude`; // diretório falso deste teste
   const consultas = () => chamadas.filter((c) => c.url === "/servidores_saude/api/servidorsaude").length;
   L.limparDiretorioGuardado();
   chamadas = [];
 
-  assert.equal(await L.configLoginDoTenant("saude_teste", {}, false), null, "sem a chave geral: desligado");
-  assert.equal(await L.configLoginDoTenant("saude_teste", { ...env, SAUDE_LOGIN_PARTICIPANTE: "false" }, false), null);
-  assert.equal(consultas(), 0, "desligado não consulta o diretório");
+  assert.equal(await L.configLoginDoTenant(null, env, false), null, "cliente sem tenant: sem login");
+  assert.equal(consultas(), 0, "sem tenant não consulta o diretório");
 
   assert.deepEqual(await L.configLoginDoTenant("saude_teste", env, false), { url: base });
   assert.deepEqual(await L.configLoginDoTenant("saude_mariana", env, false), { url: "https://sidim.no-ip.net/api_mariana" });
