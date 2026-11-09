@@ -113,7 +113,7 @@ npm run dev
 ```
 
 Depois abra http://localhost:3000. O contrato do **SCA** é "nominal" e sem CPF, o mais simples para testar uma visita (os de SERP e Saúde exigem
-assinatura e CPF). O GPS funciona em `localhost`; sem permissão de localização, use "Treinamento online". Login do participante no Saúde (opcional, na tela de presença): variáveis `SAUDE_API_<TENANT>_URL` e `SAUDE_API_<TENANT>_LOGIN_PARTICIPANTE=true`, desligado por padrão e só com `https://` em produção (veja `.env.example` e `docs/regras.md`). Roteiros: cronograma, `docs/teste-cronograma.md`; presença em autoatendimento e setores acrescentados, `docs/teste-presenca-setores.md`.
+assinatura e CPF). O GPS funciona em `localhost`; sem permissão de localização, use "Treinamento online". Login do participante no Saúde (na tela de presença): sempre ligado, para todos os clientes do Saúde, com o endereço de cada um tirado do diretório de servidores do Saúde, sempre em `https://` (veja `docs/regras.md`). Roteiros: cronograma, `docs/teste-cronograma.md`; presença em autoatendimento e setores acrescentados, `docs/teste-presenca-setores.md`.
 
 Opcional — **localização por CEP** (desligada por padrão; com ela desligada, nada muda):
 

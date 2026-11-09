@@ -7,39 +7,54 @@ import { SignJWT } from "jose";
 process.env.SESSION_SECRET = "segredo-de-teste-local-com-bastante-texto-0123456789";
 let L: typeof import("@/lib/saude-login");
 
-// ---------- Configuração ----------
+// ---------- Diretório de servidores ----------
 
-test("o login do participante vem desligado: precisa do endereço e do 'true' do tenant", () => {
-  const url = "https://saude.exemplo.gov.br/api_parademinas/";
-  assert.equal(L.prefixoDoTenant("saude_parademinas"), "SAUDE_API_SAUDE_PARADEMINAS");
-  assert.equal(L.prefixoDoTenant("Saúde Pará-de-Minas"), "SAUDE_API_SAUDE_PARA_DE_MINAS");
-  assert.equal(L.configLoginDoTenant("saude_parademinas", {}, true), null, "sem nada configurado");
-  assert.equal(L.configLoginDoTenant("saude_parademinas", { SAUDE_API_SAUDE_PARADEMINAS_URL: url }, true), null, "só o endereço (a importação, por exemplo) não liga o login");
-  assert.equal(L.configLoginDoTenant("saude_parademinas", { SAUDE_API_SAUDE_PARADEMINAS_LOGIN_PARTICIPANTE: "true" }, true), null, "ligado, mas sem endereço");
-  assert.equal(L.configLoginDoTenant("saude_parademinas", { SAUDE_API_SAUDE_PARADEMINAS_URL: url, SAUDE_API_SAUDE_PARADEMINAS_LOGIN_PARTICIPANTE: "false" }, true), null);
-  assert.deepEqual(L.configLoginDoTenant("saude_parademinas", { SAUDE_API_SAUDE_PARADEMINAS_URL: url, SAUDE_API_SAUDE_PARADEMINAS_LOGIN_PARTICIPANTE: " TRUE " }, true), { url: "https://saude.exemplo.gov.br/api_parademinas" }, "a barra do fim sai");
-  assert.equal(L.configLoginDoTenant(null, { SAUDE_API__URL: url }, true), null, "cliente sem tenant");
+/** Trecho do diretório real (05/11/2026), com os casos difíceis: http://, outro host, logo nula, pasta repetida e logo repetida. */
+const DIRETORIO = [
+  { idServidor: 5, descricao: "Raposos", endereco: "http://sidim.no-ip.net/api_raposos/api/", imagem: "http://sidim.no-ip.net/saude_raposos/Imagens/Logo_Prefeitura.png" },
+  { idServidor: 8, descricao: "Pará de Minas", endereco: "http://sidim.no-ip.net/api_parademinas/api/", imagem: "https://sidim.no-ip.net/saude_parademinas/Imagens/Logo_Prefeitura.png" },
+  { idServidor: 11, descricao: "Barão de Cocais", endereco: "http://sidim.no-ip.net/api_baraodecocais/api/", imagem: null },
+  { idServidor: 13, descricao: "Saúde Papagaios", endereco: "http://sidimsistemas.ddns.net/api_papagaios/api/", imagem: "http://sidimsistemas.ddns.net/saude_papagaios/Imagens/Logo_Prefeitura.png" },
+  { idServidor: 15, descricao: "Mariana", endereco: "https://sidim.no-ip.net/api_mariana/api/", imagem: "https://sidim.no-ip.net/saude_mariana/Imagens/Logo_Prefeitura.png" },
+  { idServidor: 16, descricao: "Apresentação - Oracle", endereco: "http://sidim.no-ip.net/api_saude_apresentacao/api/", imagem: "http://sidim.no-ip.net/saude_apresentacao/Imagens/Logo_Prefeitura.png" },
+  { idServidor: 19, descricao: "Diretriz", endereco: "http://serversidim.ddns.net/api_diretriz/api/", imagem: "http://sidim.no-ip.net/saude_apresentacao/Imagens/Logo_Prefeitura.png" },
+  { idServidor: 20, descricao: "Laranjal", endereco: "http://sidim.no-ip.net/api_saudelaranjal/api/", imagem: "http://sidimsistemas.ddns.net/saude_laranjal/saude_laranjal/Imagens/Logo_Prefeitura.png" },
+  { idServidor: 22, descricao: "Lafaiete", endereco: "https://sidim.no-ip.net/api_saude_lafaiete/api/", imagem: "https://sidim.no-ip.net/saude_lafaiete/Imagens/Logo_Prefeitura.png" },
+];
+
+test("a pasta da logo é a que vem antes de /Imagens/, em qualquer host", () => {
+  assert.equal(L.pastaDaImagem("http://sidim.no-ip.net/saude_florestal/Imagens/Logo_Prefeitura.png"), "saude_florestal");
+  assert.equal(L.pastaDaImagem("http://sidimsistemas.ddns.net/saude_papagaios/Imagens/Logo_Prefeitura.png"), "saude_papagaios", "outro host");
+  assert.equal(L.pastaDaImagem("http://sidimsistemas.ddns.net/saude_laranjal/saude_laranjal/Imagens/Logo_Prefeitura.png"), "saude_laranjal", "pasta repetida");
+  assert.equal(L.pastaDaImagem("https://x.example/Saude_Mariana/IMAGENS/logo.png"), "saude_mariana", "sem diferenciar maiúsculas");
+  assert.equal(L.pastaDaImagem(null), null);
+  assert.equal(L.pastaDaImagem("https://x.example/Imagens/logo.png"), null, "sem pasta antes de Imagens");
+  assert.equal(L.pastaDaImagem("isto não é endereço"), null);
 });
 
-test("o endereço aceita a forma do diretório de servidores do Saúde (com /api/ no fim) sem virar .../api/api/login", () => {
-  const liga = (url: string) => L.configLoginDoTenant("t1", { SAUDE_API_T1_URL: url, SAUDE_API_T1_LOGIN_PARTICIPANTE: "true" }, true)?.url;
-  assert.equal(liga("https://sidim.no-ip.net/api_parademinas"), "https://sidim.no-ip.net/api_parademinas");
-  assert.equal(liga("https://sidim.no-ip.net/api_parademinas/"), "https://sidim.no-ip.net/api_parademinas");
-  assert.equal(liga("https://sidim.no-ip.net/api_parademinas/api/"), "https://sidim.no-ip.net/api_parademinas", "como vem do diretório");
-  assert.equal(liga("https://sidim.no-ip.net/api_parademinas/API"), "https://sidim.no-ip.net/api_parademinas");
-  assert.equal(liga("https://sidim.no-ip.net/api_saude_lafaiete/api/"), "https://sidim.no-ip.net/api_saude_lafaiete", "o nome da pasta, que varia de cliente para cliente, não é mexido");
+test("o tenant acha o endereço do seu servidor, já em https:// e sem o /api do fim", () => {
+  const s = L.lerServidores(DIRETORIO)!;
+  assert.equal(s.length, DIRETORIO.length);
+  assert.equal(L.enderecoDoTenant(s, "saude_parademinas", true), "https://sidim.no-ip.net/api_parademinas", "http:// do diretório vira https://");
+  assert.equal(L.enderecoDoTenant(s, "saude_mariana", true), "https://sidim.no-ip.net/api_mariana");
+  assert.equal(L.enderecoDoTenant(s, "saude_papagaios", true), "https://sidimsistemas.ddns.net/api_papagaios", "outro host");
+  assert.equal(L.enderecoDoTenant(s, "saude_laranjal", true), "https://sidim.no-ip.net/api_saudelaranjal", "a pasta da logo não precisa ser a da API");
+  assert.equal(L.enderecoDoTenant(s, "SAUDE_LAFAIETE", true), "https://sidim.no-ip.net/api_saude_lafaiete");
+  assert.equal(L.enderecoDoTenant(s, "saude_baraodecocais", true), null, "logo nula: não acha");
+  assert.equal(L.enderecoDoTenant(s, "saude_apresentacao", true), null, "dois servidores com a mesma logo: não escolhe nenhum");
+  assert.equal(L.enderecoDoTenant(s, "saude_florestal", true), null, "fora do diretório");
+  assert.equal(L.lerServidores({ erro: 1 }), undefined);
+});
+
+test("http:// vira https://; fora de produção, endereço local fica como está; outro protocolo não serve", () => {
+  assert.equal(L.emHttps("http://sidim.no-ip.net/api_x/api/", true), "https://sidim.no-ip.net/api_x/api/");
+  assert.equal(L.emHttps("http://localhost:3999", true), "https://localhost:3999/", "em produção nem o local fica em http");
+  assert.equal(L.emHttps("http://localhost:3999", false), "http://localhost:3999/");
+  assert.equal(L.emHttps("http://127.0.0.1:3999/x", false), "http://127.0.0.1:3999/x");
+  assert.equal(L.emHttps("ftp://x.example", false), null);
+  assert.equal(L.emHttps("isto não é endereço", false), null);
+  assert.equal(L.enderecoBase("https://sidim.no-ip.net/api_parademinas/API/"), "https://sidim.no-ip.net/api_parademinas");
   assert.equal(L.enderecoBase("  "), undefined);
-  assert.equal(L.enderecoBase(undefined), undefined);
-});
-
-test("em produção o login só liga com https://; em desenvolvimento, http:// também serve para testar", () => {
-  const env = (url: string) => ({ SAUDE_API_T1_URL: url, SAUDE_API_T1_LOGIN_PARTICIPANTE: "true" });
-  assert.equal(L.configLoginDoTenant("t1", env("http://sidim.no-ip.net/api_parademinas"), true), null, "http em produção: desligado");
-  assert.deepEqual(L.configLoginDoTenant("t1", env("http://localhost:3999"), false), { url: "http://localhost:3999" }, "http fora de produção: liga");
-  assert.deepEqual(L.configLoginDoTenant("t1", env("https://x.example/api"), true), { url: "https://x.example" }, "o /api do fim sai: o login é {endereço}/api/login");
-  assert.equal(L.configLoginDoTenant("t1", env("ftp://x.example"), false), null);
-  assert.equal(L.configLoginDoTenant("t1", env("isto não é endereço"), false), null);
-  assert.equal(L.urlPermitida("https://x.example", true), true);
   assert.equal(L.urlPermitida("http://x.example", true), false);
 });
 
@@ -57,6 +72,7 @@ let servidor: Server;
 let base = "";
 let chamadas: { metodo?: string; url?: string; tipo?: string; corpo: URLSearchParams }[] = [];
 let modo: "normal" | "erro500" | "semuserid" | "naojson" | "userid-maiusculo" | "userid-texto" = "normal";
+let diretorioFora = false;
 
 before(async () => {
   L = await import("@/lib/saude-login");
@@ -66,6 +82,14 @@ before(async () => {
     chamadas.push({ metodo: req.method, url: req.url, tipo: req.headers["content-type"], corpo: new URLSearchParams(texto) });
     const f = new URLSearchParams(texto);
     res.setHeader("Content-Type", "application/json");
+    if (req.url === "/servidores_saude/api/servidorsaude") {
+      if (diretorioFora) {
+        res.statusCode = 503;
+        return res.end("{}");
+      }
+      // O servidor do tenant de teste aponta para esta mesma API falsa.
+      return res.end(JSON.stringify([...DIRETORIO, { idServidor: 99, descricao: "Teste", endereco: `${base}/api/`, imagem: `${base}/saude_teste/Imagens/Logo.png` }]));
+    }
     if (req.url !== "/api/login") {
       res.statusCode = 404;
       return res.end("{}");
@@ -88,6 +112,33 @@ before(async () => {
   base = `http://127.0.0.1:${(servidor.address() as AddressInfo).port}`;
 });
 after(() => servidor?.close());
+
+test("sempre ligado para todos; o endereço vem do diretório, que fica guardado e cobre a própria falha", async () => {
+  const env = `${base}/servidores_saude/api/servidorsaude`; // diretório falso deste teste
+  const consultas = () => chamadas.filter((c) => c.url === "/servidores_saude/api/servidorsaude").length;
+  L.limparDiretorioGuardado();
+  chamadas = [];
+
+  assert.equal(await L.configLoginDoTenant(null, env, false), null, "cliente sem tenant: sem login");
+  assert.equal(consultas(), 0, "sem tenant não consulta o diretório");
+
+  assert.deepEqual(await L.configLoginDoTenant("saude_teste", env, false), { url: base });
+  assert.deepEqual(await L.configLoginDoTenant("saude_mariana", env, false), { url: "https://sidim.no-ip.net/api_mariana" });
+  assert.equal(await L.configLoginDoTenant("saude_florestal", env, false), null, "fora do diretório: sem login");
+  assert.equal(await L.configLoginDoTenant(null, env, false), null, "cliente sem tenant");
+  assert.equal(consultas(), 1, "a lista fica guardada");
+
+  diretorioFora = true;
+  L.limparDiretorioGuardado();
+  assert.equal(await L.configLoginDoTenant("saude_teste", env, false), null, "diretório fora e nada guardado: sem login");
+  diretorioFora = false;
+  assert.deepEqual(await L.configLoginDoTenant("saude_teste", env, false), { url: base }, "voltou: guarda de novo");
+
+  // Em produção o diretório tem de ser https:// (o endereço local de teste vira https e não responde): sem login.
+  L.limparDiretorioGuardado();
+  assert.equal(await L.configLoginDoTenant("saude_teste", env, true), null);
+  L.limparDiretorioGuardado();
+});
 
 test("login certo: manda o formulário OAuth e devolve o userId (número ou texto, com qualquer caixa)", async () => {
   chamadas = [];
