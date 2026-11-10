@@ -336,6 +336,98 @@ export type DadosCheckin = Pick<
 
 const JA_TEM_ABERTA = "Técnico já tem uma visita em andamento";
 
+/** O técnico já tem visita (não cancelada) que cruza o horário [entrada, saida]? A em andamento vale até agora. */
+export async function tecnicoOcupadoNoHorario(tecnicoId: string, entrada: string, saida: string): Promise<boolean> {
+  const chave = idPlataforma(tecnicoId);
+  if (chave === null) return false;
+  const candidatas = await reports.visita.findMany({
+    where: { tecnicoId: chave, status: { not: "cancelada" }, entrada: { lt: new Date(saida) } },
+    select: { saida: true },
+  });
+  return candidatas.some((v) => (v.saida ?? new Date()).getTime() > new Date(entrada).getTime());
+}
+
+export interface DadosRetroativa {
+  tecnicoId: string;
+  clienteId: string;
+  contratoId: string;
+  unidadeId: string;
+  tipo: TipoVisita;
+  entrada: string;
+  saida: string;
+  linkReuniao: string | null;
+  equipeIds: string[];
+  temaIds: string[];
+  temaAdicional: string;
+  observacoes: string;
+  pendencias: string;
+  proximosPassos: string;
+  fotos: Foto[];
+  /** Participantes do cadastro, já conferidos por quem chama; entram sem assinatura (confirmação nominal). */
+  presencas: PresencaVisita[];
+}
+
+/**
+ * Lança pela Administração uma visita que já aconteceu: já encerrada, com os horários informados, sem GPS, sem foto do
+ * check-in e sem assinatura. Fica marcada como "retroativa" (meio) e com o lançamento e o motivo no histórico.
+ */
+export async function lancarVisitaRetroativa(d: DadosRetroativa, autor: UsuarioPublico, motivo: string): Promise<string> {
+  const tecnicoId = idPlataforma(d.tecnicoId);
+  const clienteId = idPlataforma(d.clienteId);
+  if (tecnicoId === null || clienteId === null) throw new Error("Técnico ou cliente inválido");
+  const id = crypto.randomUUID();
+  await reports.$transaction(async (tx) => {
+    await tx.visita.create({
+      data: {
+        id,
+        tecnicoId,
+        clienteId,
+        contratoId: d.contratoId,
+        estabelecimentoId: d.unidadeId,
+        tipo: d.tipo,
+        status: "encerrada",
+        entrada: new Date(d.entrada),
+        saida: new Date(d.saida),
+        checkin: Prisma.DbNull,
+        checkout: Prisma.DbNull,
+        meio: "retroativa",
+        fotoAmbiente: Prisma.DbNull,
+        printTela: Prisma.DbNull,
+        linkReuniao: d.linkReuniao,
+        temaAdicional: d.temaAdicional,
+        fotosExtras: d.fotos as unknown as Prisma.InputJsonValue,
+        observacoes: d.observacoes,
+        pendencias: d.pendencias,
+        proximosPassos: d.proximosPassos,
+        temas: { create: [...new Set(d.temaIds)].map((temaId) => ({ temaId })) },
+        equipes: { create: [...new Set(d.equipeIds)].map((equipeId) => ({ equipeId })) },
+        presencas: {
+          create: d.presencas.map((p, ordem) => ({
+            id: crypto.randomUUID(),
+            participanteId: idPlataforma(p.participanteId)!,
+            estado: p.estado,
+            nome: p.nome,
+            cboCodigo: p.cbo?.codigo ?? null,
+            cboTitulo: p.cbo?.titulo ?? null,
+            setor: p.setor,
+            cpf: p.cpf,
+            confirmacao: "nominal",
+            assinatura: null,
+            validacao: null,
+            ordem,
+          })),
+        },
+      },
+    });
+    await tx.alteracaoVisita.create({
+      data: registro(id, autor, "lancamento", motivo, [
+        { campo: "Lançamento", antes: "—", depois: `Visita de ${formatarDataHora(d.entrada)} lançada pela Administração` },
+      ]),
+    });
+  });
+  return id;
+}
+
 /** Abre a visita com a hora do servidor. Recusa se o técnico já tem uma visita aberta. */
 export async function abrirVisita(d: DadosCheckin): Promise<Visita> {
   const tecnicoId = idPlataforma(d.tecnicoId);

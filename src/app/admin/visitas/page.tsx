@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { AlertTriangle, MapPinCheck, MapPinOff } from "lucide-react";
+import { AlertTriangle, History, MapPinCheck, MapPinOff } from "lucide-react";
 import { listarEmAndamento, listarEncerradas, type VisitaDetalhada } from "@/lib/repo/visitas";
 import { listarClientes } from "@/lib/repo/clientes";
 import { listarComPermissao } from "@/lib/repo/usuarios";
@@ -21,14 +21,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AcoesAndamento } from "./acoes-andamento";
 
 const TITULO = "Visitas";
-const DESCRICAO = "Acompanhe as visitas em andamento, encerre as esquecidas e corrija as encerradas.";
+const DESCRICAO = "Acompanhe as visitas em andamento, encerre as esquecidas, corrija as encerradas e lance as que já aconteceram.";
 /** A partir de quantas horas aberta a visita é destacada como possivelmente esquecida. */
 const HORAS_ALERTA = 10;
 
 export default function VisitasPage({ searchParams }: PageProps<"/admin/visitas">) {
   return (
     <>
-      <PageHeader titulo={TITULO} descricao={DESCRICAO} />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PageHeader titulo={TITULO} descricao={DESCRICAO} />
+        <Button variant="outline" nativeButton={false} render={<Link href="/admin/visitas/retroativa" />}>
+          <History />
+          Lançar visita retroativa
+        </Button>
+      </div>
       <Suspense fallback={<div className="h-64 animate-pulse rounded-xl bg-muted" />}>
         <Conteudo searchParams={searchParams} />
       </Suspense>

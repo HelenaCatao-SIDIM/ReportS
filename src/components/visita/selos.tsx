@@ -11,7 +11,7 @@ export function SelosVisita({
   visita,
   alertaRaio = false,
 }: {
-  visita: Pick<VisitaDetalhada, "status" | "encerradaPelaAdministracao" | "historico" | "travada" | "distanciaCheckinM" | "raioCheckinM">;
+  visita: Pick<VisitaDetalhada, "status" | "encerradaPelaAdministracao" | "historico" | "travada" | "distanciaCheckinM" | "raioCheckinM"> & { meio?: VisitaDetalhada["meio"] };
   alertaRaio?: boolean;
 }) {
   const corrigida = visita.historico.some((h) => h.acao === "correcao");
@@ -21,6 +21,7 @@ export function SelosVisita({
       {visita.status === "encerrada" && <Badge variant="outline">Encerrada</Badge>}
       {visita.status === "cancelada" && <Badge variant="destructive">Cancelada</Badge>}
       {visita.encerradaPelaAdministracao && <Badge variant="secondary">Encerrada pela administração</Badge>}
+      {visita.meio === "retroativa" && <Badge variant="secondary">Lançamento retroativo</Badge>}
       {corrigida && <Badge variant="secondary">Corrigida</Badge>}
       {alertaRaio && dentroDoRaio(visita) && (
         <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-800">

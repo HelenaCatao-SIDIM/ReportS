@@ -6,7 +6,7 @@ import { formatarData, formatarDuracao, formatarHora } from "@/lib/datas";
 import { foraDoRaio, formatarDistancia } from "@/lib/distancia";
 import { formatarCbo, formatarCpf, mascararCpf } from "@/lib/format";
 import { ROTULO_MEIO } from "@/lib/meio";
-import { ehPresencial, rotuloTipo } from "@/lib/visitas";
+import { ehPresencial, fotosDaLista, rotuloTipo } from "@/lib/visitas";
 import { localizacaoPorCep } from "@/lib/config";
 import { LocalVisita } from "@/components/visita/local-visita";
 import { SeloParticipante } from "@/components/participante/selo-participante";
@@ -202,7 +202,9 @@ export function DetalheVisita({
           <CardTitle>Participantes ({v.presencas.length})</CardTitle>
         </CardHeader>
         {v.presencas.length === 0 ? (
-          <CardContent className="pb-4 text-sm text-muted-foreground">Nenhum participante registrado.</CardContent>
+          <CardContent className="pb-4 text-sm text-muted-foreground">
+            {fotosDaLista(v).length ? "Presença registrada pela foto da lista (veja em Fotos)." : "Nenhum participante registrado."}
+          </CardContent>
         ) : (
           <div className="overflow-x-auto border-t">
             <Table>
@@ -263,7 +265,8 @@ export function DetalheVisita({
         <CardContent className="space-y-4">
           <Fotos titulo="Foto do ambiente (check-in)" fotos={v.fotoAmbiente ? [v.fotoAmbiente] : []} />
           <Fotos titulo="Print da tela (treinamento online)" fotos={v.printTela ? [v.printTela] : []} />
-          <Fotos titulo="Fotos extras" fotos={v.fotosExtras} />
+          <Fotos titulo="Lista de presença (foto)" fotos={fotosDaLista(v)} />
+          <Fotos titulo="Fotos extras" fotos={v.fotosExtras.filter((f) => f.legenda !== "lista_presenca")} />
           {!v.fotoAmbiente && !v.printTela && !v.fotosExtras.length && <p className="text-sm text-muted-foreground">Nenhuma foto.</p>}
         </CardContent>
       </Card>

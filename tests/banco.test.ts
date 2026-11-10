@@ -175,6 +175,36 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
   });
 
 
+  test("visita retroativa: já encerrada, sem GPS nem foto, marcada e no histórico; cumpre o cronograma; não cruza horário", async () => {
+    const t = await temas.criarTema({ nome: "Regulação", sistema: "saude", modulo: "Atendimento" });
+    const medica = await equipes.criarEquipe({ nome: "Médica (retroativa)", temaIds: [] });
+    const hoje = hojeLocal();
+    await cronograma.criarItemCronograma({ contratoId, unidadeId: estabelecimentoId, equipeIds: [medica.id], tipo: "treinamento", prazo: somarDias(hoje, -2), observacao: "" });
+    const entrada = new Date(Date.now() - 3 * 86_400_000).toISOString();
+    const saida = new Date(Date.now() - 3 * 86_400_000 + 2 * 3600_000).toISOString();
+    assert.equal(await visitas.tecnicoOcupadoNoHorario(tecnico.id, entrada, saida), false);
+    const id = await visitas.lancarVisitaRetroativa(
+      {
+        tecnicoId: tecnico.id, clienteId, contratoId, unidadeId: estabelecimentoId, tipo: "treinamento", entrada, saida, linkReuniao: null,
+        equipeIds: [medica.id], temaIds: [t.id], temaAdicional: "", observacoes: "Treinamento feito antes do ReportS", pendencias: "", proximosPassos: "",
+        fotos: [], presencas: [],
+      },
+      tecnico,
+      "visita anterior ao sistema",
+    );
+    const v = (await visitas.buscarVisita(id))!;
+    assert.equal(v.status, "encerrada");
+    assert.equal(v.meio, "retroativa");
+    assert.equal(v.checkin, null);
+    assert.equal(v.fotoAmbiente, null);
+    assert.equal(v.entrada, entrada);
+    assert.deepEqual(v.equipeIds, [medica.id]);
+    assert.deepEqual(v.historico.map((h) => [h.acao, h.motivo]), [["lancamento", "visita anterior ao sistema"]]);
+    assert.equal(await visitas.tecnicoOcupadoNoHorario(tecnico.id, entrada, saida), true, "o mesmo horário fica ocupado");
+    const item = (await cronograma.listarCronograma(hoje, { contratoId })).find((i) => i.equipeNomes.includes("Médica (retroativa)"));
+    assert.equal(item?.situacao, "cumprido", "a visita retroativa cumpre o item do cronograma");
+  });
+
   test("setores acrescentados à visita: sem repetir e só até o check-out", async () => {
     const recepcao = await db.reports.setor.create({ data: { id: crypto.randomUUID(), estabelecimentoId, nome: "Recepção" } });
     const farmacia = await db.reports.setor.create({ data: { id: crypto.randomUUID(), estabelecimentoId, nome: "Farmácia" } });

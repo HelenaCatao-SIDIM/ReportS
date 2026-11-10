@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AcoesAndamento } from "../acoes-andamento";
 
-const ACAO = { encerramento: "Encerrada pela administração", cancelamento: "Check-in cancelado", correcao: "Correção" } as const;
+const ACAO = { encerramento: "Encerrada pela administração", cancelamento: "Check-in cancelado", correcao: "Correção", lancamento: "Lançamento retroativo" } as const;
 
 export default function VisitaPage({ params, searchParams }: PageProps<"/admin/visitas/[id]">) {
   return (
@@ -66,6 +66,12 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/visitas
         </div>
       </div>
 
+      {sp.ok === "lancada" && (
+        <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
+          <CheckCircle2 />
+          <AlertDescription className="text-emerald-800">Visita retroativa lançada. Ela já conta para o cronograma. Se o relatório do período já existe, toque em “Atualizar” nele para incluí-la.</AlertDescription>
+        </Alert>
+      )}
       {sp.ok === "corrigida" && (
         <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
           <CheckCircle2 />
