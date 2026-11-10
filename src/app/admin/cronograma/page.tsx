@@ -7,6 +7,7 @@ import { contarPorSituacao, descreverPrazo, estaPendente } from "@/lib/cronogram
 import { listarContratos } from "@/lib/repo/contratos";
 import { listarUnidades } from "@/lib/repo/clientes";
 import { listarCronograma } from "@/lib/repo/cronograma";
+import { listarEquipes } from "@/lib/repo/equipes";
 import { formatarDataCurta, rotuloTipo } from "@/lib/visitas";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/shell/placeholder";
@@ -21,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { ItemDialogo, type UnidadeOpcao } from "./item-dialogo";
 import { alternarItemCronograma } from "./actions";
 
-const DESCRICAO = "Prazos de treinamento e implantação por estabelecimento e setor. O cumprimento vem das visitas encerradas.";
+const DESCRICAO = "Prazos de treinamento e implantação por estabelecimento e equipe. O cumprimento vem das visitas encerradas.";
 
 const FILTROS_SITUACAO = [
   { valor: "", rotulo: "Todos (sem cancelados)" },
@@ -59,13 +60,19 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/cronograma">, "
   const rotulo = new Map(contratos.map((c) => [c.id, `${c.clienteNome} — ${c.sistemaNome}`]));
   const ordenados = [...contratos].sort((a, b) => (rotulo.get(a.id) ?? "").localeCompare(rotulo.get(b.id) ?? "", "pt-BR"));
 
-  // Contratos ativos para criar item, e os estabelecimentos e setores dos clientes deles.
+  // Contratos ativos para criar item, os estabelecimentos dos clientes deles e as equipes.
   const ativos = ordenados.filter((c) => c.ativo && c.clienteAtivo);
   const clienteIds = [...new Set(ativos.map((c) => c.clienteId))];
-  const unidades: Record<string, UnidadeOpcao[]> = Object.fromEntries(
-    await Promise.all(clienteIds.map(async (id) => [id, (await listarUnidades(id)).map((u) => ({ id: u.id, nome: u.nome, setores: u.setores.map((s) => ({ id: s.id, nome: s.nome })) }))] as const)),
-  );
-  const opcoes = { contratos: ativos.map((c) => ({ id: c.id, rotulo: rotulo.get(c.id)!, clienteId: c.clienteId })), unidades };
+  const [porCliente, equipes] = await Promise.all([
+    Promise.all(clienteIds.map(async (id) => [id, (await listarUnidades(id)).map((u) => ({ id: u.id, nome: u.nome }))] as const)),
+    listarEquipes(),
+  ]);
+  const unidades: Record<string, UnidadeOpcao[]> = Object.fromEntries(porCliente);
+  const opcoes = {
+    contratos: ativos.map((c) => ({ id: c.id, rotulo: rotulo.get(c.id)!, clienteId: c.clienteId })),
+    unidades,
+    equipes: equipes.map((e) => ({ id: e.id, nome: e.nome, ativo: e.ativo })),
+  };
 
   const contagem = contarPorSituacao(todos);
   const itens = todos.filter((i) => {
@@ -135,7 +142,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/cronograma">, "
               <TableRow>
                 <TableHead className="pl-4">Contrato</TableHead>
                 <TableHead>Estabelecimento</TableHead>
-                <TableHead>Setor</TableHead>
+                <TableHead>Equipes</TableHead>
                 <TableHead>Atividade</TableHead>
                 <TableHead>Prazo</TableHead>
                 <TableHead>Situação</TableHead>
@@ -154,7 +161,9 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/cronograma">, "
                 <TableRow key={i.id} className={cn(i.situacao === "cancelado" && "text-muted-foreground")}>
                   <TableCell className="pl-4 font-medium">{rotulo.get(i.contratoId) ?? "—"}</TableCell>
                   <TableCell>{i.unidadeNome}</TableCell>
-                  <TableCell>{i.setorNome ?? <span className="text-muted-foreground">Todos os setores</span>}</TableCell>
+                  <TableCell className="whitespace-normal">
+                    {i.equipeNomes.length ? i.equipeNomes.join(", ") : <span className="text-muted-foreground">Todas as equipes</span>}
+                  </TableCell>
                   <TableCell>{rotuloTipo(i.tipo)}</TableCell>
                   <TableCell className="whitespace-nowrap">{formatarDataCurta(i.prazo)}</TableCell>
                   <TableCell>
@@ -189,6 +198,6 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/cronograma">, "
 
 const observacaoRodape = (n: number) => (
   <p className="mt-3 text-xs text-muted-foreground">
-    {n} {n === 1 ? "item" : "itens"}. Um item é cumprido quando há uma visita encerrada do mesmo tipo, no estabelecimento e (se o item pede) no setor dele. Item cancelado não conta.
+    {n} {n === 1 ? "item" : "itens"}. Um item é cumprido quando há uma visita encerrada do mesmo tipo, no estabelecimento, que marcou todas as equipes do item como treinadas. Item cancelado não conta.
   </p>
 );

@@ -7,7 +7,7 @@ import { formatarData, formatarDataHora, formatarDuracao, formatarHora } from "@
 import { formatarCbo, formatarCnpj, mascararCpf } from "@/lib/format";
 import { ROTULO_MEIO } from "@/lib/meio";
 import { ehPresencial, formatarDataCurta, formatarMinutos, nomesDosSetores, rotuloSetores, rotuloTipo } from "@/lib/visitas";
-import { ROTULO_SITUACAO_RELATORIO, resumoCronograma, situacaoNoRelatorio } from "@/lib/cronograma";
+import { ROTULO_SITUACAO_RELATORIO, equipesDoItem, resumoCronograma, situacaoNoRelatorio } from "@/lib/cronograma";
 import { ASSINANTE, ASSINATURA, LOGO, linhasDaEmpresa } from "@/lib/sidim";
 import { nomeDoRelatorio } from "@/lib/nome-pdf";
 import type { MarcaPdf } from "@/lib/pdf/marca";
@@ -317,7 +317,7 @@ export function CronogramaPdf({ c }: { c: CronogramaCongelado }) {
       <View style={s.tabela}>
         <View style={[s.linha, s.cabecalho]}>
           <Text style={{ width: "28%" }}>Estabelecimento</Text>
-          <Text style={{ width: "22%" }}>Setor</Text>
+          <Text style={{ width: "22%" }}>Equipes</Text>
           <Text style={{ width: "18%" }}>Atividade</Text>
           <Text style={{ width: "14%" }}>Prazo</Text>
           <Text style={{ width: "18%" }}>Situação</Text>
@@ -325,7 +325,7 @@ export function CronogramaPdf({ c }: { c: CronogramaCongelado }) {
         {c.itens.map((i, n) => (
           <View key={n} style={s.linha} wrap={false}>
             <Text style={{ width: "28%" }}>{i.unidadeNome}</Text>
-            <Text style={{ width: "22%" }}>{i.setorNome ?? "Todos os setores"}</Text>
+            <Text style={{ width: "22%" }}>{equipesDoItem(i)}</Text>
             <Text style={{ width: "18%" }}>{rotuloTipo(i.tipo)}</Text>
             <Text style={{ width: "14%" }}>{formatarDataCurta(i.prazo)}</Text>
             <Text style={{ width: "18%" }}>

@@ -43,9 +43,8 @@ export const estaPendente = (s: SituacaoCronograma) => s === "atrasado" || s ===
 export interface VisitaParaCronograma {
   contratoId: string;
   unidadeId: string;
-  setorId: string | null;
-  /** Setores cadastrados acrescentados à visita depois do check-in (só contam os que têm cadastro, não os digitados). */
-  setoresExtrasIds?: string[];
+  /** Equipes marcadas como treinadas na visita. */
+  equipeIds: string[];
   tipo: TipoVisita;
   /** ISO (UTC). */
   entrada: string;
@@ -62,14 +61,31 @@ export function prazoValido(prazo: string): boolean {
 export const diasEntre = (de: string, ate: string) => Math.round((Date.parse(`${ate}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / 86_400_000);
 
 /**
- * A visita cumpre o item: mesmo contrato, estabelecimento e tipo; o setor só importa se o item pede um setor, e aí vale o setor
- * do check-in ou qualquer um dos acrescentados à visita (uma visita com os setores A, B e C cumpre os itens de A, B e C).
+ * A visita cumpre o item: mesmo contrato, estabelecimento e tipo, e treinou **todas** as equipes que o item pede (pode ter
+ * treinado outras também). Item sem equipe: qualquer visita do tipo no estabelecimento cumpre.
  */
 export const visitaCumpre = (item: ItemCronograma, v: VisitaParaCronograma) =>
   v.contratoId === item.contratoId &&
   v.unidadeId === item.unidadeId &&
   v.tipo === item.tipo &&
-  (item.setorId === null || v.setorId === item.setorId || (v.setoresExtrasIds ?? []).includes(item.setorId));
+  item.equipeIds.every((id) => v.equipeIds.includes(id));
+
+/** Mesmas equipes, sem importar a ordem nem repetição (para achar item repetido). */
+export const mesmasEquipes = (a: string[], b: string[]) => {
+  const x = new Set(a);
+  const y = new Set(b);
+  return x.size === y.size && [...x].every((id) => y.has(id));
+};
+
+/**
+ * Quem o item pede, em texto: as equipes; sem equipe, "Todas as equipes". Nas versões de relatório emitidas antes das
+ * equipes no cronograma, o setor que o item tinha.
+ */
+export function equipesDoItem(i: { equipes?: string[]; equipeNomes?: string[]; setorNome?: string | null }): string {
+  const nomes = i.equipes ?? i.equipeNomes;
+  if (nomes) return nomes.length ? nomes.join(", ") : "Todas as equipes";
+  return i.setorNome ? `Setor ${i.setorNome}` : "Todas as equipes";
+}
 
 /**
  * Situação do item em `hoje` (AAAA-MM-DD, horário de Brasília). Cumpre o item a primeira visita encerrada que bate com ele;
@@ -112,8 +128,7 @@ export function descreverPrazo(diasParaPrazo: number): string {
 export interface PendenciaCronograma {
   contratoId: string;
   unidadeId: string;
-  setorId: string | null;
-  setorNome: string | null;
+  equipeNomes: string[];
   tipo: TipoVisita;
   prazo: string;
   situacao: SituacaoCronograma;

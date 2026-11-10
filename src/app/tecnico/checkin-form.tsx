@@ -235,7 +235,7 @@ export function CheckinForm({
               {unidade.endereco}
             </p>
           )}
-          {contratoId && unidade && <PendenciasCronograma itens={cronograma.filter((i) => i.contratoId === contratoId && i.unidadeId === unidade.id)} setorId={setor} />}
+          {contratoId && unidade && <PendenciasCronograma itens={cronograma.filter((i) => i.contratoId === contratoId && i.unidadeId === unidade.id)} />}
           <Erro msg={e.unidade} />
         </div>
         <div>

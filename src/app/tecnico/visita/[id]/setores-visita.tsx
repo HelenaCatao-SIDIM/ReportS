@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 
 /**
  * Setores atendidos na visita: o do check-in e os que o técnico acrescenta (às vezes treina mais gente do que previa, de outros
- * setores). Vale até o check-out; o relatório lista todos, e cada setor cadastrado cumpre o item do cronograma dele.
+ * setores). Vale até o check-out; o relatório lista todos. (O cronograma usa as equipes treinadas, não o setor.)
  */
 export function SetoresVisita({
   visitaId,

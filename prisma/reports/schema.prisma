@@ -118,6 +118,8 @@ model Equipe {
   criadoEm DateTime       @default(now()) @map("criado_em")
   temas    EquipeTema[]
   visitas  VisitaEquipe[]
+  cbos     EquipeCbo[]
+  cronograma ItemCronogramaEquipe[]
 
   @@map("equipes")
 }
@@ -134,10 +136,23 @@ model EquipeTema {
   @@map("equipe_temas")
 }
 
+/// Ocupações (CBO) que se enquadram em cada equipe: só algumas, escolhidas da tabela CBO.
+model EquipeCbo {
+  equipeId  String @map("equipe_id")
+  cboCodigo String @map("cbo_codigo")
+  equipe    Equipe @relation(fields: [equipeId], references: [id], onDelete: Cascade)
+  cbo       Cbo    @relation(fields: [cboCodigo], references: [codigo])
+
+  @@id([equipeId, cboCodigo])
+  @@index([cboCodigo])
+  @@map("equipe_cbos")
+}
+
 /// Classificação Brasileira de Ocupações (tabela oficial do Ministério do Trabalho).
 model Cbo {
-  codigo String @id
-  titulo String
+  codigo  String      @id
+  titulo  String
+  equipes EquipeCbo[]
 
   @@map("cbo")
 }
@@ -361,6 +376,7 @@ model ItemCronograma {
   clienteId         BigInt          @map("cliente_id")
   contratoId        String          @map("contrato_id")
   estabelecimentoId String          @map("estabelecimento_id")
+  /// Legado: o cronograma não usa mais setor (passou a usar equipes). Fica só como registro dos itens antigos.
   setorId           String?         @map("setor_id")
   tipo              String
   prazo             DateTime        @db.Date
@@ -370,12 +386,25 @@ model ItemCronograma {
   atualizadoEm      DateTime        @default(now()) @updatedAt @map("atualizado_em")
   contrato          Contrato        @relation(fields: [contratoId], references: [id])
   estabelecimento   Estabelecimento @relation(fields: [estabelecimentoId], references: [id])
-  setor             Setor?          @relation(fields: [setorId], references: [id], onDelete: Restrict)
+  setor             Setor?          @relation(fields: [setorId], references: [id], onDelete: SetNull)
+  equipes           ItemCronogramaEquipe[]
 
   @@index([contratoId, prazo])
   @@index([clienteId])
   @@index([estabelecimentoId])
   @@map("cronograma_itens")
+}
+
+/// Equipes que o item do cronograma pede. Sem nenhuma, qualquer visita do tipo no estabelecimento cumpre o item.
+model ItemCronogramaEquipe {
+  itemId   String         @map("item_id")
+  equipeId String         @map("equipe_id")
+  item     ItemCronograma @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  equipe   Equipe         @relation(fields: [equipeId], references: [id])
+
+  @@id([itemId, equipeId])
+  @@index([equipeId])
+  @@map("cronograma_item_equipes")
 }
 
 /// Configurações editadas na Administração (ex.: conexão com o n8n dos chamados de suporte). Valores secretos ficam cifrados.

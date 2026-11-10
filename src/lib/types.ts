@@ -142,6 +142,8 @@ export interface Equipe {
   nome: string;
   /** Temas mínimos, de qualquer sistema; na visita só aparecem os do sistema do contrato. */
   temaIds: string[];
+  /** Ocupações (CBO) que se enquadram na equipe: só algumas, escolhidas da tabela. */
+  cbos: Cbo[];
   ativo: boolean;
 }
 
@@ -424,16 +426,16 @@ export interface ConteudoCongelado {
 }
 
 /**
- * Item do cronograma de implantação: um estabelecimento (ou um setor dele) que deve receber uma atividade
- * (treinamento, implantação…) até um prazo. É sempre de um contrato (cliente + sistema).
+ * Item do cronograma de implantação: um estabelecimento que deve receber uma atividade (treinamento, implantação…)
+ * até um prazo, para as equipes do item. É sempre de um contrato (cliente + sistema).
  */
 export interface ItemCronograma {
   id: string;
   clienteId: string;
   contratoId: string;
   unidadeId: string;
-  /** Nulo = qualquer setor do estabelecimento. */
-  setorId: string | null;
+  /** Equipes que precisam ser treinadas; vazio = qualquer visita do tipo no estabelecimento cumpre. */
+  equipeIds: string[];
   /** Tipo de visita que cumpre o item. */
   tipo: TipoVisita;
   /** Prazo (AAAA-MM-DD, horário de Brasília), inclusive. */
@@ -447,7 +449,8 @@ export type SituacaoCronograma = "cumprido" | "cumprido_com_atraso" | "no_prazo"
 
 export interface ItemCronogramaComSituacao extends ItemCronograma {
   unidadeNome: string;
-  setorNome: string | null;
+  /** Nomes das equipes do item, em ordem alfabética. */
+  equipeNomes: string[];
   situacao: SituacaoCronograma;
   /** Data (AAAA-MM-DD) da primeira visita encerrada que cumpriu o item. */
   cumpridoEm: string | null;
@@ -461,7 +464,10 @@ export interface CronogramaCongelado {
   em: string;
   itens: {
     unidadeNome: string;
-    setorNome: string | null;
+    /** Equipes do item. Opcional: versões emitidas antes das equipes no cronograma não têm (e trazem o setor). */
+    equipes?: string[];
+    /** Legado: setor do item nas versões emitidas antes das equipes. */
+    setorNome?: string | null;
     tipo: TipoVisita;
     prazo: string;
     situacao: SituacaoCronograma;

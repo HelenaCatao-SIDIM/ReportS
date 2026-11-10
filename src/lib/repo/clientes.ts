@@ -321,8 +321,6 @@ export async function removerSetor(id: string): Promise<void> {
   if ((await reports.visita.count({ where: { setorId: id } })) || (await reports.visitaSetor.count({ where: { setorId: id } }))) {
     throw new EmUsoError("Este setor tem visitas registradas e não pode ser removido.");
   }
-  if (await reports.itemCronograma.count({ where: { setorId: id, cancelado: false } })) {
-    throw new EmUsoError("Este setor tem itens ativos no cronograma de implantação e não pode ser removido. Mude ou cancele esses itens no cronograma.");
-  }
-  await reports.$transaction([reports.itemCronograma.deleteMany({ where: { setorId: id } }), reports.setor.deleteMany({ where: { id } })]);
+  // O cronograma não usa mais setor: os itens antigos que apontavam para ele só perdem a referência (setor_id vira nulo).
+  await reports.setor.deleteMany({ where: { id } });
 }

@@ -66,8 +66,7 @@ async function Conteudo() {
   const cronograma = (await listarPendentesDosContratos(clientes.flatMap((c) => c.contratos.map((x) => x.id)), hoje)).map((i) => ({
     contratoId: i.contratoId,
     unidadeId: i.unidadeId,
-    setorId: i.setorId,
-    setorNome: i.setorNome,
+    equipeNomes: i.equipeNomes,
     tipo: i.tipo,
     prazo: i.prazo,
     situacao: i.situacao,
