@@ -34,6 +34,9 @@ export const tituloAtendidos = (v: { setorNome: string; setoresExtras?: { nome: 
   return n > 1 ? "Setores" : n === 1 ? "Setor" : "Equipes";
 };
 
+/** Fotos da lista de presença em papel (lançamento retroativo), que ficam junto das fotos extras. */
+export const fotosDaLista = <F extends { legenda?: string }>(v: { fotosExtras: F[] }): F[] => v.fotosExtras.filter((f) => f.legenda === "lista_presenca");
+
 export const rotuloTipo = (t: TipoVisita) => TIPOS_VISITA.find((x) => x.valor === t)?.label ?? t;
 export const ehPresencial = (t: TipoVisita) => TIPOS_VISITA.find((x) => x.valor === t)?.presencial ?? true;
 

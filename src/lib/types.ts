@@ -183,8 +183,8 @@ export type TipoVisita = "treinamento" | "implantacao" | "suporte_presencial" | 
 
 export type StatusVisita = "em_andamento" | "encerrada" | "cancelada";
 
-/** Aparelho em que o técnico fez o check-in. */
-export type MeioRegistro = "celular" | "computador";
+/** Como a visita foi registrada: pelo aparelho do técnico, ou lançada depois pela Administração ("retroativa", sem GPS nem assinatura). */
+export type MeioRegistro = "celular" | "computador" | "retroativa";
 
 export interface Coordenadas {
   latitude: number;
@@ -227,6 +227,8 @@ export interface LocalVisita extends Coordenadas {
 export interface Foto {
   id: string;
   url: string;
+  /** "lista_presenca": foto da lista de presença em papel (lançamento retroativo, no lugar ou além dos nomes marcados). */
+  legenda?: "lista_presenca";
 }
 
 /** Participante registrado na visita (cópia dos dados no momento da presença). */
@@ -261,7 +263,7 @@ export interface AlteracaoVisita {
   autorId: string;
   autorNome: string;
   em: string;
-  acao: "encerramento" | "cancelamento" | "correcao";
+  acao: "encerramento" | "cancelamento" | "correcao" | "lancamento";
   motivo: string;
   mudancas: MudancaCampo[];
 }

@@ -6,7 +6,7 @@ import { formatarTempo, indicadores, linhaDoAtendimento, ordenarPorAbertura, tab
 import { formatarData, formatarDataHora, formatarDuracao, formatarHora } from "@/lib/datas";
 import { formatarCbo, formatarCnpj, mascararCpf } from "@/lib/format";
 import { ROTULO_MEIO } from "@/lib/meio";
-import { ehPresencial, formatarDataCurta, formatarMinutos, rotuloAtendidos, tituloAtendidos, rotuloTipo } from "@/lib/visitas";
+import { ehPresencial, formatarDataCurta, formatarMinutos, fotosDaLista, rotuloAtendidos, tituloAtendidos, rotuloTipo } from "@/lib/visitas";
 import { ROTULO_SITUACAO_RELATORIO, equipesDoItem, resumoCronograma, situacaoNoRelatorio } from "@/lib/cronograma";
 import { ASSINANTE, ASSINATURA, LOGO, linhasDaEmpresa } from "@/lib/sidim";
 import { nomeDoRelatorio } from "@/lib/nome-pdf";
@@ -176,7 +176,9 @@ function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao, marca }: { v
           })}
         </View>
       ) : (
-        <Text style={[s.vazio, { marginBottom: 8 }]}>Nenhum participante registrado.</Text>
+        <Text style={[s.vazio, { marginBottom: 8 }]}>
+          {fotosDaLista(v).length ? "Presença registrada pela foto da lista de presença (nas fotos da visita)." : "Nenhum participante registrado."}
+        </Text>
       )}
 
       <Text style={s.secao}>Fotos ({fotos.length})</Text>

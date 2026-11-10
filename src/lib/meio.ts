@@ -3,6 +3,7 @@ import type { MeioRegistro } from "@/lib/types";
 export const ROTULO_MEIO: Record<MeioRegistro, string> = {
   celular: "Celular",
   computador: "Computador",
+  retroativa: "Administração (lançamento retroativo)",
 };
 
 export const ehMeio = (v: string): v is MeioRegistro => v === "celular" || v === "computador";

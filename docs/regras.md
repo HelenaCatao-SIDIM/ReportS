@@ -211,9 +211,23 @@ Aparecem da mais antiga para a mais recente, para que as esquecidas fiquem no to
 - O **motivo** é obrigatório (pelo menos 5 caracteres). Se nada mudou, nada é gravado.
 - Visita em **relatório aprovado** fica **travada**: ninguém altera.
 
+### Lançamento retroativo (visita que já aconteceu)
+
+Administração → Visitas → **Lançar visita retroativa** registra uma visita que aconteceu antes (cliente que ainda não usava o ReportS, técnico sem internet, check-in esquecido). Mesma permissão da correção (`reports.visitas.gerenciar`).
+
+- É uma visita como as outras (cliente e sistema, estabelecimento, técnico, tipo, equipes treinadas, temas, anotações, participantes, fotos), **menos o que depende de estar no local na hora**:
+  - **data e horas de entrada e saída digitadas** (horário de Brasília; a saída depois da entrada e não no futuro), em vez da hora do servidor;
+  - **sem GPS** de check-in e check-out, sem raio nem distância do estabelecimento;
+  - **foto opcional** (ex.: fotos do dia; até 10 imagens, somando com a lista de presença), sem foto do ambiente obrigatória;
+  - **presença sem assinatura e sem login do participante**: os participantes são marcados do cadastro do sistema do cliente (confirmação **nominal**) **e/ou** a presença é comprovada pela **foto da lista de presença em papel**. A foto da lista fica junto das fotos da visita, marcada como "Lista de presença"; sem nomes marcados, o detalhe e o PDF dizem "Presença registrada pela foto da lista".
+- Valem as regras da visita normal: técnico com `reports.tecnico`; estabelecimento do cliente; equipes (implantação e treinamentos) **obrigatórias** quando há equipe ativa; treinamento com **ao menos um participante marcado ou uma foto da lista de presença**; só temas ativos do sistema do contrato. O técnico **não pode ter outra visita (não cancelada) que cruze o horário**.
+- Entra **já encerrada**. Conta para o **cronograma** como qualquer visita encerrada. Entra no relatório do período quando ele é criado; se o rascunho já existe, o **"Atualizar"** do relatório a inclui.
+- Fica marcada: selo **"Lançamento retroativo"** nas telas da Administração e "Registrado por: **Administração (lançamento retroativo)**" no detalhe da visita e no PDF do relatório. O **motivo** é obrigatório e fica no histórico, com quem lançou.
+- Depois de lançada, corrige-se como qualquer visita encerrada.
+
 ### Histórico de alterações
 
-Toda ação da Administração numa visita (encerramento, cancelamento ou correção) fica registrada com autor, data e hora, motivo e cada campo alterado (antes → depois).
+Toda ação da Administração numa visita (encerramento, cancelamento, correção ou lançamento retroativo) fica registrada com autor, data e hora, motivo e cada campo alterado (antes → depois).
 
 Onde: `src/app/admin/visitas/actions.ts`, `src/lib/repo/visitas.ts`, `src/components/visita/detalhe-visita.tsx`.
 
