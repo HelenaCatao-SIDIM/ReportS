@@ -52,9 +52,8 @@ export async function salvarEquipes(visitaId: string, equipeIds: string[]): Prom
   const { tecnico, v, erro } = await visitaAberta(visitaId);
   if (erro) return erro;
   if (!sugereTemasPorEquipe(v.tipo)) return "Este tipo de visita não registra equipes.";
-  // As mesmas equipes que a tela mostra: com tema mínimo do sistema do contrato, ou já marcadas.
-  const [equipes, temas] = await Promise.all([listarEquipes(), listarTemas()]);
-  const validas = new Set(equipesDaVisita(equipes, temas, v.sistema, v.equipeIds).map((e) => e.id));
+  // As mesmas equipes que a tela mostra: as ativas, ou já marcadas.
+  const validas = new Set(equipesDaVisita(await listarEquipes(), v.equipeIds).map((e) => e.id));
   await definirEquipes(visitaId, tecnico.id, equipeIds.filter((id) => validas.has(id)));
   atualizar(visitaId);
   return null;

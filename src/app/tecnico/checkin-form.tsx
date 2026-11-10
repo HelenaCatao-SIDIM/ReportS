@@ -71,14 +71,14 @@ function linhasCarimbo(cep: string | null, cidade: string | null, uf: string | n
 
 export function CheckinForm({
   clientes,
-  equipesPorSistema = {},
+  equipes = [],
   cronograma = [],
   porCep = false,
   carimbo = false,
 }: {
   clientes: ClienteCheckin[];
-  /** Equipes que podem ser marcadas, por código do sistema (as que têm tema mínimo do sistema). */
-  equipesPorSistema?: Record<string, { id: string; nome: string }[]>;
+  /** Equipes ativas, que podem ser marcadas. */
+  equipes?: { id: string; nome: string }[];
   cronograma?: PendenciaCronograma[];
   porCep?: boolean;
   carimbo?: boolean;
@@ -111,8 +111,7 @@ export function CheckinForm({
         setClienteId(c.id);
         setContratoId(ct?.id ?? "");
         setUnidadeId(u?.id ?? "");
-        const doSistema = ct ? (equipesPorSistema[ct.sistema] ?? []) : [];
-        setEquipeIds((r.equipeIds ?? []).filter((id) => doSistema.some((e) => e.id === id)));
+        setEquipeIds((r.equipeIds ?? []).filter((id) => equipes.some((e) => e.id === id)));
         if (tipoValido) {
           setTipo(tipoValido.valor);
           if (tipoValido.presencial) capturar();
@@ -122,7 +121,7 @@ export function CheckinForm({
       restaurado.current = true;
     }, 0);
     return () => clearTimeout(t);
-  }, [clientes, equipesPorSistema, capturar]);
+  }, [clientes, equipes, capturar]);
 
   // Guarda as escolhas a cada mudança, só depois da recuperação (senão apagaria o rascunho ao abrir).
   useEffect(() => {
@@ -137,8 +136,8 @@ export function CheckinForm({
   const presencial = tipo ? ehPresencial(tipo) : null;
 
   const contrato = cliente?.contratos.find((k) => k.id === contratoId);
-  // No lugar do setor: as equipes que vão ser treinadas (implantação e treinamentos). Obrigatórias quando há equipes para o sistema.
-  const opcoesEquipe = contrato && tipo && sugereTemasPorEquipe(tipo) ? (equipesPorSistema[contrato.sistema] ?? []) : [];
+  // No lugar do setor: as equipes que vão ser treinadas (implantação e treinamentos). Obrigatórias quando há equipe cadastrada.
+  const opcoesEquipe = contrato && tipo && sugereTemasPorEquipe(tipo) ? equipes : [];
   const equipesOk = !opcoesEquipe.length || equipeIds.some((id) => opcoesEquipe.some((e) => e.id === id));
   const localOk = !!clienteId && !!contratoId && !!unidadeId && equipesOk;
   const alternarEquipe = (id: string) => setEquipeIds((atual) => (atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id]));

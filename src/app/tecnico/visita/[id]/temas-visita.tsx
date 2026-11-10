@@ -173,7 +173,7 @@ export function TemasVisita({
                 </div>
               </>
             ) : (
-              <p className="text-xs text-muted-foreground">Nenhuma equipe tem temas mínimos neste sistema.</p>
+              <p className="text-xs text-muted-foreground">Nenhuma equipe cadastrada. Cadastre em Administração → Equipes.</p>
             )}
           </CardContent>
         </Card>

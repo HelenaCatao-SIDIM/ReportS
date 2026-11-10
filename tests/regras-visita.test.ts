@@ -3,14 +3,9 @@ import { test } from "node:test";
 import { abrePelaPresenca, equipesDaVisita, podeMostrarDonoDoCpf, rotaDaVisita, sugereTemasPorEquipe } from "@/lib/regras-visita";
 import { nomesDosSetores, rotuloAtendidos, tituloAtendidos } from "@/lib/visitas";
 
-const temas = [
-  { id: "agendamento", sistema: "saude", ativo: true },
-  { id: "prontuario-antigo", sistema: "saude", ativo: false },
-  { id: "iptu", sistema: "serp", ativo: true },
-];
 const equipe = (id: string, temaIds: string[], ativo = true) => ({ id, nome: id, temaIds, ativo });
 
-test("na visita só aparecem as equipes com tema mínimo ativo do sistema do contrato", () => {
+test("no check-in e na visita aparecem todas as equipes ativas, com ou sem tema mínimo", () => {
   const equipes = [
     equipe("recepcao", ["agendamento"]),
     equipe("tributacao", ["iptu"]),
@@ -18,13 +13,12 @@ test("na visita só aparecem as equipes com tema mínimo ativo do sistema do con
     equipe("so-inativo", ["prontuario-antigo"]),
     equipe("inativa", ["agendamento"], false),
   ];
-  assert.deepEqual(equipesDaVisita(equipes, temas, "saude", []).map((e) => e.id), ["recepcao", "mista"]);
-  assert.deepEqual(equipesDaVisita(equipes, temas, "serp", []).map((e) => e.id), ["tributacao", "mista"]);
+  assert.deepEqual(equipesDaVisita(equipes, []).map((e) => e.id), equipes.filter((e) => e.ativo).map((e) => e.id));
 });
 
-test("equipe já marcada continua na visita, mesmo inativada ou sem tema do sistema", () => {
+test("equipe já marcada continua na visita, mesmo inativada", () => {
   const equipes = [equipe("tributacao", ["iptu"]), equipe("inativa", ["agendamento"], false)];
-  assert.deepEqual(equipesDaVisita(equipes, temas, "saude", ["tributacao", "inativa"]).map((e) => e.id), ["tributacao", "inativa"]);
+  assert.deepEqual(equipesDaVisita(equipes, ["tributacao", "inativa"]).map((e) => e.id), ["tributacao", "inativa"]);
 });
 
 test("só implantação e treinamentos registram equipes", () => {

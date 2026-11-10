@@ -24,7 +24,7 @@ async function Conteudo({ params }: Pick<PageProps<"/admin/visitas/[id]/corrigir
   // Só encerradas e fora de relatório aprovado; o técnico nunca chega aqui.
   if (v.status !== "encerrada" || v.travada) redirect(`/admin/visitas/${id}`);
   const [unidades, temas, equipes] = await Promise.all([listarUnidades(v.clienteId), listarTemas(), listarEquipes()]);
-  const equipesDaCorrecao = equipesDaVisita(equipes, temas, v.sistema, v.equipeIds).map(({ id, nome, ativo }) => ({ id, nome, ativo }));
+  const equipesDaCorrecao = equipesDaVisita(equipes, v.equipeIds).map(({ id, nome, ativo }) => ({ id, nome, ativo }));
 
   return (
     <div className="max-w-5xl">

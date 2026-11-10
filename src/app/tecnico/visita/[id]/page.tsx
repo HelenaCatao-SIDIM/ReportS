@@ -109,7 +109,7 @@ async function EmAndamento({ v }: { v: VisitaDetalhada }) {
   // Implantação e treinamentos: o técnico marca as equipes e recebe os temas mínimos delas (do sistema do contrato) como sugestão.
   const porEquipe: PorEquipe | undefined = sugereTemasPorEquipe(v.tipo)
     ? {
-        equipes: equipesDaVisita(equipes, todosTemas, v.sistema, v.equipeIds).map(({ id, nome, temaIds }) => ({ id, nome, temaIds })),
+        equipes: equipesDaVisita(equipes, v.equipeIds).map(({ id, nome, temaIds }) => ({ id, nome, temaIds })),
         inicial: v.equipeIds,
       }
     : undefined;
