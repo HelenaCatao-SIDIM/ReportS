@@ -61,7 +61,10 @@ function LinhaTema({ t, marcado, onClick }: { t: Tema; marcado: boolean; onClick
   );
 }
 
-/** Temas da visita: marcar/desmarcar salva na hora. Com `porEquipe`, também as equipes treinadas e os temas mínimos sugeridos. */
+/**
+ * Temas da visita: marcar/desmarcar salva na hora. Com `porEquipe`, mostra antes um cartão separado com as equipes treinadas,
+ * e os temas mínimos das equipes marcadas aparecem no topo da lista de temas.
+ */
 export function TemasVisita({
   visitaId,
   temas,
@@ -80,6 +83,7 @@ export function TemasVisita({
   const [busca, setBusca] = useState("");
   const [adicional, setAdicional] = useState(adicionalInicial);
   const [situacao, setSituacao] = useState<Situacao>("parado");
+  const [situacaoEquipes, setSituacaoEquipes] = useState<Situacao>("parado");
   const [, start] = useTransition();
 
   // O que foi digitado e não chegou a ser salvo (aba fechada, celular travado) volta ao abrir e é salvo na hora.
@@ -119,7 +123,11 @@ export function TemasVisita({
   function alternarEquipe(id: string) {
     const novas = equipeIds.includes(id) ? equipeIds.filter((x) => x !== id) : [...equipeIds, id];
     setEquipeIds(novas);
-    salvar(() => salvarEquipes(visitaId, novas));
+    setSituacaoEquipes("salvando");
+    start(async () => {
+      const erro = await salvarEquipes(visitaId, novas);
+      setSituacaoEquipes(erro ? { erro } : "salvo");
+    });
   }
 
   // Temas mínimos das equipes marcadas, só os do sistema do contrato (os `temas` recebidos já são desse sistema).
@@ -132,6 +140,44 @@ export function TemasVisita({
   const marcados = temas.filter((t) => selecionados.includes(t.id));
 
   return (
+    <>
+      {porEquipe && (
+        <Card>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Equipes treinadas</h2>
+              <Indicador s={situacaoEquipes} />
+            </div>
+            {porEquipe.equipes.length ? (
+              <>
+                <p className="text-xs text-muted-foreground">As do check-in já vêm marcadas. Acrescente ou tire até o check-out.</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {porEquipe.equipes.map((e) => {
+                    const marcada = equipeIds.includes(e.id);
+                    return (
+                      <button
+                        key={e.id}
+                        type="button"
+                        onClick={() => alternarEquipe(e.id)}
+                        aria-pressed={marcada}
+                        className={cn(
+                          "flex min-h-9 items-center gap-1 rounded-full border px-3 py-1 text-sm",
+                          marcada ? "border-primary bg-primary text-primary-foreground" : "bg-background",
+                        )}
+                      >
+                        {marcada && <Check className="size-3.5" />}
+                        {e.nome}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">Nenhuma equipe tem temas mínimos neste sistema.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
     <Card>
       <CardContent className="space-y-3">
         <div className="flex items-center justify-between">
@@ -158,48 +204,18 @@ export function TemasVisita({
           <p className="text-sm text-muted-foreground">Nenhum tema marcado ainda.</p>
         )}
 
-        {porEquipe && (
-          <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
-            <div className="text-sm font-medium">Equipes treinadas</div>
-            {porEquipe.equipes.length ? (
-              <div className="flex flex-wrap gap-1.5">
-                {porEquipe.equipes.map((e) => {
-                  const marcada = equipeIds.includes(e.id);
-                  return (
-                    <button
-                      key={e.id}
-                      type="button"
-                      onClick={() => alternarEquipe(e.id)}
-                      aria-pressed={marcada}
-                      className={cn(
-                        "flex items-center gap-1 rounded-full border px-3 py-1 text-sm",
-                        marcada ? "border-primary bg-primary text-primary-foreground" : "bg-background",
-                      )}
-                    >
-                      {marcada && <Check className="size-3.5" />}
-                      {e.nome}
-                    </button>
-                  );
-                })}
-              </div>
+        {porEquipe && porEquipe.equipes.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Temas mínimos das equipes</div>
+            {sugeridos.length > 0 ? (
+              <ul className="divide-y rounded-lg border">
+                {sugeridos.map((t) => (
+                  <LinhaTema key={t.id} t={t} marcado={selecionados.includes(t.id)} onClick={() => alternar(t.id)} />
+                ))}
+              </ul>
             ) : (
-              <p className="text-xs text-muted-foreground">Nenhuma equipe tem temas mínimos neste sistema.</p>
-            )}
-            {sugeridos.length > 0 && (
-              <>
-                <div className="pt-1 text-sm font-medium">Temas mínimos sugeridos</div>
-                <ul className="divide-y rounded-lg border bg-background">
-                  {sugeridos.map((t) => (
-                    <LinhaTema key={t.id} t={t} marcado={selecionados.includes(t.id)} onClick={() => alternar(t.id)} />
-                  ))}
-                </ul>
-              </>
-            )}
-            {porEquipe.equipes.length > 0 && !sugeridos.length && (
               <p className="text-xs text-muted-foreground">
-                {escolhidas.length
-                  ? "As equipes marcadas não têm temas mínimos neste sistema."
-                  : "Marque as equipes para ver os temas mínimos sugeridos."}
+                {escolhidas.length ? "As equipes marcadas não têm temas mínimos neste sistema." : "Marque as equipes treinadas para ver os temas mínimos delas aqui."}
               </p>
             )}
           </div>
@@ -249,5 +265,6 @@ export function TemasVisita({
         </div>
       </CardContent>
     </Card>
+    </>
   );
 }

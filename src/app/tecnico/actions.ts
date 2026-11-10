@@ -7,8 +7,10 @@ import { PERMISSOES } from "@/lib/permissoes";
 import { distanciaMetros } from "@/lib/distancia";
 import { ehMeio } from "@/lib/meio";
 import { ehPresencial, TIPOS_VISITA } from "@/lib/visitas";
-import { rotaDaVisita } from "@/lib/regras-visita";
-import { buscarCliente, buscarSetor, buscarUnidade } from "@/lib/repo/clientes";
+import { equipesDaVisita, rotaDaVisita, sugereTemasPorEquipe } from "@/lib/regras-visita";
+import { buscarCliente, buscarUnidade } from "@/lib/repo/clientes";
+import { listarEquipes } from "@/lib/repo/equipes";
+import { listarTemas } from "@/lib/repo/temas";
 import { buscarContrato } from "@/lib/repo/contratos";
 import { salvarImagem } from "@/lib/repo/arquivos";
 import { abrirVisita, visitaAbertaDoTecnico } from "@/lib/repo/visitas";
@@ -17,7 +19,7 @@ import { lerLocal } from "@/lib/ler-local";
 import { converterDepois } from "@/lib/cep-visitas";
 
 export interface CheckinState {
-  erros?: Partial<Record<"cliente" | "contrato" | "unidade" | "setor" | "tipo" | "gps" | "foto" | "print" | "link" | "geral", string>>;
+  erros?: Partial<Record<"cliente" | "contrato" | "unidade" | "equipes" | "tipo" | "gps" | "foto" | "print" | "link" | "geral", string>>;
 }
 
 const arquivo = (fd: FormData, nome: string) => {
@@ -34,8 +36,7 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
   const clienteId = String(fd.get("clienteId") ?? "");
   const contratoId = String(fd.get("contratoId") ?? "");
   const unidadeId = String(fd.get("unidadeId") ?? "");
-  const setorValor = String(fd.get("setorId") ?? "");
-  const setorOutro = String(fd.get("setorOutro") ?? "").trim();
+  const equipesMarcadas = [...new Set(fd.getAll("equipeIds").map(String))];
   const tipo = String(fd.get("tipo") ?? "") as TipoVisita;
   const meioLido = String(fd.get("meio") ?? "");
 
@@ -48,15 +49,17 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
   const unidade = await buscarUnidade(unidadeId);
   if (!unidade || unidade.clienteId !== clienteId) erros.unidade = "Escolha o estabelecimento.";
 
-  let setorId: string | null = null;
-  if (setorValor === "outro") {
-    if (!setorOutro) erros.setor = "Digite o nome do setor.";
-  } else {
-    const setor = await buscarSetor(setorValor);
-    if (!setor || setor.unidadeId !== unidadeId) erros.setor = "Escolha o setor.";
-    else setorId = setor.id;
-  }
   if (!TIPOS_VISITA.some((t) => t.valor === tipo)) erros.tipo = "Escolha o tipo de visita.";
+
+  // Equipes (no lugar do setor): nos tipos que registram equipes, as que vão ser treinadas. São as mesmas "equipes
+  // treinadas" da visita, que o técnico ajusta até o check-out. Obrigatórias quando o sistema tem equipes para escolher.
+  let equipeIds: string[] = [];
+  if (contrato && sugereTemasPorEquipe(tipo)) {
+    const [equipes, temas] = await Promise.all([listarEquipes(), listarTemas()]);
+    const validas = new Set(equipesDaVisita(equipes, temas, contrato.sistema, []).map((e) => e.id));
+    equipeIds = equipesMarcadas.filter((id) => validas.has(id));
+    if (validas.size && !equipeIds.length) erros.equipes = "Marque as equipes que vão ser treinadas.";
+  }
   if (!ehMeio(meioLido)) erros.geral = "Não foi possível identificar o aparelho. Atualize a página e tente de novo.";
 
   const presencial = ehPresencial(tipo);
@@ -87,9 +90,8 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
     clienteId,
     contratoId,
     unidadeId,
-    setorId,
-    setorOutro: setorId ? null : setorOutro,
     tipo,
+    equipeIds,
     checkin,
     meio: meioLido as MeioRegistro,
     distanciaCheckinM,

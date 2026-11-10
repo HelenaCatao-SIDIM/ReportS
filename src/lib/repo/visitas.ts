@@ -330,8 +330,8 @@ export async function visitaAbertaDoTecnico(tecnicoId: string): Promise<VisitaDe
 
 export type DadosCheckin = Pick<
   Visita,
-  | "tecnicoId" | "clienteId" | "contratoId" | "unidadeId" | "setorId" | "setorOutro" | "tipo" | "checkin" | "meio" | "distanciaCheckinM" | "raioCheckinM"
-  | "fotoAmbiente" | "printTela" | "linkReuniao"
+  | "tecnicoId" | "clienteId" | "contratoId" | "unidadeId" | "tipo" | "checkin" | "meio" | "distanciaCheckinM" | "raioCheckinM"
+  | "fotoAmbiente" | "printTela" | "linkReuniao" | "equipeIds"
 >;
 
 const JA_TEM_ABERTA = "Técnico já tem uma visita em andamento";
@@ -350,8 +350,6 @@ export async function abrirVisita(d: DadosCheckin): Promise<Visita> {
         clienteId,
         contratoId: d.contratoId,
         estabelecimentoId: d.unidadeId,
-        setorId: d.setorId,
-        setorOutro: d.setorOutro,
         tipo: d.tipo,
         status: "em_andamento",
         entrada: new Date(),
@@ -362,6 +360,7 @@ export async function abrirVisita(d: DadosCheckin): Promise<Visita> {
         fotoAmbiente: json(d.fotoAmbiente),
         printTela: json(d.printTela),
         linkReuniao: d.linkReuniao,
+        equipes: { create: [...new Set(d.equipeIds)].map((equipeId) => ({ equipeId })) },
       },
       include: INCLUIR,
     });

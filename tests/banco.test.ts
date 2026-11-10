@@ -74,9 +74,9 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
 
   const checkin = () =>
     visitas.abrirVisita({
-      tecnicoId: tecnico.id, clienteId, contratoId, unidadeId: estabelecimentoId, setorId: null, setorOutro: "Gabinete", tipo: "reuniao",
+      tecnicoId: tecnico.id, clienteId, contratoId, unidadeId: estabelecimentoId, tipo: "reuniao",
       checkin: { latitude: -22.9, longitude: -47.06 }, meio: "celular", distanciaCheckinM: 10, raioCheckinM: 50,
-      fotoAmbiente: { id: "f1", url: "/arquivos/f1" }, printTela: null, linkReuniao: null,
+      fotoAmbiente: { id: "f1", url: "/arquivos/f1" }, printTela: null, linkReuniao: null, equipeIds: [],
     });
 
   const encerrar = (id: string) => visitas.encerrarPeloTecnico(id, tecnico.id, { checkout: null, observacoes: "ok", pendencias: "", proximosPassos: "" });
@@ -125,12 +125,14 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
 
   const hojeLocal = () => new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
   const somarDias = (data: string, n: number) => new Date(Date.parse(`${data}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
-  const treinoNo = async (setorId: string | null) => {
+  /** Treinamento aberto com as equipes do check-in; com `setorId`, simula uma visita antiga (do tempo do setor no check-in). */
+  const treinoNo = async (setorId: string | null, equipeIds: string[] = []) => {
     const v = await visitas.abrirVisita({
-      tecnicoId: tecnico.id, clienteId, contratoId, unidadeId: estabelecimentoId, setorId, setorOutro: null, tipo: "treinamento",
+      tecnicoId: tecnico.id, clienteId, contratoId, unidadeId: estabelecimentoId, tipo: "treinamento",
       checkin: { latitude: -22.9, longitude: -47.06 }, meio: "celular", distanciaCheckinM: 10, raioCheckinM: 50,
-      fotoAmbiente: { id: "f1", url: "/arquivos/f1" }, printTela: null, linkReuniao: null,
+      fotoAmbiente: { id: "f1", url: "/arquivos/f1" }, printTela: null, linkReuniao: null, equipeIds,
     });
+    if (setorId) await db.reports.visita.update({ where: { id: v.id }, data: { setorId } });
     return v;
   };
 
@@ -148,9 +150,10 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
       Object.fromEntries((await cronograma.listarCronograma(hoje, { contratoId })).map((i) => [`${i.equipeNomes.join("+") || "todas"}/${i.tipo}`, i.situacao]));
     assert.deepEqual(await situacao(), { "Equipe médica/treinamento": "no_prazo", "Equipe de enfermagem/treinamento": "atrasado", "todas/implantacao": "a_vencer" });
 
-    // Em andamento não conta.
-    const v = await treinoNo(null);
-    await visitas.definirEquipes(v.id, tecnico.id, [medica.id]);
+    // Em andamento não conta. As equipes vêm do check-in.
+    const v = await treinoNo(null, [medica.id]);
+    assert.deepEqual((await visitas.buscarVisita(v.id))?.equipeIds, [medica.id], "o check-in grava as equipes");
+    assert.equal((await visitas.buscarVisita(v.id))?.setorNome, "—", "visita nova não tem setor");
     assert.equal((await situacao())["Equipe médica/treinamento"], "no_prazo");
     // Encerrada conta, só para a equipe que ela treinou.
     await encerrar(v.id);
@@ -200,7 +203,7 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     // A administração move a visita para outro estabelecimento: os setores acrescentados (do anterior) saem, e fica no histórico.
     const outra = await db.reports.estabelecimento.create({ data: { id: crypto.randomUUID(), clienteId: BigInt(clienteId), nome: "Anexo", raioMetros: 50 } });
     const antes = (await visitas.buscarVisita(v.id))!;
-    const mudancas = await visitas.corrigirPelaAdministracao(v.id, { ...antes, unidadeId: outra.id, setorId: null, setorOutro: "Gabinete", saida: antes.saida!, removerPresencas: [], removerFotos: [] }, tecnico, "estabelecimento errado");
+    const mudancas = await visitas.corrigirPelaAdministracao(v.id, { ...antes, unidadeId: outra.id, setorId: null, setorOutro: null, saida: antes.saida!, removerPresencas: [], removerFotos: [] }, tecnico, "estabelecimento errado");
     assert.ok(mudancas.some((m) => m.campo === "Setores acrescentados" && /Farmácia/.test(m.antes)), "o histórico diz quais setores saíram");
     assert.deepEqual((await visitas.buscarVisita(v.id))!.setoresExtras, []);
   });

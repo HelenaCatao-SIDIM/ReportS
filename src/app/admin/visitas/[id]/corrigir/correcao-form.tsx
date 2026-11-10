@@ -37,7 +37,7 @@ export function CorrecaoForm({
   const [tipo, setTipo] = useState<TipoVisita>(v.tipo);
   const registraEquipes = sugereTemasPorEquipe(tipo);
   const [unidadeId, setUnidadeId] = useState(v.unidadeId);
-  const [setor, setSetor] = useState(v.setorId ?? "outro");
+  const [setor, setSetor] = useState(v.setorId ?? (v.setorOutro ? "outro" : ""));
   const setores = unidades.find((u) => u.id === unidadeId)?.setores ?? [];
 
   // Só temas do sistema do contrato da visita, agrupados; inativos só aparecem se já estavam marcados.
@@ -92,11 +92,9 @@ export function CorrecaoForm({
               ))}
             </select>
           </Campo>
-          <Campo id="setorId" label="Setor" erro={e.setor}>
+          <Campo id="setorId" label="Setor (só visitas antigas)" erro={e.setor}>
             <select id="setorId" name="setorId" value={setor} onChange={(ev) => setSetor(ev.target.value)} className={selectClass} aria-invalid={!!e.setor}>
-              <option value="" disabled>
-                Escolha…
-              </option>
+              <option value="">Sem setor</option>
               {setores.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.nome}

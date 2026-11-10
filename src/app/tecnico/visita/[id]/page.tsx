@@ -10,7 +10,7 @@ import { listarEquipes } from "@/lib/repo/equipes";
 import { listarUnidades } from "@/lib/repo/clientes";
 import { buscarContrato } from "@/lib/repo/contratos";
 import { formatarData, formatarDataHora, formatarHora } from "@/lib/datas";
-import { ehPresencial, rotuloSetores, rotuloTipo } from "@/lib/visitas";
+import { ehPresencial, rotuloAtendidos, rotuloTipo } from "@/lib/visitas";
 import {
   chaveRascunho,
   chaveRascunhoCheckin,
@@ -77,7 +77,7 @@ function Cabecalho({ v }: { v: VisitaDetalhada }) {
             <span className="font-normal text-muted-foreground"> · {v.sistemaNome}</span>
           </div>
           <div className="text-sm break-words text-muted-foreground">
-            {v.unidadeNome} · {rotuloSetores(v)}
+            {v.unidadeNome} · {rotuloAtendidos(v)}
           </div>
           <div className="text-sm text-muted-foreground">{rotuloTipo(v.tipo)}</div>
           {v.checkin &&
@@ -142,7 +142,8 @@ async function EmAndamento({ v }: { v: VisitaDetalhada }) {
         ehTreinamento={v.tipo === "treinamento" || v.tipo === "treinamento_online"}
         semLoginHref={semLoginHref}
       />
-      <SetoresVisita visitaId={v.id} principal={v.setorNome} extras={extras} disponiveis={disponiveis} />
+      {/* Setor é das visitas antigas: as novas usam as equipes (check-in e "Equipes treinadas"). */}
+      {(v.setorNome !== "—" || extras.length > 0) && <SetoresVisita visitaId={v.id} principal={v.setorNome} extras={extras} disponiveis={disponiveis} />}
       <div className="space-y-2 pb-2">
         <Button nativeButton={false} render={<Link href={`/tecnico/visita/${v.id}/checkout`} />} className="h-12 w-full text-base">
           <LogOut />

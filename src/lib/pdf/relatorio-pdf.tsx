@@ -6,7 +6,7 @@ import { formatarTempo, indicadores, linhaDoAtendimento, ordenarPorAbertura, tab
 import { formatarData, formatarDataHora, formatarDuracao, formatarHora } from "@/lib/datas";
 import { formatarCbo, formatarCnpj, mascararCpf } from "@/lib/format";
 import { ROTULO_MEIO } from "@/lib/meio";
-import { ehPresencial, formatarDataCurta, formatarMinutos, nomesDosSetores, rotuloSetores, rotuloTipo } from "@/lib/visitas";
+import { ehPresencial, formatarDataCurta, formatarMinutos, rotuloAtendidos, tituloAtendidos, rotuloTipo } from "@/lib/visitas";
 import { ROTULO_SITUACAO_RELATORIO, equipesDoItem, resumoCronograma, situacaoNoRelatorio } from "@/lib/cronograma";
 import { ASSINANTE, ASSINATURA, LOGO, linhasDaEmpresa } from "@/lib/sidim";
 import { nomeDoRelatorio } from "@/lib/nome-pdf";
@@ -121,14 +121,14 @@ function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao, marca }: { v
         {formatarData(v.entrada)} · {rotuloTipo(v.tipo)}
       </Text>
       <Text style={[s.subtitulo, { marginBottom: 12 }]}>
-        {v.unidadeNome} · {rotuloSetores(v)}
+        {v.unidadeNome} · {rotuloAtendidos(v)}
         {outroPeriodo ? "   (visita de período anterior)" : ""}
       </Text>
 
       <View style={s.caixa}>
         <View style={s.grade}>
           <Campo rotulo="Estabelecimento" valor={v.unidadeNome} />
-          <Campo rotulo={nomesDosSetores(v).length > 1 ? "Setores" : "Setor"} valor={rotuloSetores(v)} />
+          <Campo rotulo={tituloAtendidos(v)} valor={rotuloAtendidos(v)} />
           <Campo rotulo="Técnico" valor={v.tecnicoNome} />
           <Campo rotulo="Registrado por" valor={ROTULO_MEIO[v.meio]} />
           <Campo rotulo="Entrada" valor={formatarHora(v.entrada)} />
@@ -418,7 +418,7 @@ export function RelatorioPdf({
                 <Text style={{ width: "14%" }}>{formatarData(v.entrada)}</Text>
                 <Text style={{ width: "22%" }}>{rotuloTipo(v.tipo)}</Text>
                 <Text style={{ width: "30%" }}>
-                  {v.unidadeNome} · {rotuloSetores(v)}
+                  {v.unidadeNome} · {rotuloAtendidos(v)}
                 </Text>
                 <Text style={{ width: "20%" }}>
                   {formatarHora(v.entrada)}–{v.saida ? formatarHora(v.saida) : "—"}

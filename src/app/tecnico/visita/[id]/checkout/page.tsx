@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getUsuarioAtual } from "@/lib/dal";
 import { buscarVisita } from "@/lib/repo/visitas";
-import { ehPresencial, rotuloSetores, rotuloTipo } from "@/lib/visitas";
+import { ehPresencial, rotuloAtendidos, rotuloTipo } from "@/lib/visitas";
 import { exigeParticipantes } from "@/lib/regras-visita";
 import { localizacaoPorCep } from "@/lib/config";
 import { CheckoutForm } from "./checkout-form";
@@ -42,7 +42,7 @@ async function Conteudo({ params }: Pick<PageProps<"/tecnico/visita/[id]/checkou
         porCep={localizacaoPorCep()}
         resumo={{
           clienteNome: v.clienteNome,
-          local: `${v.unidadeNome} · ${rotuloSetores(v)}`,
+          local: `${v.unidadeNome} · ${rotuloAtendidos(v)}`,
           tipo: rotuloTipo(v.tipo),
           temas: v.temas.length + (v.temaAdicional ? 1 : 0),
           fotos: v.fotosExtras.length,

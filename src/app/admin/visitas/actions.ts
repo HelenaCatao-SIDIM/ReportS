@@ -84,10 +84,11 @@ export async function corrigirVisita(id: string, _: CorrecaoState, fd: FormData)
 
   const unidade = await buscarUnidade(unidadeId);
   if (!unidade || unidade.clienteId !== v.clienteId) erros.unidade = "Escolha um estabelecimento do cliente.";
+  // O setor saiu do check-in (as visitas novas usam equipes): fica opcional, para corrigir as visitas antigas.
   let setorId: string | null = null;
   if (setorValor === "outro") {
     if (!setorOutro) erros.setor = "Informe o nome do setor.";
-  } else {
+  } else if (setorValor) {
     const setor = await buscarSetor(setorValor);
     if (!setor || setor.unidadeId !== unidadeId) erros.setor = "Escolha um setor do estabelecimento.";
     else setorId = setor.id;
@@ -110,7 +111,7 @@ export async function corrigirVisita(id: string, _: CorrecaoState, fd: FormData)
       tipo: tipoFinal,
       unidadeId,
       setorId,
-      setorOutro: setorId ? null : setorOutro,
+      setorOutro: setorId || !setorOutro ? null : setorOutro,
       equipeIds: sugereTemasPorEquipe(tipoFinal) ? fd.getAll("equipeIds").map(String).filter((id) => equipesPermitidas.has(id)) : [],
       temaIds: fd.getAll("temaIds").map(String).filter((id) => permitidos.has(id)),
       temaAdicional: String(fd.get("temaAdicional") ?? "").trim(),
