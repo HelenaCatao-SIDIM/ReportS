@@ -101,7 +101,7 @@ export async function corrigirVisita(id: string, _: CorrecaoState, fd: FormData)
   const permitidos = new Set(temas.filter((t) => t.sistema === v.sistema && (t.ativo || v.temaIds.includes(t.id))).map((t) => t.id));
   // Equipes: só nos tipos que registram equipes, entre as que a visita aceita; com outro tipo, elas saem da visita.
   const tipoFinal = TIPOS_VISITA.some((t) => t.valor === tipo) ? tipo : v.tipo;
-  const equipesPermitidas = new Set(equipesDaVisita(equipes, temas, v.sistema, v.equipeIds).map((e) => e.id));
+  const equipesPermitidas = new Set(equipesDaVisita(equipes, v.equipeIds).map((e) => e.id));
 
   const mudancas = await corrigirPelaAdministracao(
     id,

@@ -10,7 +10,6 @@ import { ehPresencial, TIPOS_VISITA } from "@/lib/visitas";
 import { equipesDaVisita, rotaDaVisita, sugereTemasPorEquipe } from "@/lib/regras-visita";
 import { buscarCliente, buscarUnidade } from "@/lib/repo/clientes";
 import { listarEquipes } from "@/lib/repo/equipes";
-import { listarTemas } from "@/lib/repo/temas";
 import { buscarContrato } from "@/lib/repo/contratos";
 import { salvarImagem } from "@/lib/repo/arquivos";
 import { abrirVisita, visitaAbertaDoTecnico } from "@/lib/repo/visitas";
@@ -52,11 +51,10 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
   if (!TIPOS_VISITA.some((t) => t.valor === tipo)) erros.tipo = "Escolha o tipo de visita.";
 
   // Equipes (no lugar do setor): nos tipos que registram equipes, as que vão ser treinadas. São as mesmas "equipes
-  // treinadas" da visita, que o técnico ajusta até o check-out. Obrigatórias quando o sistema tem equipes para escolher.
+  // treinadas" da visita, que o técnico ajusta até o check-out. Obrigatórias quando há equipe ativa cadastrada.
   let equipeIds: string[] = [];
   if (contrato && sugereTemasPorEquipe(tipo)) {
-    const [equipes, temas] = await Promise.all([listarEquipes(), listarTemas()]);
-    const validas = new Set(equipesDaVisita(equipes, temas, contrato.sistema, []).map((e) => e.id));
+    const validas = new Set(equipesDaVisita(await listarEquipes(), []).map((e) => e.id));
     equipeIds = equipesMarcadas.filter((id) => validas.has(id));
     if (validas.size && !equipeIds.length) erros.equipes = "Marque as equipes que vão ser treinadas.";
   }

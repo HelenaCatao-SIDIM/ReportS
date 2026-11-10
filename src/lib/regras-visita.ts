@@ -1,6 +1,6 @@
 /** Regras de negócio da visita compartilhadas entre telas e servidor. */
 import { nomesParecidos } from "@/lib/similaridade";
-import type { Equipe, Tema, TipoVisita } from "@/lib/types";
+import type { Equipe, TipoVisita } from "@/lib/types";
 
 /** Tipos em que o check-out exige ao menos um participante na lista. */
 export const exigeParticipantes = (tipo: TipoVisita) => tipo === "treinamento" || tipo === "treinamento_online";
@@ -15,17 +15,11 @@ export const abrePelaPresenca = (tipo: TipoVisita) => tipo === "treinamento" || 
 export const sugereTemasPorEquipe = (tipo: TipoVisita) => tipo === "implantacao" || tipo === "treinamento" || tipo === "treinamento_online";
 
 /**
- * Equipes que podem ser marcadas na visita: as ativas com algum tema mínimo ativo do sistema do contrato, mais as que já
- * estavam marcadas (mesmo inativadas depois). Equipe só de outro sistema não aparece, para não ir ao relatório por engano.
+ * Equipes que podem ser marcadas no check-in e na visita: todas as ativas (com ou sem tema mínimo), mais as que já estavam
+ * marcadas (mesmo inativadas depois). O tema mínimo só serve para sugerir temas na visita.
  */
-export function equipesDaVisita<E extends Pick<Equipe, "id" | "ativo" | "temaIds">>(
-  equipes: E[],
-  temas: Pick<Tema, "id" | "sistema" | "ativo">[],
-  sistema: string,
-  marcadas: string[],
-): E[] {
-  const doSistema = new Set(temas.filter((t) => t.sistema === sistema && t.ativo).map((t) => t.id));
-  return equipes.filter((e) => marcadas.includes(e.id) || (e.ativo && e.temaIds.some((id) => doSistema.has(id))));
+export function equipesDaVisita<E extends Pick<Equipe, "id" | "ativo">>(equipes: E[], marcadas: string[]): E[] {
+  return equipes.filter((e) => e.ativo || marcadas.includes(e.id));
 }
 
 /** Para onde o técnico vai ao abrir a visita em andamento: a presença, enquanto ninguém assinou; depois, a tela da visita. */

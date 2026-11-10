@@ -10,7 +10,6 @@ import { dataLocal, formatarDataHora } from "@/lib/datas";
 import { rotuloAtendidos, rotuloTipo } from "@/lib/visitas";
 import { equipesDaVisita, rotaDaVisita } from "@/lib/regras-visita";
 import { listarEquipes } from "@/lib/repo/equipes";
-import { listarTemas } from "@/lib/repo/temas";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { carimboFoto, localizacaoPorCep } from "@/lib/config";
@@ -62,11 +61,9 @@ async function Conteudo() {
     );
   }
 
-  const [clientes, equipes, temas] = await Promise.all([listarParaCheckin(), listarEquipes(), listarTemas()]);
-  // Equipes que o técnico pode marcar no check-in, por sistema (as mesmas que a visita aceita depois).
-  const equipesPorSistema = Object.fromEntries(
-    [...new Set(clientes.flatMap((c) => c.contratos.map((k) => k.sistema)))].map((s) => [s, equipesDaVisita(equipes, temas, s, []).map(({ id, nome }) => ({ id, nome }))]),
-  );
+  const [clientes, todasEquipes] = await Promise.all([listarParaCheckin(), listarEquipes()]);
+  // Equipes que o técnico pode marcar no check-in (as mesmas que a visita aceita depois).
+  const equipes = equipesDaVisita(todasEquipes, []).map(({ id, nome }) => ({ id, nome }));
   // O que ainda falta do cronograma de implantação nos estabelecimentos desses contratos (sem a observação interna).
   const hoje = dataLocal(await horaDoServidor());
   const cronograma = (await listarPendentesDosContratos(clientes.flatMap((c) => c.contratos.map((x) => x.id)), hoje)).map((i) => ({
@@ -84,7 +81,7 @@ async function Conteudo() {
         <h1 className="text-xl font-semibold">Novo check-in</h1>
         <p className="text-sm text-muted-foreground">Registre a chegada ao cliente.</p>
       </div>
-      <CheckinForm clientes={clientes} equipesPorSistema={equipesPorSistema} cronograma={cronograma} porCep={localizacaoPorCep()} carimbo={carimboFoto()} />
+      <CheckinForm clientes={clientes} equipes={equipes} cronograma={cronograma} porCep={localizacaoPorCep()} carimbo={carimboFoto()} />
     </div>
   );
 }
