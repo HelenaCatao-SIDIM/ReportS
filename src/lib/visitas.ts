@@ -21,8 +21,18 @@ export function nomesDosSetores(v: { setorNome: string; setoresExtras?: { nome: 
   });
 }
 
-/** "Protocolo, Recursos Humanos": os setores da visita para mostrar numa linha. */
-export const rotuloSetores = (v: { setorNome: string; setoresExtras?: { nome: string }[] }) => nomesDosSetores(v).join(", ") || "—";
+/**
+ * Quem a visita atendeu, numa linha: os setores ("Protocolo, Recursos Humanos") nas visitas antigas, que tinham setor; nas
+ * novas, as equipes ("Médica, Enfermagem"), que tomaram o lugar do setor no check-in.
+ */
+export const rotuloAtendidos = (v: { setorNome: string; setoresExtras?: { nome: string }[]; equipes?: string[] }) =>
+  nomesDosSetores(v).join(", ") || (v.equipes ?? []).join(", ") || "—";
+
+/** Rótulo do campo de {@link rotuloAtendidos}: "Setor", "Setores" ou "Equipes". */
+export const tituloAtendidos = (v: { setorNome: string; setoresExtras?: { nome: string }[] }) => {
+  const n = nomesDosSetores(v).length;
+  return n > 1 ? "Setores" : n === 1 ? "Setor" : "Equipes";
+};
 
 export const rotuloTipo = (t: TipoVisita) => TIPOS_VISITA.find((x) => x.valor === t)?.label ?? t;
 export const ehPresencial = (t: TipoVisita) => TIPOS_VISITA.find((x) => x.valor === t)?.presencial ?? true;

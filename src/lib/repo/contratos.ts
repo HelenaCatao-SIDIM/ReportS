@@ -148,7 +148,7 @@ export interface ClienteCheckin {
   id: string;
   nome: string;
   /** Contratos ativos de sistemas do cliente: o técnico escolhe o sistema e, com ele, o contrato. */
-  contratos: { id: string; sistemaNome: string }[];
+  contratos: { id: string; sistema: string; sistemaNome: string }[];
   unidades: { id: string; nome: string; endereco: string; setores: { id: string; nome: string }[] }[];
 }
 
@@ -170,7 +170,7 @@ export async function listarParaCheckin(): Promise<ClienteCheckin[]> {
     resultado.push({
       id,
       nome: contratos[0].clienteNome,
-      contratos: contratos.map((x) => ({ id: x.id, sistemaNome: x.sistemaNome })),
+      contratos: contratos.map((x) => ({ id: x.id, sistema: x.sistema, sistemaNome: x.sistemaNome })),
       unidades: unidades.map((u) => ({ id: u.id, nome: u.nome, endereco: u.endereco, setores: u.setores.map((s) => ({ id: s.id, nome: s.nome })) })),
     });
   }

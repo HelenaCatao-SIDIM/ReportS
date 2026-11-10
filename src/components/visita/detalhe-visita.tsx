@@ -113,7 +113,8 @@ export function DetalheVisita({
               // O setor do check-in e os acrescentados depois; "(outro)" marca o que foi digitado em vez de escolhido do cadastro.
               const setores = [{ id: "checkin", nome: v.setorNome, outro: !!v.setorOutro }, ...(v.setoresExtras ?? []).map((s) => ({ id: s.id, nome: s.nome, outro: !s.setorId }))].filter((s) => s.nome !== "—");
               return (
-                <Item rotulo={setores.length > 1 ? "Setores" : "Setor"}>
+                // Visitas novas não têm setor (o check-in pede as equipes): mostra as equipes no lugar.
+                <Item rotulo={setores.length > 1 ? "Setores" : setores.length ? "Setor" : "Equipes"}>
                   {setores.length
                     ? setores.map((s, i) => (
                         <span key={s.id}>
@@ -122,7 +123,7 @@ export function DetalheVisita({
                           {s.outro && <span className="ml-1 text-xs text-muted-foreground">(outro)</span>}
                         </span>
                       ))
-                    : "—"}
+                    : v.equipes?.join(", ") || "—"}
                 </Item>
               );
             })()}

@@ -5,7 +5,7 @@ import { AlertCircle, Check, Clock, Loader2, LocateFixed, MapPin, Monitor } from
 import type { ClienteCheckin } from "@/lib/repo/contratos";
 import type { MeioRegistro, TipoVisita } from "@/lib/types";
 import { detectarMeio } from "@/lib/meio";
-import { chaveRascunhoCheckin } from "@/lib/regras-visita";
+import { chaveRascunhoCheckin, sugereTemasPorEquipe } from "@/lib/regras-visita";
 import type { PendenciaCronograma } from "@/lib/cronograma";
 import { ehPresencial, TIPOS_VISITA } from "@/lib/visitas";
 import { cn } from "@/lib/utils";
@@ -38,8 +38,8 @@ interface RascunhoCheckin {
   /** Contrato (sistema). Rascunhos antigos não têm. */
   contratoId?: string;
   unidadeId: string;
-  setor: string;
-  setorOutro: string;
+  /** Equipes marcadas. Rascunhos antigos (do tempo do setor) não têm. */
+  equipeIds?: string[];
   tipo: TipoVisita | "";
   link: string;
 }
@@ -71,11 +71,14 @@ function linhasCarimbo(cep: string | null, cidade: string | null, uf: string | n
 
 export function CheckinForm({
   clientes,
+  equipesPorSistema = {},
   cronograma = [],
   porCep = false,
   carimbo = false,
 }: {
   clientes: ClienteCheckin[];
+  /** Equipes que podem ser marcadas, por código do sistema (as que têm tema mínimo do sistema). */
+  equipesPorSistema?: Record<string, { id: string; nome: string }[]>;
   cronograma?: PendenciaCronograma[];
   porCep?: boolean;
   carimbo?: boolean;
@@ -86,8 +89,7 @@ export function CheckinForm({
   const [clienteId, setClienteId] = useState("");
   const [contratoId, setContratoId] = useState("");
   const [unidadeId, setUnidadeId] = useState("");
-  const [setor, setSetor] = useState("");
-  const [setorOutro, setSetorOutro] = useState("");
+  const [equipeIds, setEquipeIds] = useState<string[]>([]);
   const [tipo, setTipo] = useState<TipoVisita | "">("");
   const [temFoto, setTemFoto] = useState(false);
   const [link, setLink] = useState("");
@@ -105,13 +107,12 @@ export function CheckinForm({
         const u = c.unidades.find((x) => x.id === r.unidadeId);
         // Sistema com um só contrato já vem escolhido.
         const ct = c.contratos.find((x) => x.id === r.contratoId) ?? (c.contratos.length === 1 ? c.contratos[0] : undefined);
-        const s = u && (r.setor === "outro" || u.setores.some((x) => x.id === r.setor)) ? r.setor : "";
         const tipoValido = TIPOS_VISITA.find((x) => x.valor === r.tipo);
         setClienteId(c.id);
         setContratoId(ct?.id ?? "");
         setUnidadeId(u?.id ?? "");
-        setSetor(s);
-        setSetorOutro(s === "outro" ? r.setorOutro : "");
+        const doSistema = ct ? (equipesPorSistema[ct.sistema] ?? []) : [];
+        setEquipeIds((r.equipeIds ?? []).filter((id) => doSistema.some((e) => e.id === id)));
         if (tipoValido) {
           setTipo(tipoValido.valor);
           if (tipoValido.presencial) capturar();
@@ -121,13 +122,13 @@ export function CheckinForm({
       restaurado.current = true;
     }, 0);
     return () => clearTimeout(t);
-  }, [clientes, capturar]);
+  }, [clientes, equipesPorSistema, capturar]);
 
   // Guarda as escolhas a cada mudança, só depois da recuperação (senão apagaria o rascunho ao abrir).
   useEffect(() => {
     if (!restaurado.current) return;
-    guardarRascunho(chaveRascunhoCheckin, { clienteId, contratoId, unidadeId, setor, setorOutro, tipo, link } satisfies RascunhoCheckin);
-  }, [clienteId, contratoId, unidadeId, setor, setorOutro, tipo, link]);
+    guardarRascunho(chaveRascunhoCheckin, { clienteId, contratoId, unidadeId, equipeIds, tipo, link } satisfies RascunhoCheckin);
+  }, [clienteId, contratoId, unidadeId, equipeIds, tipo, link]);
   const previa = usePreviaCep(gps, porCep);
   const p = previa.fase === "pronto" ? previa.previa : null;
 
@@ -135,7 +136,12 @@ export function CheckinForm({
   const unidade = cliente?.unidades.find((u) => u.id === unidadeId);
   const presencial = tipo ? ehPresencial(tipo) : null;
 
-  const localOk = !!clienteId && !!contratoId && !!unidadeId && (setor === "outro" ? !!setorOutro.trim() : !!setor);
+  const contrato = cliente?.contratos.find((k) => k.id === contratoId);
+  // No lugar do setor: as equipes que vão ser treinadas (implantação e treinamentos). Obrigatórias quando há equipes para o sistema.
+  const opcoesEquipe = contrato && tipo && sugereTemasPorEquipe(tipo) ? (equipesPorSistema[contrato.sistema] ?? []) : [];
+  const equipesOk = !opcoesEquipe.length || equipeIds.some((id) => opcoesEquipe.some((e) => e.id === id));
+  const localOk = !!clienteId && !!contratoId && !!unidadeId && equipesOk;
+  const alternarEquipe = (id: string) => setEquipeIds((atual) => (atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id]));
   const comprovacaoOk = presencial === null ? false : presencial ? gps.fase === "ok" && temFoto : temFoto && !!link.trim();
   const pronto = localOk && comprovacaoOk;
 
@@ -180,7 +186,7 @@ export function CheckinForm({
               // Sistema e estabelecimento únicos já vêm escolhidos.
               setContratoId(c?.contratos.length === 1 ? c.contratos[0].id : "");
               setUnidadeId(c?.unidades.length === 1 ? c.unidades[0].id : "");
-              setSetor("");
+              setEquipeIds([]);
             }}
             className={select}
           >
@@ -197,7 +203,10 @@ export function CheckinForm({
           <Label htmlFor="contratoId" className="mb-1.5">
             Sistema
           </Label>
-          <select id="contratoId" name="contratoId" value={contratoId} disabled={!cliente} onChange={(ev) => setContratoId(ev.target.value)} className={select}>
+          <select id="contratoId" name="contratoId" value={contratoId} disabled={!cliente} onChange={(ev) => {
+              setContratoId(ev.target.value);
+              setEquipeIds([]);
+            }} className={select}>
             <option value="">{cliente ? "Escolha o sistema" : "Escolha o cliente primeiro"}</option>
             {cliente?.contratos.map((k) => (
               <option key={k.id} value={k.id}>
@@ -216,10 +225,7 @@ export function CheckinForm({
             name="unidadeId"
             value={unidadeId}
             disabled={!cliente}
-            onChange={(ev) => {
-              setUnidadeId(ev.target.value);
-              setSetor("");
-            }}
+            onChange={(ev) => setUnidadeId(ev.target.value)}
             className={select}
           >
             <option value="">{cliente ? "Escolha o estabelecimento" : "Escolha o cliente primeiro"}</option>
@@ -237,31 +243,6 @@ export function CheckinForm({
           )}
           {contratoId && unidade && <PendenciasCronograma itens={cronograma.filter((i) => i.contratoId === contratoId && i.unidadeId === unidade.id)} />}
           <Erro msg={e.unidade} />
-        </div>
-        <div>
-          <Label htmlFor="setorId" className="mb-1.5">
-            Setor
-          </Label>
-          <select id="setorId" name="setorId" value={setor} disabled={!unidade} onChange={(ev) => setSetor(ev.target.value)} className={select}>
-            <option value="">{unidade ? "Escolha o setor" : "Escolha o estabelecimento primeiro"}</option>
-            {unidade?.setores.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.nome}
-              </option>
-            ))}
-            {unidade && <option value="outro">Outro (digitar)</option>}
-          </select>
-          {setor === "outro" && (
-            <Input
-              name="setorOutro"
-              value={setorOutro}
-              onChange={(ev) => setSetorOutro(ev.target.value)}
-              placeholder="Nome do setor"
-              aria-label="Nome do setor"
-              className="mt-2 h-11 text-base"
-            />
-          )}
-          <Erro msg={e.setor} />
         </div>
       </Secao>
 
@@ -281,6 +262,30 @@ export function CheckinForm({
           ))}
         </div>
         <Erro msg={e.tipo} />
+        {opcoesEquipe.length > 0 && (
+          <fieldset className="space-y-2 pt-1">
+            <legend className="mb-1.5 text-sm font-medium">Equipes que vão ser treinadas</legend>
+            <div className="grid gap-2">
+              {opcoesEquipe.map((eq) => {
+                const marcada = equipeIds.includes(eq.id);
+                return (
+                  <label
+                    key={eq.id}
+                    className={cn(
+                      "flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 text-sm transition-colors",
+                      marcada ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted/50",
+                    )}
+                  >
+                    <input type="checkbox" name="equipeIds" value={eq.id} checked={marcada} onChange={() => alternarEquipe(eq.id)} className="size-4 accent-primary" />
+                    {eq.nome}
+                  </label>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">Dá para mudar durante a visita, até o check-out.</p>
+            <Erro msg={e.equipes} />
+          </fieldset>
+        )}
       </Secao>
 
       {presencial === true && meio === "computador" && (
