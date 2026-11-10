@@ -440,6 +440,8 @@ export interface ItemCronograma {
   tipo: TipoVisita;
   /** Prazo (AAAA-MM-DD, horário de Brasília), inclusive. */
   prazo: string;
+  /** Horário combinado, texto livre e opcional ("09:30 e 14h"). Só informativo: não conta para repetido nem cumprimento. */
+  horario: string;
   observacao: string;
   cancelado: boolean;
 }

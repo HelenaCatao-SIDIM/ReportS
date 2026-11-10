@@ -380,6 +380,8 @@ model ItemCronograma {
   setorId           String?         @map("setor_id")
   tipo              String
   prazo             DateTime        @db.Date
+  /// Horário combinado, texto livre e opcional ("09:30 e 14h"). Só informativo.
+  horario           String          @default("")
   observacao        String          @default("")
   cancelado         Boolean         @default(false)
   criadoEm          DateTime        @default(now()) @map("criado_em")

@@ -227,6 +227,7 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     await cronograma.criarItemCronograma(d);
     assert.equal(await cronograma.itemCronogramaDuplicado(d), true);
     assert.equal(await cronograma.itemCronogramaDuplicado({ ...d, equipeIds: [] }), false, "outras equipes: não é o mesmo item");
+    assert.equal(await cronograma.itemCronogramaDuplicado({ ...d, prazo: somarDias(hoje, 21) }), false, "outro dia: não é o mesmo item");
 
     const [item] = await cronograma.listarCronograma(hoje, { contratoId });
     assert.deepEqual(item.equipeNomes, ["Equipe médica"]);
@@ -269,7 +270,7 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
 
   // ---------- Importação do cronograma por planilha ----------
 
-  const linhaPedido = (o: Record<string, unknown>) => ({ linha: 2, contratoId, unidade: { tipo: "existente", id: estabelecimentoId }, equipeIds: [], atividade: "treinamento", prazo: "2026-12-01", observacao: "", ...o }) as Parameters<typeof importacao.gravarImportacao>[0][number];
+  const linhaPedido = (o: Record<string, unknown>) => ({ linha: 2, contratoId, unidade: { tipo: "existente", id: estabelecimentoId }, equipeIds: [], atividade: "treinamento", prazo: "2026-12-01", horario: "", observacao: "", ...o }) as Parameters<typeof importacao.gravarImportacao>[0][number];
 
   test("importação: grava estabelecimento novo, os itens e as equipes de uma vez, sem repetir", async () => {
     const t = await temas.criarTema({ nome: "Prontuário", sistema: "saude", modulo: "Atendimento" });
@@ -278,7 +279,7 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     const r = await importacao.gravarImportacao(
       [
         linhaPedido({ linha: 2, unidade: novoPosto, equipeIds: [medica.id] }),
-        linhaPedido({ linha: 3, unidade: { tipo: "existente", id: estabelecimentoId }, atividade: "implantacao", observacao: "  combinado  " }),
+        linhaPedido({ linha: 3, unidade: { tipo: "existente", id: estabelecimentoId }, atividade: "implantacao", horario: " 09:30 e 14h ", observacao: "  combinado  " }),
         linhaPedido({ linha: 4, unidade: { tipo: "nova", nome: "posto novo" }, equipeIds: [medica.id, medica.id] }), // mesmo item da linha 2
       ],
       true,
@@ -291,6 +292,7 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     const itens = await cronograma.listarCronograma("2026-11-01", { contratoId });
     assert.equal(itens.length, 2);
     assert.equal(itens.find((i) => i.tipo === "implantacao")?.observacao, "combinado");
+    assert.equal(itens.find((i) => i.tipo === "implantacao")?.horario, "09:30 e 14h");
     assert.deepEqual(itens.find((i) => i.unidadeNome === "Posto Novo")?.equipeNomes, ["Equipe médica"]);
 
     // Equipe inativa não entra.

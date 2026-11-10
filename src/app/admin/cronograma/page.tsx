@@ -165,7 +165,10 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/cronograma">, "
                     {i.equipeNomes.length ? i.equipeNomes.join(", ") : <span className="text-muted-foreground">Todas as equipes</span>}
                   </TableCell>
                   <TableCell>{rotuloTipo(i.tipo)}</TableCell>
-                  <TableCell className="whitespace-nowrap">{formatarDataCurta(i.prazo)}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {formatarDataCurta(i.prazo)}
+                    {i.horario && <span className="block text-xs text-muted-foreground">{i.horario}</span>}
+                  </TableCell>
                   <TableCell>
                     <div className="flex flex-col items-start gap-0.5">
                       <SituacaoBadge situacao={i.situacao} />
