@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { listarEquipes } from "@/lib/repo/equipes";
 import { listarTemas } from "@/lib/repo/temas";
 import { cn } from "@/lib/utils";
+import { formatarCbo } from "@/lib/format";
 import { PageHeader } from "@/components/shell/placeholder";
 import { BotaoAtivo } from "@/components/form/botao-ativo";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +12,7 @@ import { EquipeDialogo } from "./equipe-dialogo";
 import { alternarEquipe } from "./actions";
 
 const TITULO = "Equipes";
-const DESCRICAO = "Temas mínimos de cada equipe. Na implantação e nos treinamentos, o técnico marca as equipes e o ReportS sugere esses temas.";
+const DESCRICAO = "Temas mínimos e ocupações (CBO) de cada equipe. Na implantação e nos treinamentos, o técnico marca as equipes e o ReportS sugere esses temas.";
 
 export default function EquipesPage() {
   return (
@@ -46,6 +47,7 @@ async function Conteudo() {
               <TableRow>
                 <TableHead className="pl-4">Equipe</TableHead>
                 <TableHead>Temas mínimos</TableHead>
+                <TableHead>Ocupações (CBO)</TableHead>
                 <TableHead>Situação</TableHead>
                 <TableHead className="pr-4 text-right">Ações</TableHead>
               </TableRow>
@@ -53,7 +55,7 @@ async function Conteudo() {
             <TableBody>
               {equipes.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
                     Nenhuma equipe cadastrada.
                   </TableCell>
                 </TableRow>
@@ -72,6 +74,19 @@ async function Conteudo() {
                           </Badge>
                         ))}
                     </div>
+                  </TableCell>
+                  <TableCell className="whitespace-normal">
+                    {e.cbos.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {e.cbos.map((c) => (
+                          <Badge key={c.codigo} variant="outline" title={formatarCbo(c.codigo)}>
+                            {c.titulo}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant={e.ativo ? "outline" : "destructive"}>{e.ativo ? "Ativa" : "Inativa"}</Badge>

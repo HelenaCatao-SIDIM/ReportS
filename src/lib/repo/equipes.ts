@@ -4,17 +4,31 @@ import { normalizar } from "@/lib/format";
 import type { Equipe } from "@/lib/types";
 
 /*
- * Equipes — banco do ReportS. Cadastro único da SIDIM (vale para todos os clientes), cada uma com os seus temas mínimos.
+ * Equipes — banco do ReportS. Cadastro único da SIDIM (vale para todos os clientes), cada uma com os seus temas mínimos
+ * e as ocupações (CBO) que se enquadram nela.
  * Não há exclusão: a equipe é inativada e continua nas visitas em que já foi marcada.
  */
 
-const SELECAO = { id: true, nome: true, ativo: true, temas: { select: { temaId: true } } } as const;
+const SELECAO = {
+  id: true,
+  nome: true,
+  ativo: true,
+  temas: { select: { temaId: true } },
+  cbos: { select: { cbo: { select: { codigo: true, titulo: true } } } },
+} as const;
 
-const paraEquipe = (e: { id: string; nome: string; ativo: boolean; temas: { temaId: string }[] }): Equipe => ({
+const paraEquipe = (e: {
+  id: string;
+  nome: string;
+  ativo: boolean;
+  temas: { temaId: string }[];
+  cbos: { cbo: { codigo: string; titulo: string } }[];
+}): Equipe => ({
   id: e.id,
   nome: e.nome,
   ativo: e.ativo,
   temaIds: e.temas.map((t) => t.temaId),
+  cbos: e.cbos.map((c) => c.cbo).sort((a, b) => a.titulo.localeCompare(b.titulo, "pt-BR")),
 });
 
 const porNome = (a: Equipe, b: Equipe) => a.nome.localeCompare(b.nome, "pt-BR");
@@ -42,11 +56,17 @@ export async function equipeDuplicada(nome: string, excetoId?: string) {
   return todas.some((e) => e.id !== excetoId && normalizar(e.nome) === n);
 }
 
-export type DadosEquipe = Pick<Equipe, "nome" | "temaIds">;
+/** `cboCodigos` fora = os CBOs da equipe não mudam. */
+export type DadosEquipe = Pick<Equipe, "nome" | "temaIds"> & { cboCodigos?: string[] };
 
 export async function criarEquipe(d: DadosEquipe): Promise<Equipe> {
   const e = await reports.equipe.create({
-    data: { id: crypto.randomUUID(), nome: d.nome, temas: { create: [...new Set(d.temaIds)].map((temaId) => ({ temaId })) } },
+    data: {
+      id: crypto.randomUUID(),
+      nome: d.nome,
+      temas: { create: [...new Set(d.temaIds)].map((temaId) => ({ temaId })) },
+      cbos: { create: [...new Set(d.cboCodigos ?? [])].map((cboCodigo) => ({ cboCodigo })) },
+    },
     select: SELECAO,
   });
   return paraEquipe(e);
@@ -57,6 +77,12 @@ export async function atualizarEquipe(id: string, d: DadosEquipe): Promise<void>
     reports.equipe.update({ where: { id }, data: { nome: d.nome } }),
     reports.equipeTema.deleteMany({ where: { equipeId: id } }),
     reports.equipeTema.createMany({ data: [...new Set(d.temaIds)].map((temaId) => ({ equipeId: id, temaId })) }),
+    ...(d.cboCodigos
+      ? [
+          reports.equipeCbo.deleteMany({ where: { equipeId: id } }),
+          reports.equipeCbo.createMany({ data: [...new Set(d.cboCodigos)].map((cboCodigo) => ({ equipeId: id, cboCodigo })) }),
+        ]
+      : []),
   ]);
 }
 

@@ -1,5 +1,5 @@
 import { CalendarClock } from "lucide-react";
-import { resumoCronograma } from "@/lib/cronograma";
+import { equipesDoItem, resumoCronograma } from "@/lib/cronograma";
 import type { CronogramaCongelado } from "@/lib/types";
 import { formatarDataCurta, rotuloTipo } from "@/lib/visitas";
 import { SituacaoBadgeRelatorio } from "@/components/cronograma/situacao-badge";
@@ -25,7 +25,7 @@ export function CronogramaRelatorio({ cronograma: c }: { cronograma: CronogramaC
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-4">Estabelecimento</TableHead>
-                <TableHead>Setor</TableHead>
+                <TableHead>Equipes</TableHead>
                 <TableHead>Atividade</TableHead>
                 <TableHead>Prazo</TableHead>
                 <TableHead className="pr-4">Situação</TableHead>
@@ -35,7 +35,7 @@ export function CronogramaRelatorio({ cronograma: c }: { cronograma: CronogramaC
               {c.itens.map((i, n) => (
                 <TableRow key={n}>
                   <TableCell className="pl-4 font-medium">{i.unidadeNome}</TableCell>
-                  <TableCell>{i.setorNome ?? <span className="text-muted-foreground">Todos os setores</span>}</TableCell>
+                  <TableCell className="whitespace-normal">{equipesDoItem(i)}</TableCell>
                   <TableCell>{rotuloTipo(i.tipo)}</TableCell>
                   <TableCell className="whitespace-nowrap">{formatarDataCurta(i.prazo)}</TableCell>
                   <TableCell className="pr-4">

@@ -1,13 +1,28 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DIAS_A_VENCER, ROTULO_SITUACAO_RELATORIO, calcularSituacao, contarPorSituacao, descreverPrazo, diasEntre, estaPendente, prazoValido, resumoCronograma, situacaoNoRelatorio, urgencia, type VisitaParaCronograma } from "@/lib/cronograma";
+import {
+  DIAS_A_VENCER,
+  ROTULO_SITUACAO_RELATORIO,
+  calcularSituacao,
+  contarPorSituacao,
+  descreverPrazo,
+  diasEntre,
+  equipesDoItem,
+  estaPendente,
+  mesmasEquipes,
+  prazoValido,
+  resumoCronograma,
+  situacaoNoRelatorio,
+  urgencia,
+  type VisitaParaCronograma,
+} from "@/lib/cronograma";
 import type { CronogramaCongelado, ItemCronograma } from "@/lib/types";
 
 const item = (o: Partial<ItemCronograma> = {}): ItemCronograma => ({
-  id: "i1", clienteId: "1", contratoId: "c1", unidadeId: "u1", setorId: "s1", tipo: "treinamento", prazo: "2026-11-20", observacao: "", cancelado: false, ...o,
+  id: "i1", clienteId: "1", contratoId: "c1", unidadeId: "u1", equipeIds: ["medica"], tipo: "treinamento", prazo: "2026-11-20", observacao: "", cancelado: false, ...o,
 });
 const visita = (o: Partial<VisitaParaCronograma> = {}): VisitaParaCronograma => ({
-  contratoId: "c1", unidadeId: "u1", setorId: "s1", tipo: "treinamento", entrada: "2026-11-10T13:00:00.000Z", ...o,
+  contratoId: "c1", unidadeId: "u1", equipeIds: ["medica"], tipo: "treinamento", entrada: "2026-11-10T13:00:00.000Z", ...o,
 });
 
 test("sem visita, só o prazo decide: no prazo, a vencer e atrasado", () => {
@@ -27,14 +42,25 @@ test("visita encerrada que bate com o item cumpre; depois do prazo, cumpre com a
   assert.equal(calcularSituacao(item(), [visita({ entrada: "2026-11-22T13:00:00.000Z" })], "2026-11-25").situacao, "cumprido_com_atraso");
 });
 
-test("setor acrescentado à visita cumpre o item do setor; setor digitado (sem cadastro) e outro estabelecimento não", () => {
-  const doRh = item({ setorId: "s-rh" });
-  assert.equal(calcularSituacao(doRh, [visita()], "2026-11-25").situacao, "atrasado", "a visita só do setor s1 não cumpre o item do RH");
-  assert.equal(calcularSituacao(doRh, [visita({ setoresExtrasIds: ["s-rh"] })], "2026-11-12").situacao, "cumprido", "com o RH acrescentado, cumpre");
-  assert.equal(calcularSituacao(item({ setorId: "s1" }), [visita({ setoresExtrasIds: ["s-rh"] })], "2026-11-12").situacao, "cumprido", "e o setor do check-in continua valendo");
-  assert.equal(calcularSituacao(doRh, [visita({ setoresExtrasIds: ["s-rh"], unidadeId: "u2" })], "2026-11-25").situacao, "atrasado", "outro estabelecimento não cumpre");
-  assert.equal(calcularSituacao(doRh, [visita({ setoresExtrasIds: ["s-rh"], tipo: "implantacao" })], "2026-11-25").situacao, "atrasado", "outro tipo não cumpre");
-  assert.equal(calcularSituacao(item({ setorId: null }), [visita({ setoresExtrasIds: [] })], "2026-11-12").situacao, "cumprido", "item de todos os setores segue valendo com qualquer setor");
+test("a visita precisa ter treinado todas as equipes do item (pode ter treinado outras também)", () => {
+  const duas = item({ equipeIds: ["medica", "enfermagem"] });
+  assert.equal(calcularSituacao(duas, [visita()], "2026-11-12").situacao, "no_prazo", "só a equipe médica não cumpre o item de médica e enfermagem");
+  assert.equal(calcularSituacao(duas, [visita({ equipeIds: ["enfermagem", "medica"] })], "2026-11-12").situacao, "cumprido", "as duas, em qualquer ordem, cumprem");
+  assert.equal(calcularSituacao(item(), [visita({ equipeIds: ["medica", "administrativa"] })], "2026-11-12").situacao, "cumprido", "treinar a mais não atrapalha");
+  assert.equal(calcularSituacao(item(), [visita({ equipeIds: [] })], "2026-11-12").situacao, "no_prazo", "visita sem equipe marcada não cumpre item com equipe");
+  assert.equal(calcularSituacao(item({ equipeIds: [] }), [visita({ equipeIds: [] })], "2026-11-12").situacao, "cumprido", "item sem equipe: qualquer visita do tipo cumpre");
+  assert.equal(calcularSituacao(item(), [visita({ unidadeId: "u2" })], "2026-11-25").situacao, "atrasado", "outro estabelecimento não cumpre");
+});
+
+test("mesmas equipes ignora ordem e repetição; o texto do item mostra equipes, ou o setor nas versões antigas", () => {
+  assert.equal(mesmasEquipes(["a", "b"], ["b", "a", "a"]), true);
+  assert.equal(mesmasEquipes(["a"], ["a", "b"]), false);
+  assert.equal(mesmasEquipes([], []), true);
+  assert.equal(equipesDoItem({ equipes: ["Equipe médica", "Coordenação"] }), "Equipe médica, Coordenação");
+  assert.equal(equipesDoItem({ equipes: [] }), "Todas as equipes");
+  assert.equal(equipesDoItem({ equipeNomes: ["Coordenação"] }), "Coordenação");
+  assert.equal(equipesDoItem({ setorNome: "Recepção" }), "Setor Recepção", "versão emitida antes das equipes");
+  assert.equal(equipesDoItem({ setorNome: null }), "Todas as equipes");
 });
 
 test("o dia do prazo vale até o fim do dia em Brasília (23h30 de 20/11 = 21/11 em UTC)", () => {
@@ -53,13 +79,6 @@ test("outro estabelecimento, contrato ou tipo de visita não cumpre", () => {
   for (const v of [visita({ unidadeId: "u2" }), visita({ contratoId: "c2" }), visita({ tipo: "implantacao" }), visita({ tipo: "treinamento_online" })]) {
     assert.equal(calcularSituacao(item(), [v], "2026-11-12").situacao, "no_prazo");
   }
-});
-
-test("item com setor exige o mesmo setor; sem setor, qualquer setor do estabelecimento serve", () => {
-  assert.equal(calcularSituacao(item(), [visita({ setorId: "s2" })], "2026-11-12").situacao, "no_prazo");
-  assert.equal(calcularSituacao(item(), [visita({ setorId: null })], "2026-11-12").situacao, "no_prazo"); // setor digitado à mão não é o setor do item
-  assert.equal(calcularSituacao(item({ setorId: null }), [visita({ setorId: "s2" })], "2026-11-12").situacao, "cumprido");
-  assert.equal(calcularSituacao(item({ setorId: null }), [visita({ setorId: null })], "2026-11-12").situacao, "cumprido");
 });
 
 test("item cancelado não conta como pendente nem como cumprido", () => {
@@ -94,7 +113,7 @@ test("textos do prazo e resumo do relatório", () => {
   assert.equal(descreverPrazo(-1), "venceu há 1 dia");
   assert.equal(descreverPrazo(-12), "venceu há 12 dias");
 
-  const i = (situacao: CronogramaCongelado["itens"][number]["situacao"]) => ({ unidadeNome: "Sede", setorNome: null, tipo: "treinamento" as const, prazo: "2026-11-20", situacao, cumpridoEm: null });
+  const i = (situacao: CronogramaCongelado["itens"][number]["situacao"]) => ({ unidadeNome: "Sede", equipes: [], tipo: "treinamento" as const, prazo: "2026-11-20", situacao, cumpridoEm: null });
   assert.equal(resumoCronograma({ em: "2026-11-01", itens: [i("cumprido")] }), "1 de 1 item cumprido");
   assert.equal(resumoCronograma({ em: "2026-11-01", itens: [i("cumprido"), i("cumprido_com_atraso"), i("atrasado"), i("atrasado"), i("no_prazo")] }), "2 de 5 itens cumpridos");
   assert.equal(resumoCronograma({ em: "2026-11-01", itens: [i("a_vencer"), i("atrasado")] }), "0 de 2 itens cumpridos");

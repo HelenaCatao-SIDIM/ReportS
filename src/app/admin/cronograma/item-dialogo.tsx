@@ -21,14 +21,21 @@ export interface ContratoOpcao {
 export interface UnidadeOpcao {
   id: string;
   nome: string;
-  setores: { id: string; nome: string }[];
+}
+
+export interface EquipeOpcao {
+  id: string;
+  nome: string;
+  ativo: boolean;
 }
 
 interface Opcoes {
   /** Contratos ativos, para criar. */
   contratos: ContratoOpcao[];
-  /** Estabelecimentos e setores por cliente. */
+  /** Estabelecimentos por cliente. */
   unidades: Record<string, UnidadeOpcao[]>;
+  /** Cadastro único de Equipes (as inativas só aparecem se o item já as tinha). */
+  equipes: EquipeOpcao[];
 }
 
 function ItemForm({ item, rotuloContrato, opcoes, onSalvo }: { item?: ItemCronograma; rotuloContrato?: string; opcoes: Opcoes; onSalvo: () => void }) {
@@ -36,15 +43,16 @@ function ItemForm({ item, rotuloContrato, opcoes, onSalvo }: { item?: ItemCronog
   const e = state.erros ?? {};
   const v =
     state.valores ??
-    (item ? { contratoId: item.contratoId, unidadeId: item.unidadeId, setorId: item.setorId ?? "", tipo: item.tipo, prazo: item.prazo, observacao: item.observacao } : undefined);
+    (item ? { contratoId: item.contratoId, unidadeId: item.unidadeId, equipeIds: item.equipeIds, tipo: item.tipo, prazo: item.prazo, observacao: item.observacao } : undefined);
 
   const [contratoId, setContratoId] = useState(v?.contratoId ?? "");
   const [unidadeId, setUnidadeId] = useState(v?.unidadeId ?? "");
-  const [setorId, setSetorId] = useState(v?.setorId ?? "");
+  const [equipeIds, setEquipeIds] = useState<string[]>(v?.equipeIds ?? []);
 
   const clienteId = item ? item.clienteId : opcoes.contratos.find((c) => c.id === contratoId)?.clienteId;
   const unidades = (clienteId && opcoes.unidades[clienteId]) || [];
-  const setores = unidades.find((u) => u.id === unidadeId)?.setores ?? [];
+  const equipes = opcoes.equipes.filter((x) => x.ativo || item?.equipeIds.includes(x.id));
+  const alternar = (id: string) => setEquipeIds((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
   useEffect(() => {
     if (state.ok) onSalvo();
@@ -69,7 +77,6 @@ function ItemForm({ item, rotuloContrato, opcoes, onSalvo }: { item?: ItemCronog
             onChange={(ev) => {
               setContratoId(ev.target.value);
               setUnidadeId("");
-              setSetorId("");
             }}
             className={selectClass}
             aria-invalid={!!e.contratoId}
@@ -85,43 +92,58 @@ function ItemForm({ item, rotuloContrato, opcoes, onSalvo }: { item?: ItemCronog
           </select>
         )}
       </Campo>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Campo id="c-unidade" label="Estabelecimento" erro={e.unidadeId}>
-          <select
-            id="c-unidade"
-            name="unidadeId"
-            value={unidadeId}
-            onChange={(ev) => {
-              setUnidadeId(ev.target.value);
-              setSetorId("");
-            }}
-            disabled={!clienteId}
-            className={selectClass}
-            aria-invalid={!!e.unidadeId}
-          >
-            <option value="" disabled>
-              {clienteId ? "Escolha…" : "Escolha o contrato primeiro"}
+      <Campo id="c-unidade" label="Estabelecimento" erro={e.unidadeId}>
+        <select
+          id="c-unidade"
+          name="unidadeId"
+          value={unidadeId}
+          onChange={(ev) => setUnidadeId(ev.target.value)}
+          disabled={!clienteId}
+          className={selectClass}
+          aria-invalid={!!e.unidadeId}
+        >
+          <option value="" disabled>
+            {clienteId ? "Escolha…" : "Escolha o contrato primeiro"}
+          </option>
+          {unidades.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.nome}
             </option>
-            {unidades.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.nome}
-              </option>
+          ))}
+        </select>
+      </Campo>
+      <fieldset className="space-y-1.5">
+        <legend className="mb-1.5 text-sm font-medium">Equipes</legend>
+        {equipes.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhuma equipe cadastrada. Cadastre em Administração → Equipes.</p>
+        ) : (
+          <div className="grid gap-1.5 rounded-lg border p-3 sm:grid-cols-2">
+            {equipes.map((x) => (
+              <label key={x.id} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="equipeIds"
+                  value={x.id}
+                  checked={equipeIds.includes(x.id)}
+                  onChange={() => alternar(x.id)}
+                  className="size-4 accent-primary"
+                />
+                {x.nome}
+                {!x.ativo && <span className="text-xs text-muted-foreground">(inativa)</span>}
+              </label>
             ))}
-          </select>
-        </Campo>
-        <Campo id="c-setor" label="Setor" erro={e.setorId} dica="Sem setor, vale qualquer setor do estabelecimento.">
-          <select id="c-setor" name="setorId" value={setorId} onChange={(ev) => setSetorId(ev.target.value)} disabled={!unidadeId} className={selectClass} aria-invalid={!!e.setorId}>
-            <option value="">Todos os setores</option>
-            {setores.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.nome}
-              </option>
-            ))}
-          </select>
-        </Campo>
-      </div>
+          </div>
+        )}
+        {e.equipeIds ? (
+          <p className="text-xs text-destructive">{e.equipeIds}</p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            A visita precisa marcar todas essas equipes como treinadas. Sem nenhuma marcada, vale qualquer visita do tipo no estabelecimento.
+          </p>
+        )}
+      </fieldset>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Campo id="c-tipo" label="Atividade" erro={e.tipo} dica="A visita encerrada desse tipo, no estabelecimento e setor, cumpre o item.">
+        <Campo id="c-tipo" label="Atividade" erro={e.tipo} dica="A visita encerrada desse tipo, no estabelecimento, cumpre o item.">
           <select id="c-tipo" name="tipo" defaultValue={v?.tipo ?? "treinamento"} className={selectClass} aria-invalid={!!e.tipo}>
             {TIPOS_VISITA.map((t) => (
               <option key={t.valor} value={t.valor}>
@@ -167,7 +189,9 @@ export function ItemDialogo({ item, rotuloContrato, opcoes }: { item?: ItemCrono
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{item ? "Editar item do cronograma" : "Novo item do cronograma"}</DialogTitle>
-            <DialogDescription>Estabelecimento (e setor) que deve receber a atividade até o prazo. O cumprimento é conferido pelas visitas encerradas.</DialogDescription>
+            <DialogDescription>
+              Estabelecimento e equipes que devem receber a atividade até o prazo. O cumprimento é conferido pelas visitas encerradas.
+            </DialogDescription>
           </DialogHeader>
           {aberto && <ItemForm item={item} rotuloContrato={rotuloContrato} opcoes={opcoes} onSalvo={() => setAberto(false)} />}
         </DialogContent>

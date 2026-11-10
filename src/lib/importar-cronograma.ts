@@ -2,7 +2,8 @@
  * Importação do cronograma por planilha Excel: regras puras, sem banco, compartilhadas entre servidor e navegador.
  *
  * Fluxo: o servidor lê a planilha (`lerLinhas`), o navegador mostra a prévia e junta as decisões do usuário
- * (cadastrar ou alterar o que não existe, corrigir atividade e prazo, pular) com `resolverLinhas`, e o servidor
+ * (cadastrar ou alterar o estabelecimento que não existe, escolher equipes, corrigir atividade e prazo, pular) com
+ * `resolverLinhas`, e o servidor
  * confere tudo de novo antes de gravar. Quem grava nunca confia no que veio do navegador.
  */
 import { normalizar } from "@/lib/format";
@@ -22,13 +23,19 @@ export const chaveNome = (s: string) => normalizar(s).replace(/\s+/g, " ");
 
 // ---------- Leitura da planilha ----------
 
-type ChaveColuna = "cliente" | "sistema" | "estabelecimento" | "setor" | "atividade" | "prazo" | "observacao";
+type ChaveColuna = "cliente" | "sistema" | "estabelecimento" | "equipes" | "atividade" | "prazo" | "observacao";
 
 export const COLUNAS: { chave: ChaveColuna; rotulo: string; obrigatoria: boolean; apelidos: string[]; exemplo: string }[] = [
   { chave: "cliente", rotulo: "Cliente", obrigatoria: true, apelidos: ["cliente"], exemplo: "Prefeitura de Vale Verde" },
   { chave: "sistema", rotulo: "Sistema", obrigatoria: true, apelidos: ["sistema"], exemplo: "SCA" },
   { chave: "estabelecimento", rotulo: "Estabelecimento", obrigatoria: true, apelidos: ["estabelecimento", "unidade"], exemplo: "Sede" },
-  { chave: "setor", rotulo: "Setor", obrigatoria: false, apelidos: ["setor"], exemplo: "Protocolo" },
+  {
+    chave: "equipes",
+    rotulo: "Equipe",
+    obrigatoria: false,
+    apelidos: ["equipe", "equipes", "categoria profissional", "categoria"],
+    exemplo: "Equipe administrativa, Coordenação",
+  },
   { chave: "atividade", rotulo: "Atividade", obrigatoria: true, apelidos: ["atividade", "tipo", "tipo de visita"], exemplo: "Treinamento" },
   { chave: "prazo", rotulo: "Prazo", obrigatoria: true, apelidos: ["prazo", "data limite", "data"], exemplo: "13/11/2026" },
   { chave: "observacao", rotulo: "Observação", obrigatoria: false, apelidos: ["observacao", "observacoes", "observacao interna"], exemplo: "Combinado com o secretário" },
@@ -45,7 +52,10 @@ export interface LinhaBruta {
   cliente: string;
   sistema: string;
   estabelecimento: string;
-  setor: string;
+  /** Texto da coluna Equipe, como veio. */
+  equipesTexto: string;
+  /** Nomes das equipes, separados por vírgula ou ponto e vírgula na célula. */
+  equipes: string[];
   atividadeTexto: string;
   atividade: TipoVisita | null;
   prazoTexto: string;
@@ -96,6 +106,15 @@ export function lerPrazo(c: unknown): string | null {
   return prazoValido(iso) ? iso : null;
 }
 
+/** Nomes de equipe de uma célula: separados por vírgula ou ponto e vírgula, sem vazios nem repetidos. */
+export function separarEquipes(texto: string): string[] {
+  const nomes = texto
+    .split(/[;,]/)
+    .map((n) => n.trim())
+    .filter(Boolean);
+  return nomes.filter((n, i) => nomes.findIndex((x) => chaveNome(x) === chaveNome(n)) === i);
+}
+
 /** Atividade pelo nome ("Treinamento online") ou pelo código ("treinamento_online"). Nulo se não reconhece. */
 export function lerAtividade(texto: string): TipoVisita | null {
   const k = chaveCabecalho(texto);
@@ -120,8 +139,8 @@ export function lerLinhas(dados: unknown[][]): LeituraPlanilha {
     if (coluna && !indices.has(coluna.chave)) indices.set(coluna.chave, i);
     else if (!coluna) {
       avisos.push(
-        chaveCabecalho(nome) === "equipe"
-          ? "A coluna “Equipe” foi ignorada: o cronograma usa o Setor do estabelecimento (o cadastro Equipes é outra coisa)."
+        chaveCabecalho(nome) === "setor"
+          ? "A coluna “Setor” foi ignorada: o cronograma usa as equipes (coluna “Equipe”), não o setor."
           : `A coluna “${nome}” foi ignorada: o cronograma não usa essa informação.`,
       );
     }
@@ -135,12 +154,14 @@ export function lerLinhas(dados: unknown[][]): LeituraPlanilha {
     if (!row.some((c) => !vazia(c))) continue;
     const cel = (k: ChaveColuna) => (indices.has(k) ? row[indices.get(k)!] : undefined);
     const atividadeTexto = textoCelula(cel("atividade"));
+    const equipesTexto = textoCelula(cel("equipes"));
     linhas.push({
       linha: i + 1,
       cliente: textoCelula(cel("cliente")),
       sistema: textoCelula(cel("sistema")),
       estabelecimento: textoCelula(cel("estabelecimento")),
-      setor: textoCelula(cel("setor")),
+      equipesTexto,
+      equipes: separarEquipes(equipesTexto),
       atividadeTexto,
       atividade: lerAtividade(atividadeTexto),
       prazoTexto: textoCelula(cel("prazo")),
@@ -169,23 +190,33 @@ export interface ContratoCtx {
 export interface UnidadeCtx {
   id: string;
   nome: string;
-  setores: { id: string; nome: string }[];
+}
+
+export interface EquipeCtx {
+  id: string;
+  nome: string;
 }
 
 export interface ItemExistente {
   contratoId: string;
   unidadeId: string;
-  setorId: string | null;
+  equipeIds: string[];
   tipo: TipoVisita;
 }
 
 export interface ContextoImportacao {
   contratos: ContratoCtx[];
-  /** Estabelecimentos e setores por cliente. */
+  /** Estabelecimentos por cliente. */
   unidades: Record<string, UnidadeCtx[]>;
+  /** Equipes ativas (cadastro único de Equipes). */
+  equipes: EquipeCtx[];
   /** Itens ativos que já existem (para marcar o que seria duplicado). */
   existentes: ItemExistente[];
 }
+
+/** Chave de um item para achar repetido: contrato, estabelecimento, equipes (sem ordem) e atividade. */
+export const chaveItem = (contratoId: string, unidadeRef: string, equipeIds: string[], tipo: string) =>
+  `${contratoId}|${unidadeRef}|${[...new Set(equipeIds)].sort().join(",")}|${tipo}`;
 
 /** "Prefeitura de Vale Verde — SCA", com o tenant quando o mesmo cliente tem dois contratos do mesmo sistema. */
 export function rotuloContrato(c: ContratoCtx, todos: ContratoCtx[]): string {
@@ -206,28 +237,25 @@ export interface Decisoes {
   /** Correções de atividade e prazo feitas na tela. */
   atividade: Record<number, TipoVisita>;
   prazo: Record<number, string>;
+  /** Equipes escolhidas na tela para a linha (ids), quando a planilha trouxe uma equipe que não existe. */
+  equipes: Record<number, string[]>;
   /** Para cada estabelecimento da planilha que não existe: cadastrar ou usar um existente. Chave: `chaveEstab`. */
   estab: Record<string, Decisao>;
-  /** Idem para cada setor que não existe. Chave: `chaveSetor`. */
-  setor: Record<string, Decisao>;
 }
 
-export const decisoesVazias = (): Decisoes => ({ pular: {}, contrato: {}, atividade: {}, prazo: {}, estab: {}, setor: {} });
+export const decisoesVazias = (): Decisoes => ({ pular: {}, contrato: {}, atividade: {}, prazo: {}, equipes: {}, estab: {} });
 
 export const chaveEstab = (clienteId: string, nome: string) => `${clienteId}|${chaveNome(nome)}`;
-export const chaveSetor = (refUnidade: string, nome: string) => `${refUnidade}|${chaveNome(nome)}`;
 
 export type RefUnidade = { tipo: "existente"; id: string; nome: string } | { tipo: "nova"; nome: string; chave: string };
-/** `null` = todos os setores. */
-export type RefSetor = null | { tipo: "existente"; id: string; nome: string } | { tipo: "novo"; nome: string; chave: string };
 
 export interface Pergunta {
-  campo: "estabelecimento" | "setor";
+  campo: "estabelecimento";
   /** Nome como veio da planilha. */
   nome: string;
-  /** Chave da decisão (estab ou setor). */
+  /** Chave da decisão (`chaveEstab`). */
   chave: string;
-  /** Onde: nome do cliente (estabelecimento) ou do estabelecimento (setor). */
+  /** Onde: nome do cliente. */
   onde: string;
   /** Opções para "alterar para um existente". */
   existentes: { id: string; nome: string }[];
@@ -242,8 +270,8 @@ export interface Pergunta {
 export type SituacaoLinha = "pronta" | "decidir" | "erro" | "duplicada" | "pulada";
 
 /** Os campos de um item, na ordem em que a revisão os mostra (um aparece quando o anterior está resolvido). */
-export type CampoItem = "contrato" | "estabelecimento" | "setor" | "atividade" | "prazo";
-export const ORDEM_CAMPOS: readonly CampoItem[] = ["contrato", "estabelecimento", "setor", "atividade", "prazo"];
+export type CampoItem = "contrato" | "estabelecimento" | "equipes" | "atividade" | "prazo";
+export const ORDEM_CAMPOS: readonly CampoItem[] = ["contrato", "estabelecimento", "equipes", "atividade", "prazo"];
 
 export interface LinhaResolvida {
   bruta: LinhaBruta;
@@ -252,13 +280,14 @@ export interface LinhaResolvida {
   /** Contratos entre os quais o usuário pode escolher quando a planilha não bateu com um só. */
   contratoOpcoes: ContratoCtx[];
   unidade: RefUnidade | null;
-  setor: RefSetor | undefined;
+  /** Equipes do item (vazio = todas); nulo enquanto a planilha traz uma equipe que não existe e nada foi escolhido. */
+  equipes: EquipeCtx[] | null;
   atividade: TipoVisita | null;
   prazo: string | null;
   observacao: string;
   /** Todos os problemas da linha (os que se corrigem na tela e os que não). */
   problemas: string[];
-  /** Os problemas que se corrigem na tela, por campo (escolher o contrato, a atividade ou o prazo). */
+  /** Os problemas que se corrigem na tela, por campo (escolher o contrato, as equipes, a atividade ou o prazo). */
   problemaDoCampo: Partial<Record<CampoItem, string>>;
   /** Os que não têm conserto na tela (nome em branco ou grande demais, observação grande): só pulando a linha. */
   semConserto: string[];
@@ -273,7 +302,6 @@ function problemasSemConserto(b: LinhaBruta): string[] {
   if (b.observacao.length > LIMITE_OBSERVACAO) p.push(`Observação com mais de ${LIMITE_OBSERVACAO} caracteres.`);
   if (!b.estabelecimento) p.push("Estabelecimento em branco.");
   else if (b.estabelecimento.length > LIMITE_NOME) p.push(`Estabelecimento com mais de ${LIMITE_NOME} caracteres.`);
-  if (b.setor.length > LIMITE_NOME) p.push(`Setor com mais de ${LIMITE_NOME} caracteres.`);
   return p;
 }
 
@@ -318,7 +346,9 @@ function acharContrato(b: LinhaBruta, ctx: ContextoImportacao, dec: Decisoes): {
  * existe ou se repete. A ordem importa: a primeira ocorrência de um item vale, as repetidas viram "duplicada".
  */
 export function resolverLinhas(linhas: LinhaBruta[], ctx: ContextoImportacao, dec: Decisoes): LinhaResolvida[] {
-  const existentes = new Set(ctx.existentes.map((e) => `${e.contratoId}|${e.unidadeId}|${e.setorId ?? ""}|${e.tipo}`));
+  const existentes = new Set(ctx.existentes.map((e) => chaveItem(e.contratoId, e.unidadeId, e.equipeIds, e.tipo)));
+  const equipePorNome = new Map(ctx.equipes.map((e) => [chaveNome(e.nome), e]));
+  const equipePorId = new Map(ctx.equipes.map((e) => [e.id, e]));
   const vistos = new Set<string>();
   const resolvidas: LinhaResolvida[] = [];
 
@@ -341,8 +371,22 @@ export function resolverLinhas(linhas: LinhaBruta[], ctx: ContextoImportacao, de
     const semConserto = problemasSemConserto(b);
     problemas.push(...semConserto);
 
+    // Equipes: as escolhidas na tela valem; senão, os nomes da planilha (todos precisam existir no cadastro).
+    let equipes: EquipeCtx[] | null;
+    const escolhidas = dec.equipes[b.linha];
+    if (escolhidas) equipes = escolhidas.map((id) => equipePorId.get(id)).filter((e): e is EquipeCtx => !!e);
+    else {
+      const faltando = b.equipes.filter((n) => !equipePorNome.has(chaveNome(n)));
+      if (faltando.length) {
+        equipes = null;
+        falha(
+          "equipes",
+          `${faltando.length === 1 ? "Equipe não encontrada" : "Equipes não encontradas"}: ${faltando.map((n) => `“${n}”`).join(", ")}. Escolha as equipes abaixo, ou cadastre em Equipes e envie a planilha de novo.`,
+        );
+      } else equipes = b.equipes.map((n) => equipePorNome.get(chaveNome(n))!);
+    }
+
     let unidade: RefUnidade | null = null;
-    let setor: RefSetor | undefined = undefined;
 
     if (contrato && b.estabelecimento && b.estabelecimento.length <= LIMITE_NOME) {
       const unidades = ctx.unidades[contrato.clienteId] ?? [];
@@ -363,34 +407,6 @@ export function resolverLinhas(linhas: LinhaBruta[], ctx: ContextoImportacao, de
         const existentesU = unidades.map((u) => ({ id: u.id, nome: u.nome }));
         perguntas.push({ campo: "estabelecimento", nome: b.estabelecimento, chave: kEstab, onde: contrato.clienteNome, existentes: existentesU, sugerido: melhorParecido(b.estabelecimento, existentesU), linhas: [b.linha], decisao });
       }
-
-      if (unidade) {
-        if (!b.setor) setor = null;
-        else if (b.setor.length <= LIMITE_NOME) {
-          if (unidade.tipo === "nova") setor = { tipo: "novo", nome: b.setor, chave: chaveSetor(`novo:${unidade.chave}`, b.setor) };
-          else {
-            const idUnidade = unidade.id;
-            const setores = unidades.find((u) => u.id === idUnidade)?.setores ?? [];
-            const achado = setores.find((s) => chaveNome(s.nome) === chaveNome(b.setor));
-            const kSetor = chaveSetor(idUnidade, b.setor);
-            const ds = dec.setor[kSetor];
-            const escolhido = ds?.acao === "usar" ? setores.find((s) => s.id === ds.id) : undefined;
-            if (achado) setor = { tipo: "existente", id: achado.id, nome: achado.nome };
-            else {
-              let decisao: Decisao | null = null;
-              if (escolhido) {
-                setor = { tipo: "existente", id: escolhido.id, nome: escolhido.nome };
-                decisao = ds!;
-              } else if (ds?.acao === "cadastrar") {
-                setor = { tipo: "novo", nome: b.setor, chave: kSetor };
-                decisao = ds;
-              }
-              const existentesS = setores.map((s) => ({ id: s.id, nome: s.nome }));
-              perguntas.push({ campo: "setor", nome: b.setor, chave: kSetor, onde: unidade.nome, existentes: existentesS, sugerido: melhorParecido(b.setor, existentesS), linhas: [b.linha], decisao });
-            }
-          }
-        }
-      }
     }
 
     let situacao: SituacaoLinha;
@@ -400,9 +416,8 @@ export function resolverLinhas(linhas: LinhaBruta[], ctx: ContextoImportacao, de
     else if (perguntas.some((p) => !p.decisao)) situacao = "decidir";
     else {
       const refU = unidade!.tipo === "existente" ? unidade!.id : `novo:${unidade!.chave}`;
-      const refS = setor === null || setor === undefined ? "" : setor.tipo === "existente" ? setor.id : `novo:${setor.chave}`;
-      const chave = `${contrato!.id}|${refU}|${refS}|${atividade}`;
-      if (unidade!.tipo === "existente" && (setor === null || setor!.tipo === "existente") && existentes.has(chave)) {
+      const chave = chaveItem(contrato!.id, refU, equipes!.map((e) => e.id), atividade!);
+      if (unidade!.tipo === "existente" && existentes.has(chave)) {
         situacao = "duplicada";
         motivoDuplicada = "Já existe no cronograma.";
       } else if (vistos.has(chave)) {
@@ -414,7 +429,7 @@ export function resolverLinhas(linhas: LinhaBruta[], ctx: ContextoImportacao, de
       }
     }
 
-    resolvidas.push({ bruta: b, situacao, contrato, contratoOpcoes: opcoes, unidade, setor, atividade, prazo, observacao: b.observacao, problemas, problemaDoCampo, semConserto, perguntas, motivoDuplicada });
+    resolvidas.push({ bruta: b, situacao, contrato, contratoOpcoes: opcoes, unidade, equipes, atividade, prazo, observacao: b.observacao, problemas, problemaDoCampo, semConserto, perguntas, motivoDuplicada });
   }
   return resolvidas;
 }
@@ -433,8 +448,8 @@ function campoResolvido(l: LinhaResolvida, c: CampoItem): boolean {
       return l.contrato !== null;
     case "estabelecimento":
       return l.unidade !== null;
-    case "setor":
-      return l.setor !== undefined;
+    case "equipes":
+      return l.equipes !== null;
     case "atividade":
       return l.atividade !== null;
     case "prazo":
@@ -490,21 +505,18 @@ export interface ResumoImportacao {
   erro: number;
   duplicadas: number;
   puladas: number;
-  /** Estabelecimentos e setores que serão cadastrados, sem repetição. */
+  /** Estabelecimentos que serão cadastrados, sem repetição. */
   estabelecimentosNovos: { nome: string; cliente: string }[];
-  setoresNovos: { nome: string; estabelecimento: string }[];
 }
 
 export function resumir(resolvidas: LinhaResolvida[]): ResumoImportacao {
   const n = (s: SituacaoLinha) => resolvidas.filter((l) => l.situacao === s).length;
   const estab = new Map<string, { nome: string; cliente: string }>();
-  const setores = new Map<string, { nome: string; estabelecimento: string }>();
   for (const l of resolvidas) {
     if (l.situacao !== "pronta") continue;
     if (l.unidade?.tipo === "nova" && !estab.has(l.unidade.chave)) estab.set(l.unidade.chave, { nome: l.unidade.nome, cliente: l.contrato!.clienteNome });
-    if (l.setor?.tipo === "novo" && !setores.has(l.setor.chave)) setores.set(l.setor.chave, { nome: l.setor.nome, estabelecimento: l.unidade!.nome });
   }
-  return { total: resolvidas.length, prontas: n("pronta"), decidir: n("decidir"), erro: n("erro"), duplicadas: n("duplicada"), puladas: n("pulada"), estabelecimentosNovos: [...estab.values()], setoresNovos: [...setores.values()] };
+  return { total: resolvidas.length, prontas: n("pronta"), decidir: n("decidir"), erro: n("erro"), duplicadas: n("duplicada"), puladas: n("pulada"), estabelecimentosNovos: [...estab.values()] };
 }
 
 /** Pode confirmar: nenhuma linha (não pulada) ficou com pergunta ou erro, e há algo para criar. */
@@ -513,13 +525,13 @@ export const podeConfirmar = (r: ResumoImportacao) => r.decidir === 0 && r.erro 
 // ---------- Pedido enviado ao servidor ----------
 
 export type PedidoUnidade = { tipo: "existente"; id: string } | { tipo: "nova"; nome: string };
-export type PedidoSetor = null | { tipo: "existente"; id: string } | { tipo: "novo"; nome: string };
 
 export interface PedidoLinha {
   linha: number;
   contratoId: string;
   unidade: PedidoUnidade;
-  setor: PedidoSetor;
+  /** Ids das equipes do item; vazio = todas. */
+  equipeIds: string[];
   atividade: TipoVisita;
   prazo: string;
   observacao: string;
@@ -531,12 +543,11 @@ export function montarPedido(resolvidas: LinhaResolvida[]): PedidoLinha[] {
   for (const l of resolvidas) {
     if (l.situacao !== "pronta") continue;
     const u = l.unidade!;
-    const s = l.setor ?? null;
     pedido.push({
       linha: l.bruta.linha,
       contratoId: l.contrato!.id,
       unidade: u.tipo === "existente" ? { tipo: "existente", id: u.id } : { tipo: "nova", nome: u.nome },
-      setor: s === null ? null : s.tipo === "existente" ? { tipo: "existente", id: s.id } : { tipo: "novo", nome: s.nome },
+      equipeIds: l.equipes!.map((e) => e.id),
       atividade: l.atividade!,
       prazo: l.prazo!,
       observacao: l.observacao,

@@ -26,7 +26,7 @@ const negrito = (value: string) => ({ value, fontWeight: "bold" as const });
 export async function modeloPlanilha(): Promise<Buffer> {
   const cabecalho = COLUNAS.map((c) => negrito(c.rotulo));
   const exemplo1 = COLUNAS.map((c) => c.exemplo);
-  const exemplo2 = ["Prefeitura de Vale Verde", "SERP", "Posto Central", "", "Implantação", "20/11/2026", "Sem setor: vale qualquer setor do estabelecimento"];
+  const exemplo2 = ["Prefeitura de Vale Verde", "SERP", "Posto Central", "", "Implantação", "20/11/2026", "Sem equipe: vale para todas as equipes"];
   const instrucoes: (string | ReturnType<typeof negrito>)[][] = [
     [negrito("Como preencher")],
     ["Uma linha por item do cronograma. A primeira aba é a que será lida; esta aba é só de ajuda."],
@@ -35,11 +35,12 @@ export async function modeloPlanilha(): Promise<Buffer> {
     ...COLUNAS.map((c) => [`${c.rotulo}${c.obrigatoria ? " (obrigatória)" : " (opcional)"}`]),
     [""],
     ["Cliente e Sistema: iguais ao cadastro (sem diferenciar acento nem maiúsculas). Cada linha precisa de um contrato ativo do cliente para o sistema."],
-    ["Estabelecimento e Setor: o que não existir no cadastro será perguntado na tela: você escolhe cadastrar ou trocar por um existente. Setor em branco vale qualquer setor."],
+    ["Estabelecimento: o que não existir no cadastro será perguntado na tela: você escolhe cadastrar ou trocar por um existente."],
+    ["Equipe: nomes do cadastro de Equipes, separados por vírgula (ex.: Equipe médica, Equipe de enfermagem). Em branco, vale para todas as equipes."],
     [`Atividade: ${TIPOS_VISITA.map((t) => t.label).join(", ")}.`],
     ["Prazo: uma data (por exemplo, 20/11/2026). Vale até o fim desse dia."],
     ["Observação: só a Administração vê; não vai para o relatório do cliente."],
-    ["Colunas que não estão na lista (como “Equipe”) são ignoradas."],
+    ["Colunas que não estão na lista (como “Setor”) são ignoradas."],
   ];
   return writeExcelFile([
     { data: [cabecalho, exemplo1, exemplo2], sheet: "Cronograma", columns: [{ width: 28 }, { width: 12 }, { width: 24 }, { width: 22 }, { width: 22 }, { width: 14 }, { width: 44 }] },

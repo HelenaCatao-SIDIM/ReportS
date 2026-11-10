@@ -36,3 +36,11 @@ export async function buscarCbo(codigo: string): Promise<Cbo | null> {
   if (!/^\d{6}$/.test(codigo)) return null;
   return reports.cbo.findUnique({ where: { codigo } });
 }
+
+/** Dos códigos informados, os que existem na tabela. */
+export async function cbosExistentes(codigos: string[]): Promise<Set<string>> {
+  const validos = codigos.filter((c) => /^\d{6}$/.test(c));
+  if (!validos.length) return new Set();
+  const linhas = await reports.cbo.findMany({ where: { codigo: { in: validos } }, select: { codigo: true } });
+  return new Set(linhas.map((l) => l.codigo));
+}

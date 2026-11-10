@@ -77,7 +77,6 @@ export function ImportarCronograma() {
             <b>{resultado.criados}</b> {resultado.criados === 1 ? "item criado" : "itens criados"} no cronograma.
           </li>
           {resultado.estabelecimentosCriados > 0 && <li>{resultado.estabelecimentosCriados} estabelecimento(s) cadastrado(s): complete o endereço e as coordenadas em Clientes.</li>}
-          {resultado.setoresCriados > 0 && <li>{resultado.setoresCriados} setor(es) cadastrado(s).</li>}
           {resultado.ignorados > 0 && <li>{resultado.ignorados} já existiam e foram ignorados.</li>}
         </ul>
         <div className="flex gap-2">
@@ -132,7 +131,7 @@ export function ImportarCronograma() {
               </li>
             ))}
           </ul>
-          <p className="text-muted-foreground">Estabelecimento ou setor que não existir no cadastro: a tela pergunta se você quer cadastrar ou trocar por um existente, um item de cada vez. Só aparecem os itens que precisam de você; os que estão certos entram sozinhos.</p>
+          <p className="text-muted-foreground">Estabelecimento que não existir no cadastro: a tela pergunta se você quer cadastrar ou trocar por um existente, um item de cada vez. Na coluna Equipe, separe várias equipes por vírgula, com os nomes do cadastro de Equipes; em branco, o item vale para todas. Só aparecem os itens que precisam de você; os que estão certos entram sozinhos.</p>
         </Card>
       </div>
     );

@@ -51,13 +51,12 @@ function Campo({ rotulo, children }: { rotulo: string; children: ReactNode }) {
 
 function PerguntaCard({ p, linhaAtual, podeCadastrar, onDecidir }: { p: Pergunta; linhaAtual: number; podeCadastrar: boolean; onDecidir: (d: Decisao | null) => void }) {
   const decisao = p.decisao;
-  const coisa = p.campo === "estabelecimento" ? "estabelecimento" : "setor";
   const ordenadas = [...p.existentes].sort((a, b) => Number(b.id === p.sugerido) - Number(a.id === p.sugerido));
   const outras = [...new Set(p.linhas)].filter((n) => n !== linhaAtual);
   return (
     <div data-testid="pergunta" className={cn("rounded-lg border p-3", decisao ? "border-emerald-300 bg-emerald-50/50" : "border-amber-300 bg-amber-50")}>
       <div>
-        O {coisa} <b>“{p.nome}”</b> não existe em <b>{p.onde}</b>.
+        O estabelecimento <b>“{p.nome}”</b> não existe em <b>{p.onde}</b>.
         {outras.length > 0 && <span className="text-muted-foreground"> A resposta vale também para {outras.length === 1 ? "a linha" : "as linhas"} {outras.join(", ")}.</span>}
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -82,10 +81,10 @@ function PerguntaCard({ p, linhaAtual, podeCadastrar, onDecidir }: { p: Pergunta
       </div>
       {!podeCadastrar && (
         <p className="mt-1.5 text-xs text-muted-foreground">
-          Você não tem permissão para cadastrar {coisa === "setor" ? "setores" : "estabelecimentos"} (reports.clientes.cadastrar): escolha um existente ou pule o item.
+          Você não tem permissão para cadastrar estabelecimentos (reports.clientes.cadastrar): escolha um existente ou pule o item.
         </p>
       )}
-      {p.campo === "estabelecimento" && decisao?.acao === "cadastrar" && <p className="mt-1.5 text-xs text-muted-foreground">Será criado só com o nome (raio de 50 m, sem endereço nem coordenadas). Complete depois em Clientes.</p>}
+      {decisao?.acao === "cadastrar" && <p className="mt-1.5 text-xs text-muted-foreground">Será criado só com o nome (raio de 50 m, sem endereço nem coordenadas). Complete depois em Clientes.</p>}
     </div>
   );
 }
@@ -108,22 +107,28 @@ function ItemEmEtapas({ l, opcoesContrato, contexto, dec, alterar, perguntasDaPl
   const aparece = (c: (typeof e.visiveis)[number]) => e.visiveis.includes(c);
 
   function decidir(p: Pergunta, d: Decisao | null) {
-    const tabela = { ...(p.campo === "estabelecimento" ? dec.estab : dec.setor) };
+    const tabela = { ...dec.estab };
     if (d) tabela[p.chave] = d;
     else delete tabela[p.chave];
-    alterar(p.campo === "estabelecimento" ? { estab: tabela } : { setor: tabela });
+    alterar({ estab: tabela });
   }
   const pergunta = (campo: Pergunta["campo"]) => {
     const p = l.perguntas.find((x) => x.campo === campo);
     return p ? (planilha.get(chavePergunta(p)) ?? p) : undefined;
   };
   const pEstab = pergunta("estabelecimento");
-  const pSetor = pergunta("setor");
+  // Equipes escolhidas na tela para esta linha (quando a planilha trouxe uma equipe que não existe).
+  const escolhidas = dec.equipes[b.linha];
+  const alternarEquipe = (id: string) => {
+    const atual = escolhidas ?? [];
+    const novas = atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id];
+    alterar({ equipes: { ...dec.equipes, [b.linha]: novas } });
+  };
 
   return (
     <div className="space-y-4" data-testid="item">
       <p className="rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground" data-testid="linha-planilha">
-        Na planilha, linha {b.linha}: {[b.cliente, b.sistema, b.estabelecimento, b.setor, b.atividadeTexto, b.prazo ? formatarDataCurta(b.prazo) : b.prazoTexto].map((x) => x || "—").join(" · ")}
+        Na planilha, linha {b.linha}: {[b.cliente, b.sistema, b.estabelecimento, b.equipesTexto, b.atividadeTexto, b.prazo ? formatarDataCurta(b.prazo) : b.prazoTexto].map((x) => x || "—").join(" · ")}
       </p>
 
       <div className="space-y-4">
@@ -167,19 +172,31 @@ function ItemEmEtapas({ l, opcoesContrato, contexto, dec, alterar, perguntasDaPl
           </Campo>
         )}
 
-        {aparece("setor") && (
-          <Campo rotulo="Setor">
-            {pSetor ? (
-              <PerguntaCard p={pSetor} linhaAtual={b.linha} podeCadastrar={podeCadastrar} onDecidir={(d) => decidir(pSetor, d)} />
-            ) : l.setor === null ? (
-              <span className="text-muted-foreground">Todos os setores</span>
-            ) : l.setor ? (
-              <>
-                {l.setor.nome}
-                {l.setor.tipo === "novo" && <Novo />}
-              </>
+        {aparece("equipes") && (
+          <Campo rotulo="Equipes">
+            {l.equipes && !escolhidas ? (
+              l.equipes.length ? (
+                l.equipes.map((x) => x.nome).join(", ")
+              ) : (
+                <span className="text-muted-foreground">Todas as equipes</span>
+              )
             ) : (
-              <span className="text-muted-foreground">{b.setor || "—"}</span>
+              <div className="space-y-1.5">
+                {l.problemaDoCampo.equipes && <p className="text-destructive">{l.problemaDoCampo.equipes}</p>}
+                {contexto.equipes.length === 0 ? (
+                  <p className="text-muted-foreground">Nenhuma equipe ativa cadastrada.</p>
+                ) : (
+                  <div className="grid gap-1.5 rounded-lg border bg-background p-3 sm:grid-cols-2" data-testid="escolha-equipes">
+                    {contexto.equipes.map((x) => (
+                      <label key={x.id} className="flex items-center gap-2">
+                        <input type="checkbox" className="size-4 accent-primary" checked={(escolhidas ?? []).includes(x.id)} onChange={() => alternarEquipe(x.id)} />
+                        {x.nome}
+                      </label>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">Sem nenhuma marcada, o item vale para todas as equipes.</p>
+              </div>
             )}
           </Campo>
         )}
@@ -452,11 +469,6 @@ export function RevisaoEmEtapas(props: RevisaoProps) {
                 {resumo.estabelecimentosNovos.length} estabelecimento(s) novo(s) será(ão) cadastrado(s): {resumo.estabelecimentosNovos.map((e) => `“${e.nome}” (${e.cliente})`).join(", ")}.
               </li>
             )}
-            {resumo.setoresNovos.length > 0 && (
-              <li>
-                {resumo.setoresNovos.length} setor(es) novo(s) será(ão) cadastrado(s): {resumo.setoresNovos.map((x) => `“${x.nome}” em ${x.estabelecimento}`).join(", ")}.
-              </li>
-            )}
             {resumo.duplicadas > 0 && <li>{resumo.duplicadas} linha(s) não serão importadas porque o item já existe ou se repete na planilha.</li>}
             {resumo.puladas > 0 && <li>{resumo.puladas} linha(s) puladas por você.</li>}
           </ul>
@@ -471,7 +483,7 @@ export function RevisaoEmEtapas(props: RevisaoProps) {
                   <TableHead className="pl-4">Linha</TableHead>
                   <TableHead>Contrato</TableHead>
                   <TableHead>Estabelecimento</TableHead>
-                  <TableHead>Setor</TableHead>
+                  <TableHead>Equipes</TableHead>
                   <TableHead>Atividade</TableHead>
                   <TableHead>Prazo</TableHead>
                   <TableHead className="pr-4">Situação</TableHead>
@@ -491,8 +503,7 @@ export function RevisaoEmEtapas(props: RevisaoProps) {
                         {l.unidade?.tipo === "nova" && <Novo />}
                       </TableCell>
                       <TableCell className="whitespace-normal">
-                        {l.setor === null ? "Todos os setores" : l.setor ? l.setor.nome : b.setor || "—"}
-                        {l.setor?.tipo === "novo" && <Novo />}
+                        {l.equipes ? (l.equipes.length ? l.equipes.map((x) => x.nome).join(", ") : "Todas as equipes") : b.equipesTexto || "—"}
                       </TableCell>
                       <TableCell>{l.atividade ? rotuloTipo(l.atividade) : b.atividadeTexto || "—"}</TableCell>
                       <TableCell className="whitespace-nowrap">{l.prazo ? formatarDataCurta(l.prazo) : b.prazoTexto || "—"}</TableCell>
