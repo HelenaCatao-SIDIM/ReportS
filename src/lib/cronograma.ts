@@ -3,6 +3,9 @@ import { dataLocal } from "@/lib/datas";
 import type { CronogramaCongelado, ItemCronograma, SituacaoCronograma, TipoVisita } from "@/lib/types";
 
 /** Até quantos dias antes do prazo o item passa a "a vencer". */
+/** Tamanho máximo do horário do item (texto livre, opcional). */
+export const LIMITE_HORARIO = 60;
+
 export const DIAS_A_VENCER = 7;
 
 export const ROTULO_SITUACAO: Record<SituacaoCronograma, string> = {
@@ -107,6 +110,33 @@ export function calcularSituacao(
   }
   const situacao: SituacaoCronograma = diasParaPrazo < 0 ? "atrasado" : diasParaPrazo <= DIAS_A_VENCER ? "a_vencer" : "no_prazo";
   return { situacao, cumpridoEm: null, diasParaPrazo };
+}
+
+type Situacao = ReturnType<typeof calcularSituacao>;
+
+/**
+ * Situação de vários itens de uma vez (na ordem recebida). Itens iguais em dias diferentes (mesmo contrato,
+ * estabelecimento, atividade e equipes) não usam a mesma visita: cada visita cumpre **um** deles, o de prazo mais cedo
+ * ainda em aberto, e as visitas vão sendo usadas da mais antiga para a mais nova. Assim, os 4 dias de treinamento da
+ * equipe médica precisam de 4 visitas. Itens com equipes diferentes podem ser cumpridos pela mesma visita.
+ * Precisa receber todos os itens que disputam as visitas (todos os do contrato, ou do estabelecimento).
+ */
+export function calcularSituacoes(itens: ItemCronograma[], visitasEncerradas: VisitaParaCronograma[], hoje: string): Situacao[] {
+  const visitas = visitasEncerradas.map((v, n) => ({ v, n, t: Date.parse(v.entrada) })).sort((a, b) => a.t - b.t || a.n - b.n);
+  const usadas = new Set<string>();
+  const visitaDoItem = new Map<number, VisitaParaCronograma>();
+  const ordem = itens
+    .map((item, n) => ({ item, n }))
+    .filter((x) => !x.item.cancelado)
+    .sort((a, b) => a.item.prazo.localeCompare(b.item.prazo) || a.item.id.localeCompare(b.item.id));
+  for (const { item, n } of ordem) {
+    const grupo = [...new Set(item.equipeIds)].sort().join(",");
+    const achou = visitas.find((x) => !usadas.has(`${x.n}|${grupo}`) && visitaCumpre(item, x.v));
+    if (!achou) continue;
+    usadas.add(`${achou.n}|${grupo}`);
+    visitaDoItem.set(n, achou.v);
+  }
+  return itens.map((item, n) => calcularSituacao(item, visitaDoItem.has(n) ? [visitaDoItem.get(n)!] : [], hoje));
 }
 
 /** Contagem por situação, para os cartões do painel e o resumo do relatório. */

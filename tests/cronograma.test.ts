@@ -4,6 +4,7 @@ import {
   DIAS_A_VENCER,
   ROTULO_SITUACAO_RELATORIO,
   calcularSituacao,
+  calcularSituacoes,
   contarPorSituacao,
   descreverPrazo,
   diasEntre,
@@ -19,7 +20,7 @@ import {
 import type { CronogramaCongelado, ItemCronograma } from "@/lib/types";
 
 const item = (o: Partial<ItemCronograma> = {}): ItemCronograma => ({
-  id: "i1", clienteId: "1", contratoId: "c1", unidadeId: "u1", equipeIds: ["medica"], tipo: "treinamento", prazo: "2026-11-20", observacao: "", cancelado: false, ...o,
+  id: "i1", clienteId: "1", contratoId: "c1", unidadeId: "u1", equipeIds: ["medica"], tipo: "treinamento", prazo: "2026-11-20", horario: "", observacao: "", cancelado: false, ...o,
 });
 const visita = (o: Partial<VisitaParaCronograma> = {}): VisitaParaCronograma => ({
   contratoId: "c1", unidadeId: "u1", equipeIds: ["medica"], tipo: "treinamento", entrada: "2026-11-10T13:00:00.000Z", ...o,
@@ -61,6 +62,24 @@ test("mesmas equipes ignora ordem e repetição; o texto do item mostra equipes,
   assert.equal(equipesDoItem({ equipeNomes: ["Coordenação"] }), "Coordenação");
   assert.equal(equipesDoItem({ setorNome: "Recepção" }), "Setor Recepção", "versão emitida antes das equipes");
   assert.equal(equipesDoItem({ setorNome: null }), "Todas as equipes");
+});
+
+test("itens iguais em dias diferentes: cada visita cumpre um só, o de prazo mais cedo", () => {
+  const dias = ["2026-11-03", "2026-11-05", "2026-11-06"].map((prazo, n) => item({ id: `i${n}`, prazo }));
+  const v = (dia: string, o: Partial<VisitaParaCronograma> = {}) => visita({ entrada: `${dia}T13:00:00.000Z`, ...o });
+
+  const umaVisita = calcularSituacoes(dias, [v("2026-11-03")], "2026-11-04");
+  assert.deepEqual(umaVisita.map((s) => s.situacao), ["cumprido", "a_vencer", "a_vencer"], "uma visita não cumpre os três dias");
+
+  const duas = calcularSituacoes([dias[2], dias[0], dias[1]], [v("2026-11-05"), v("2026-11-03")], "2026-11-07");
+  assert.deepEqual(duas.map((s) => [s.situacao, s.cumpridoEm]), [["atrasado", null], ["cumprido", "2026-11-03"], ["cumprido", "2026-11-05"]], "na ordem recebida; a visita mais antiga vai para o prazo mais cedo");
+
+  const outroGrupo = item({ id: "coord", equipeIds: ["coordenacao"], prazo: "2026-11-03" });
+  const ambos = calcularSituacoes([dias[0], outroGrupo], [v("2026-11-03", { equipeIds: ["medica", "coordenacao"] })], "2026-11-04");
+  assert.deepEqual(ambos.map((s) => s.situacao), ["cumprido", "cumprido"], "itens com equipes diferentes podem usar a mesma visita");
+
+  const comCancelado = calcularSituacoes([item({ id: "a", cancelado: true, prazo: "2026-11-01" }), dias[0]], [v("2026-11-03")], "2026-11-04");
+  assert.deepEqual(comCancelado.map((s) => s.situacao), ["cancelado", "cumprido"], "item cancelado não gasta a visita");
 });
 
 test("o dia do prazo vale até o fim do dia em Brasília (23h30 de 20/11 = 21/11 em UTC)", () => {

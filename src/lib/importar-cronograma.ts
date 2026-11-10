@@ -7,7 +7,7 @@
  * confere tudo de novo antes de gravar. Quem grava nunca confia no que veio do navegador.
  */
 import { normalizar } from "@/lib/format";
-import { prazoValido } from "@/lib/cronograma";
+import { LIMITE_HORARIO, prazoValido } from "@/lib/cronograma";
 import { similaridade } from "@/lib/similaridade";
 import { TIPOS_VISITA } from "@/lib/visitas";
 import type { TipoVisita } from "@/lib/types";
@@ -23,7 +23,7 @@ export const chaveNome = (s: string) => normalizar(s).replace(/\s+/g, " ");
 
 // ---------- Leitura da planilha ----------
 
-type ChaveColuna = "cliente" | "sistema" | "estabelecimento" | "equipes" | "atividade" | "prazo" | "observacao";
+type ChaveColuna = "cliente" | "sistema" | "estabelecimento" | "equipes" | "atividade" | "prazo" | "horario" | "observacao";
 
 export const COLUNAS: { chave: ChaveColuna; rotulo: string; obrigatoria: boolean; apelidos: string[]; exemplo: string }[] = [
   { chave: "cliente", rotulo: "Cliente", obrigatoria: true, apelidos: ["cliente"], exemplo: "Prefeitura de Vale Verde" },
@@ -38,6 +38,7 @@ export const COLUNAS: { chave: ChaveColuna; rotulo: string; obrigatoria: boolean
   },
   { chave: "atividade", rotulo: "Atividade", obrigatoria: true, apelidos: ["atividade", "tipo", "tipo de visita"], exemplo: "Treinamento" },
   { chave: "prazo", rotulo: "Prazo", obrigatoria: true, apelidos: ["prazo", "data limite", "data"], exemplo: "13/11/2026" },
+  { chave: "horario", rotulo: "Horário", obrigatoria: false, apelidos: ["horario", "horarios", "hora"], exemplo: "09:30 e 14h" },
   { chave: "observacao", rotulo: "Observação", obrigatoria: false, apelidos: ["observacao", "observacoes", "observacao interna"], exemplo: "Combinado com o secretário" },
 ];
 
@@ -60,6 +61,8 @@ export interface LinhaBruta {
   atividade: TipoVisita | null;
   prazoTexto: string;
   prazo: string | null;
+  /** Horário combinado (opcional, só informativo). */
+  horario: string;
   observacao: string;
 }
 
@@ -78,6 +81,17 @@ function textoCelula(c: unknown): string {
   if (c instanceof Date) return Number.isNaN(c.getTime()) ? "" : c.toISOString().slice(0, 10);
   if (typeof c === "boolean") return "";
   return String(c).trim().replace(/\s+/g, " ");
+}
+
+/**
+ * Horário de uma célula, como texto: "09:30 e 14h" fica como veio; hora digitada como hora no Excel (data de 1899 ou
+ * fração do dia) vira "09:30".
+ */
+export function lerHorario(c: unknown): string {
+  const hhmm = (minutos: number) => `${String(Math.floor(minutos / 60) % 24).padStart(2, "0")}:${String(minutos % 60).padStart(2, "0")}`;
+  if (c instanceof Date) return Number.isNaN(c.getTime()) ? "" : hhmm(c.getUTCHours() * 60 + c.getUTCMinutes());
+  if (typeof c === "number" && c >= 0 && c < 1) return hhmm(Math.round(c * 1440));
+  return textoCelula(c);
 }
 
 /** Data de uma célula: data do Excel, número de série, "13/11/2026", "13-11-26" ou "2026-11-13". Nulo se não for data. */
@@ -166,6 +180,7 @@ export function lerLinhas(dados: unknown[][]): LeituraPlanilha {
       atividade: lerAtividade(atividadeTexto),
       prazoTexto: textoCelula(cel("prazo")),
       prazo: lerPrazo(cel("prazo")),
+      horario: lerHorario(cel("horario")),
       observacao: textoCelula(cel("observacao")),
     });
     if (linhas.length > LIMITE_LINHAS) return { linhas: [], avisos, erro: `A planilha tem mais de ${LIMITE_LINHAS} linhas. Divida em planilhas menores.` };
@@ -202,6 +217,7 @@ export interface ItemExistente {
   unidadeId: string;
   equipeIds: string[];
   tipo: TipoVisita;
+  prazo: string;
 }
 
 export interface ContextoImportacao {
@@ -214,9 +230,9 @@ export interface ContextoImportacao {
   existentes: ItemExistente[];
 }
 
-/** Chave de um item para achar repetido: contrato, estabelecimento, equipes (sem ordem) e atividade. */
-export const chaveItem = (contratoId: string, unidadeRef: string, equipeIds: string[], tipo: string) =>
-  `${contratoId}|${unidadeRef}|${[...new Set(equipeIds)].sort().join(",")}|${tipo}`;
+/** Chave de um item para achar repetido: contrato, estabelecimento, equipes (sem ordem), atividade e prazo. */
+export const chaveItem = (contratoId: string, unidadeRef: string, equipeIds: string[], tipo: string, prazo: string) =>
+  `${contratoId}|${unidadeRef}|${[...new Set(equipeIds)].sort().join(",")}|${tipo}|${prazo}`;
 
 /** "Prefeitura de Vale Verde — SCA", com o tenant quando o mesmo cliente tem dois contratos do mesmo sistema. */
 export function rotuloContrato(c: ContratoCtx, todos: ContratoCtx[]): string {
@@ -284,6 +300,7 @@ export interface LinhaResolvida {
   equipes: EquipeCtx[] | null;
   atividade: TipoVisita | null;
   prazo: string | null;
+  horario: string;
   observacao: string;
   /** Todos os problemas da linha (os que se corrigem na tela e os que não). */
   problemas: string[];
@@ -299,6 +316,7 @@ export interface LinhaResolvida {
 /** Problemas da planilha que a tela não consegue corrigir: o texto vem do Excel e só se muda lá. */
 function problemasSemConserto(b: LinhaBruta): string[] {
   const p: string[] = [];
+  if (b.horario.length > LIMITE_HORARIO) p.push(`Horário com mais de ${LIMITE_HORARIO} caracteres.`);
   if (b.observacao.length > LIMITE_OBSERVACAO) p.push(`Observação com mais de ${LIMITE_OBSERVACAO} caracteres.`);
   if (!b.estabelecimento) p.push("Estabelecimento em branco.");
   else if (b.estabelecimento.length > LIMITE_NOME) p.push(`Estabelecimento com mais de ${LIMITE_NOME} caracteres.`);
@@ -346,7 +364,7 @@ function acharContrato(b: LinhaBruta, ctx: ContextoImportacao, dec: Decisoes): {
  * existe ou se repete. A ordem importa: a primeira ocorrência de um item vale, as repetidas viram "duplicada".
  */
 export function resolverLinhas(linhas: LinhaBruta[], ctx: ContextoImportacao, dec: Decisoes): LinhaResolvida[] {
-  const existentes = new Set(ctx.existentes.map((e) => chaveItem(e.contratoId, e.unidadeId, e.equipeIds, e.tipo)));
+  const existentes = new Set(ctx.existentes.map((e) => chaveItem(e.contratoId, e.unidadeId, e.equipeIds, e.tipo, e.prazo)));
   const equipePorNome = new Map(ctx.equipes.map((e) => [chaveNome(e.nome), e]));
   const equipePorId = new Map(ctx.equipes.map((e) => [e.id, e]));
   const vistos = new Set<string>();
@@ -416,7 +434,7 @@ export function resolverLinhas(linhas: LinhaBruta[], ctx: ContextoImportacao, de
     else if (perguntas.some((p) => !p.decisao)) situacao = "decidir";
     else {
       const refU = unidade!.tipo === "existente" ? unidade!.id : `novo:${unidade!.chave}`;
-      const chave = chaveItem(contrato!.id, refU, equipes!.map((e) => e.id), atividade!);
+      const chave = chaveItem(contrato!.id, refU, equipes!.map((e) => e.id), atividade!, prazo!);
       if (unidade!.tipo === "existente" && existentes.has(chave)) {
         situacao = "duplicada";
         motivoDuplicada = "Já existe no cronograma.";
@@ -429,7 +447,7 @@ export function resolverLinhas(linhas: LinhaBruta[], ctx: ContextoImportacao, de
       }
     }
 
-    resolvidas.push({ bruta: b, situacao, contrato, contratoOpcoes: opcoes, unidade, equipes, atividade, prazo, observacao: b.observacao, problemas, problemaDoCampo, semConserto, perguntas, motivoDuplicada });
+    resolvidas.push({ bruta: b, situacao, contrato, contratoOpcoes: opcoes, unidade, equipes, atividade, prazo, horario: b.horario, observacao: b.observacao, problemas, problemaDoCampo, semConserto, perguntas, motivoDuplicada });
   }
   return resolvidas;
 }
@@ -534,6 +552,7 @@ export interface PedidoLinha {
   equipeIds: string[];
   atividade: TipoVisita;
   prazo: string;
+  horario: string;
   observacao: string;
 }
 
@@ -550,6 +569,7 @@ export function montarPedido(resolvidas: LinhaResolvida[]): PedidoLinha[] {
       equipeIds: l.equipes!.map((e) => e.id),
       atividade: l.atividade!,
       prazo: l.prazo!,
+      horario: l.horario,
       observacao: l.observacao,
     });
   }

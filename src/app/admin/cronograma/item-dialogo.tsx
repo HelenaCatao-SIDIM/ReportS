@@ -43,7 +43,7 @@ function ItemForm({ item, rotuloContrato, opcoes, onSalvo }: { item?: ItemCronog
   const e = state.erros ?? {};
   const v =
     state.valores ??
-    (item ? { contratoId: item.contratoId, unidadeId: item.unidadeId, equipeIds: item.equipeIds, tipo: item.tipo, prazo: item.prazo, observacao: item.observacao } : undefined);
+    (item ? { contratoId: item.contratoId, unidadeId: item.unidadeId, equipeIds: item.equipeIds, tipo: item.tipo, prazo: item.prazo, horario: item.horario, observacao: item.observacao } : undefined);
 
   const [contratoId, setContratoId] = useState(v?.contratoId ?? "");
   const [unidadeId, setUnidadeId] = useState(v?.unidadeId ?? "");
@@ -156,6 +156,9 @@ function ItemForm({ item, rotuloContrato, opcoes, onSalvo }: { item?: ItemCronog
           <Input id="c-prazo" name="prazo" type="date" defaultValue={v?.prazo} className="h-9" aria-invalid={!!e.prazo} />
         </Campo>
       </div>
+      <Campo id="c-horario" label="Horário (opcional)" erro={e.horario} dica="Só para informação, por exemplo “09:30 e 14h” ou “Dia todo”.">
+        <Input id="c-horario" name="horario" defaultValue={v?.horario} maxLength={60} className="h-9" aria-invalid={!!e.horario} />
+      </Campo>
       <Campo id="c-obs" label="Observação (interna)" erro={e.observacao} dica="Só a Administração vê. Não vai para o relatório do cliente.">
         <Textarea id="c-obs" name="observacao" rows={2} defaultValue={v?.observacao} aria-invalid={!!e.observacao} />
       </Campo>

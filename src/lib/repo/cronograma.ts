@@ -1,6 +1,6 @@
 import "server-only";
 import { idPlataforma, reports } from "@/lib/db";
-import { calcularSituacao, estaPendente, mesmasEquipes, urgencia, type VisitaParaCronograma } from "@/lib/cronograma";
+import { calcularSituacoes, estaPendente, mesmasEquipes, urgencia, type VisitaParaCronograma } from "@/lib/cronograma";
 import type { CronogramaCongelado, ItemCronograma, ItemCronogramaComSituacao, TipoVisita } from "@/lib/types";
 
 /*
@@ -26,6 +26,7 @@ const paraItem = (l: Linha): ItemCronograma & { unidadeNome: string; equipeNomes
     equipeIds: equipes.map((e) => e.equipeId),
     tipo: l.tipo as TipoVisita,
     prazo: l.prazo.toISOString().slice(0, 10),
+    horario: l.horario,
     observacao: l.observacao,
     cancelado: l.cancelado,
     unidadeNome: l.estabelecimento.nome,
@@ -57,8 +58,9 @@ async function comSituacao(itens: ItemComNomes[], hoje: string): Promise<ItemCro
         entrada: v.entrada.toISOString(),
       }))
     : [];
+  const situacoes = calcularSituacoes(itens, visitas, hoje);
   return itens
-    .map((i) => ({ ...i, ...calcularSituacao(i, visitas, hoje) }))
+    .map((i, n) => ({ ...i, ...situacoes[n] }))
     .sort((a, b) => urgencia(a.situacao) - urgencia(b.situacao) || a.prazo.localeCompare(b.prazo) || a.unidadeNome.localeCompare(b.unidadeNome, "pt-BR"));
 }
 
@@ -90,13 +92,15 @@ export interface DadosItemCronograma {
   equipeIds: string[];
   tipo: TipoVisita;
   prazo: string;
+  /** Opcional; fora = sem horário. */
+  horario?: string;
   observacao: string;
 }
 
-/** Já existe item ativo igual (mesmo contrato, estabelecimento, atividade e equipes)? */
-export async function itemCronogramaDuplicado(d: Pick<DadosItemCronograma, "contratoId" | "unidadeId" | "equipeIds" | "tipo">, excetoId?: string) {
+/** Já existe item ativo igual (mesmo contrato, estabelecimento, atividade, equipes e prazo)? Em dias diferentes, são itens diferentes. */
+export async function itemCronogramaDuplicado(d: Pick<DadosItemCronograma, "contratoId" | "unidadeId" | "equipeIds" | "tipo" | "prazo">, excetoId?: string) {
   const candidatos = await reports.itemCronograma.findMany({
-    where: { contratoId: d.contratoId, estabelecimentoId: d.unidadeId, tipo: d.tipo, cancelado: false, ...(excetoId ? { id: { not: excetoId } } : {}) },
+    where: { contratoId: d.contratoId, estabelecimentoId: d.unidadeId, tipo: d.tipo, prazo: new Date(`${d.prazo}T00:00:00Z`), cancelado: false, ...(excetoId ? { id: { not: excetoId } } : {}) },
     select: { equipes: { select: { equipeId: true } } },
   });
   return candidatos.some((c) => mesmasEquipes(c.equipes.map((e) => e.equipeId), d.equipeIds));
@@ -113,6 +117,7 @@ export async function criarItemCronograma(d: DadosItemCronograma): Promise<void>
       estabelecimentoId: d.unidadeId,
       tipo: d.tipo,
       prazo: new Date(`${d.prazo}T00:00:00Z`),
+      horario: d.horario ?? "",
       observacao: d.observacao,
       equipes: { create: [...new Set(d.equipeIds)].map((equipeId) => ({ equipeId })) },
     },
@@ -124,7 +129,7 @@ export async function atualizarItemCronograma(id: string, d: Omit<DadosItemCrono
   await reports.$transaction([
     reports.itemCronograma.updateMany({
       where: { id },
-      data: { estabelecimentoId: d.unidadeId, tipo: d.tipo, prazo: new Date(`${d.prazo}T00:00:00Z`), observacao: d.observacao },
+      data: { estabelecimentoId: d.unidadeId, tipo: d.tipo, prazo: new Date(`${d.prazo}T00:00:00Z`), horario: d.horario ?? "", observacao: d.observacao },
     }),
     reports.itemCronogramaEquipe.deleteMany({ where: { itemId: id } }),
     reports.itemCronogramaEquipe.createMany({ data: [...new Set(d.equipeIds)].map((equipeId) => ({ itemId: id, equipeId })) }),

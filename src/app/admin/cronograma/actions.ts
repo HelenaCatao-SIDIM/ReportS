@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { exigirPermissaoAcao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
-import { prazoValido } from "@/lib/cronograma";
+import { LIMITE_HORARIO, prazoValido } from "@/lib/cronograma";
 import { TIPOS_VISITA } from "@/lib/visitas";
 import { buscarUnidade } from "@/lib/repo/clientes";
 import { buscarContrato } from "@/lib/repo/contratos";
@@ -19,7 +19,7 @@ import type { TipoVisita } from "@/lib/types";
 
 const LIMITE_OBSERVACAO = 500;
 
-type Campos = "contratoId" | "unidadeId" | "tipo" | "prazo" | "observacao";
+type Campos = "contratoId" | "unidadeId" | "tipo" | "prazo" | "horario" | "observacao";
 
 export interface ItemFormState {
   ok?: boolean;
@@ -38,6 +38,7 @@ export async function salvarItemCronograma(itemId: string | null, _: ItemFormSta
     unidadeId: String(fd.get("unidadeId") ?? ""),
     tipo: String(fd.get("tipo") ?? ""),
     prazo: String(fd.get("prazo") ?? ""),
+    horario: String(fd.get("horario") ?? "").trim(),
     observacao: String(fd.get("observacao") ?? "").trim(),
     equipeIds: [...new Set(fd.getAll("equipeIds").map(String))],
   };
@@ -57,15 +58,16 @@ export async function salvarItemCronograma(itemId: string | null, _: ItemFormSta
 
   if (!TIPOS_VISITA.some((t) => t.valor === d.tipo)) erros.tipo = "Escolha a atividade.";
   if (!prazoValido(d.prazo)) erros.prazo = "Informe o prazo.";
+  if (d.horario.length > LIMITE_HORARIO) erros.horario = `Use no máximo ${LIMITE_HORARIO} caracteres.`;
   if (d.observacao.length > LIMITE_OBSERVACAO) erros.observacao = `Use no máximo ${LIMITE_OBSERVACAO} caracteres.`;
 
   if (!Object.keys(erros).length) {
-    const igual = { contratoId: d.contratoId, unidadeId: d.unidadeId, equipeIds: d.equipeIds, tipo: d.tipo as TipoVisita };
-    if (await itemCronogramaDuplicado(igual, itemId ?? undefined)) erros.geral = "Já existe um item ativo igual: mesmo contrato, estabelecimento, atividade e equipes.";
+    const igual = { contratoId: d.contratoId, unidadeId: d.unidadeId, equipeIds: d.equipeIds, tipo: d.tipo as TipoVisita, prazo: d.prazo };
+    if (await itemCronogramaDuplicado(igual, itemId ?? undefined)) erros.geral = "Já existe um item ativo igual: mesmo contrato, estabelecimento, atividade, equipes e prazo.";
   }
   if (Object.keys(erros).length) return { erros, valores: d };
 
-  const dados = { unidadeId: d.unidadeId, equipeIds: d.equipeIds, tipo: d.tipo as TipoVisita, prazo: d.prazo, observacao: d.observacao };
+  const dados = { unidadeId: d.unidadeId, equipeIds: d.equipeIds, tipo: d.tipo as TipoVisita, prazo: d.prazo, horario: d.horario, observacao: d.observacao };
   if (itemId) await atualizarItemCronograma(itemId, dados);
   else await criarItemCronograma({ ...dados, contratoId: d.contratoId });
   revalidatePath("/admin/cronograma");

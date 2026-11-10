@@ -7,6 +7,7 @@ import {
   etapasDaLinha,
   lerAtividade,
   lerLinhas,
+  lerHorario,
   lerPrazo,
   linhaResolvida,
   linhasQueExigemVoce,
@@ -43,20 +44,20 @@ const ctx = (): ContextoImportacao => ({
     { id: "e-enf", nome: "Equipe de enfermagem" },
     { id: "e-adm", nome: "Equipe administrativa" },
   ],
-  existentes: [{ contratoId: "c-sca", unidadeId: "u-sede", equipeIds: ["e-med"], tipo: "treinamento" }],
+  existentes: [{ contratoId: "c-sca", unidadeId: "u-sede", equipeIds: ["e-med"], tipo: "treinamento", prazo: "2026-11-13" }],
 });
 
 const linha = (o: Partial<LinhaBruta> = {}): LinhaBruta => ({
   linha: 2, cliente: "Prefeitura de Vale Verde", sistema: "SCA", estabelecimento: "Sede", equipesTexto: "Equipe de enfermagem", equipes: ["Equipe de enfermagem"],
-  atividadeTexto: "Treinamento", atividade: "treinamento", prazoTexto: "13/11/2026", prazo: "2026-11-13", observacao: "", ...o,
+  atividadeTexto: "Treinamento", atividade: "treinamento", prazoTexto: "13/11/2026", prazo: "2026-11-13", horario: "", observacao: "", ...o,
 });
 
 test("lê a planilha: cabeçalho em qualquer ordem, sem acento nem caixa; ignora linhas em branco", () => {
   const r = lerLinhas([
-    ["prazo", "ATIVIDADE", "estabelecimento", "Cliente", "sistema", "EQUIPES", "observacao"],
-    [new Date(Date.UTC(2026, 10, 13)), "treinamento", "Sede", "Prefeitura de Vale Verde", "SCA", "Equipe médica; Coordenação, equipe médica", "obs"],
-    [null, null, null, null, null, null, null],
-    ["14/11/2026", "Implantação", "Sede", "Prefeitura de Vale Verde", "SERP", null, null],
+    ["prazo", "ATIVIDADE", "estabelecimento", "Cliente", "sistema", "EQUIPES", "observacao", "Horário"],
+    [new Date(Date.UTC(2026, 10, 13)), "treinamento", "Sede", "Prefeitura de Vale Verde", "SCA", "Equipe médica; Coordenação, equipe médica", "obs", "09:30 e 14h"],
+    [null, null, null, null, null, null, null, null],
+    ["14/11/2026", "Implantação", "Sede", "Prefeitura de Vale Verde", "SERP", null, null, null],
   ]);
   assert.equal(r.erro, undefined);
   assert.equal(r.linhas.length, 2);
@@ -66,6 +67,15 @@ test("lê a planilha: cabeçalho em qualquer ordem, sem acento nem caixa; ignora
   assert.deepEqual(r.linhas[0].equipes, ["Equipe médica", "Coordenação"], "separadas por ; ou , e sem repetir");
   assert.deepEqual(r.linhas[1].equipes, []);
   assert.equal(r.linhas[1].atividade, "implantacao");
+  assert.equal(r.linhas[0].horario, "09:30 e 14h");
+  assert.equal(r.linhas[1].horario, "", "horário é opcional");
+});
+
+test("horário: texto fica como veio; hora do Excel (data de 1899 ou fração do dia) vira HH:MM", () => {
+  assert.equal(lerHorario("  Dia   todo "), "Dia todo");
+  assert.equal(lerHorario(new Date(Date.UTC(1899, 11, 30, 9, 30))), "09:30");
+  assert.equal(lerHorario(0.5833333333), "14:00");
+  assert.equal(lerHorario(null), "");
 });
 
 test("a coluna 'Setor' é ignorada com aviso, porque o cronograma usa as equipes", () => {
@@ -240,6 +250,19 @@ test("duplicado: item que já existe e linha repetida na planilha não entram (e
   assert.deepEqual(rs.map((r) => r.situacao), ["duplicada", "pronta", "duplicada"]);
   assert.match(rs[0].motivoDuplicada ?? "", /Já existe/);
   assert.match(rs[2].motivoDuplicada ?? "", /Repetida/);
+});
+
+test("mesmo item em dias diferentes não é repetido: o cronograma pode ter um item por dia", () => {
+  const rs = resolverLinhas(
+    [
+      linha({ linha: 2, equipes: ["Equipe médica"], prazo: "2026-11-05" }), // o existente é de 13/11
+      linha({ linha: 3, equipes: ["Equipe médica"], prazo: "2026-11-06" }),
+      linha({ linha: 4, equipes: ["Equipe médica"], prazo: "2026-11-06" }), // repete a anterior, no mesmo dia
+    ],
+    ctx(),
+    decisoesVazias(),
+  );
+  assert.deepEqual(rs.map((r) => r.situacao), ["pronta", "pronta", "duplicada"]);
 });
 
 test("pular tira a linha da conta, mesmo com erro ou pergunta", () => {

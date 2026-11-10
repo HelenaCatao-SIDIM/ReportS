@@ -1,7 +1,7 @@
 import "server-only";
 import { idPlataforma, idTexto, reports } from "@/lib/db";
 import { RAIO_PADRAO_METROS } from "@/lib/distancia";
-import { prazoValido } from "@/lib/cronograma";
+import { LIMITE_HORARIO, prazoValido } from "@/lib/cronograma";
 import {
   LIMITE_LINHAS,
   LIMITE_NOME,
@@ -52,9 +52,9 @@ export async function carregarContextoImportacao(): Promise<ContextoImportacao> 
     ? (
         await reports.itemCronograma.findMany({
           where: { cancelado: false, contratoId: { in: ativos.map((c) => c.id) } },
-          select: { contratoId: true, estabelecimentoId: true, tipo: true, equipes: { select: { equipeId: true } } },
+          select: { contratoId: true, estabelecimentoId: true, tipo: true, prazo: true, equipes: { select: { equipeId: true } } },
         })
-      ).map((i) => ({ contratoId: i.contratoId, unidadeId: i.estabelecimentoId, equipeIds: i.equipes.map((e) => e.equipeId), tipo: i.tipo as TipoVisita }))
+      ).map((i) => ({ contratoId: i.contratoId, unidadeId: i.estabelecimentoId, equipeIds: i.equipes.map((e) => e.equipeId), tipo: i.tipo as TipoVisita, prazo: i.prazo.toISOString().slice(0, 10) }))
     : [];
   return { contratos, unidades, equipes, existentes };
 }
@@ -73,13 +73,13 @@ export async function gravarImportacao(pedido: PedidoLinha[], podeCadastrar: boo
 
   const ctx = await carregarContextoImportacao();
   const contratos = new Map(ctx.contratos.filter((c) => c.ativo).map((c) => [c.id, c]));
-  const existentes = new Set(ctx.existentes.map((e) => chaveItem(e.contratoId, e.unidadeId, e.equipeIds, e.tipo)));
+  const existentes = new Set(ctx.existentes.map((e) => chaveItem(e.contratoId, e.unidadeId, e.equipeIds, e.tipo, e.prazo)));
   const equipesAtivas = new Set(ctx.equipes.map((e) => e.id));
   const vistos = new Set<string>();
 
   const erros: { linha: number; mensagem: string }[] = [];
   const novasUnidades = new Map<string, { id: string; clienteId: bigint; nome: string }>();
-  const itens: { id: string; clienteId: bigint; contratoId: string; estabelecimentoId: string; tipo: string; prazo: Date; observacao: string }[] = [];
+  const itens: { id: string; clienteId: bigint; contratoId: string; estabelecimentoId: string; tipo: string; prazo: Date; horario: string; observacao: string }[] = [];
   const equipesDosItens: { itemId: string; equipeId: string }[] = [];
   let ignorados = 0;
   const semPermissao = "Você não tem permissão para cadastrar estabelecimentos (reports.clientes.cadastrar). Use um que já existe.";
@@ -97,6 +97,11 @@ export async function gravarImportacao(pedido: PedidoLinha[], podeCadastrar: boo
     }
     if (typeof p.prazo !== "string" || !prazoValido(p.prazo)) {
       erro("Prazo inválido.");
+      continue;
+    }
+    const horario = typeof p.horario === "string" ? p.horario.trim() : "";
+    if (horario.length > LIMITE_HORARIO) {
+      erro(`Horário com mais de ${LIMITE_HORARIO} caracteres.`);
       continue;
     }
     const observacao = typeof p.observacao === "string" ? p.observacao.trim() : "";
@@ -147,14 +152,14 @@ export async function gravarImportacao(pedido: PedidoLinha[], podeCadastrar: boo
       continue;
     }
 
-    const chave = chaveItem(contrato.id, unidadeRef, equipeIds, p.atividade);
+    const chave = chaveItem(contrato.id, unidadeRef, equipeIds, p.atividade, p.prazo);
     if (existentes.has(chave) || vistos.has(chave)) {
       ignorados++;
       continue;
     }
     vistos.add(chave);
     const itemId = crypto.randomUUID();
-    itens.push({ id: itemId, clienteId: clienteBig, contratoId: contrato.id, estabelecimentoId: unidadeRef, tipo: p.atividade, prazo: new Date(`${p.prazo}T00:00:00Z`), observacao });
+    itens.push({ id: itemId, clienteId: clienteBig, contratoId: contrato.id, estabelecimentoId: unidadeRef, tipo: p.atividade, prazo: new Date(`${p.prazo}T00:00:00Z`), horario, observacao });
     equipesDosItens.push(...equipeIds.map((equipeId) => ({ itemId, equipeId })));
   }
 

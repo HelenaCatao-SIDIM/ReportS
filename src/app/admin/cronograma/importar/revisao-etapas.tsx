@@ -129,6 +129,7 @@ function ItemEmEtapas({ l, opcoesContrato, contexto, dec, alterar, perguntasDaPl
     <div className="space-y-4" data-testid="item">
       <p className="rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground" data-testid="linha-planilha">
         Na planilha, linha {b.linha}: {[b.cliente, b.sistema, b.estabelecimento, b.equipesTexto, b.atividadeTexto, b.prazo ? formatarDataCurta(b.prazo) : b.prazoTexto].map((x) => x || "—").join(" · ")}
+        {b.horario && ` · ${b.horario}`}
       </p>
 
       <div className="space-y-4">
@@ -244,6 +245,8 @@ function ItemEmEtapas({ l, opcoesContrato, contexto, dec, alterar, perguntasDaPl
             )}
           </Campo>
         )}
+
+        {aparece("prazo") && b.horario && <Campo rotulo="Horário">{b.horario}</Campo>}
       </div>
 
       {e.semConserto.length > 0 && l.situacao !== "pulada" && (
@@ -506,7 +509,10 @@ export function RevisaoEmEtapas(props: RevisaoProps) {
                         {l.equipes ? (l.equipes.length ? l.equipes.map((x) => x.nome).join(", ") : "Todas as equipes") : b.equipesTexto || "—"}
                       </TableCell>
                       <TableCell>{l.atividade ? rotuloTipo(l.atividade) : b.atividadeTexto || "—"}</TableCell>
-                      <TableCell className="whitespace-nowrap">{l.prazo ? formatarDataCurta(l.prazo) : b.prazoTexto || "—"}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {l.prazo ? formatarDataCurta(l.prazo) : b.prazoTexto || "—"}
+                        {b.horario && <span className="block text-xs text-muted-foreground">{b.horario}</span>}
+                      </TableCell>
                       <TableCell className="min-w-40 pr-4 whitespace-normal">
                         <Badge variant="outline" className={s.classe}>
                           {s.rotulo}
