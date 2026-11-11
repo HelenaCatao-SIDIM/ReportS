@@ -8,7 +8,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-# SIDIM Visitas — convenções do projeto
+# ReportS — convenções do projeto
 
 Leia o `README.md` (como rodar, situação atual e publicação) e o `docs/regras.md` (regras de negócio) antes de mudar o código.
 **Mudou uma regra de negócio? Atualize `docs/regras.md` no mesmo commit.**

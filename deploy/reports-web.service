@@ -2,7 +2,7 @@
 # Roda com o usuário próprio `reports` (sem sudo), em /var/www/reports, como o SINC roda com `sinc` em /var/www/sinc.
 # As variáveis ficam em .env.local, na pasta do projeto (fora do Git).
 [Unit]
-Description=ReportS (SIDIM Visitas)
+Description=ReportS
 After=network.target postgresql.service
 
 [Service]

@@ -12,7 +12,7 @@ export default function TecnicoLayout({ children }: LayoutProps<"/tecnico">) {
             <div className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
               <ClipboardCheck className="size-4" />
             </div>
-            <span className="text-sm font-semibold">SIDIM Visitas</span>
+            <span className="text-sm font-semibold">ReportS</span>
           </div>
           <OcultoNaPresenca>
             <UsuarioHeader area="tecnico" />

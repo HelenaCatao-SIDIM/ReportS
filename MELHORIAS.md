@@ -1,4 +1,4 @@
-# Melhorias e sugestões — SIDIM Visitas
+# Melhorias e sugestões — ReportS
 
 Registro de alterações futuras e sugestões. O `README.md` continua sendo a referência de como rodar o sistema e da situação atual; aqui fica o que ainda **vamos fazer** ou **queremos avaliar**.
 
