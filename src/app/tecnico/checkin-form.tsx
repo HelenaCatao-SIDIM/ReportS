@@ -91,6 +91,8 @@ export function CheckinForm({
   const [unidadeId, setUnidadeId] = useState("");
   const [equipeIds, setEquipeIds] = useState<string[]>([]);
   const [tipo, setTipo] = useState<TipoVisita | "">("");
+  /** Visita prevista no cronograma que o técnico escolheu (preenche a atividade e as equipes). */
+  const [previstaId, setPrevistaId] = useState<string | null>(null);
   const [temFoto, setTemFoto] = useState(false);
   const [link, setLink] = useState("");
   const { estado: gps, capturar } = useGps();
@@ -151,6 +153,29 @@ export function CheckinForm({
     if (ehPresencial(t) && gps.fase === "parado") capturar();
   }
 
+  const previstasDe = (cId: string, uId: string) => cronograma.filter((i) => i.contratoId === cId && i.unidadeId === uId);
+
+  /** Escolhe a visita prevista: a atividade e as equipes dela vêm preenchidas (o técnico ainda pode ajustar). null = desfaz. */
+  function escolherPrevista(item: PendenciaCronograma | null) {
+    const anterior = cronograma.find((i) => i.id === previstaId);
+    setPrevistaId(item?.id ?? null);
+    if (!item) {
+      // Desfazer a escolha tira as equipes que vieram da visita prevista (as que o técnico marcou à parte ficam).
+      if (anterior) setEquipeIds((atuais) => atuais.filter((id) => !anterior.equipeIds.includes(id)));
+      return;
+    }
+    if (tipo !== item.tipo) escolherTipo(item.tipo);
+    setEquipeIds(item.equipeIds.filter((id) => equipes.some((e) => e.id === id)));
+  }
+
+  /** Ao chegar num estabelecimento com uma só visita prevista para hoje, ela já vem escolhida. */
+  function aoMudarLocal(cId: string, uId: string) {
+    setPrevistaId(null);
+    setEquipeIds([]);
+    const deHoje = previstasDe(cId, uId).filter((i) => i.diasParaPrazo === 0);
+    if (deHoje.length === 1) escolherPrevista(deHoje[0]);
+  }
+
   if (!clientes.length) {
     return (
       <Alert>
@@ -183,9 +208,11 @@ export function CheckinForm({
               setClienteId(ev.target.value);
               const c = clientes.find((x) => x.id === ev.target.value);
               // Sistema e estabelecimento únicos já vêm escolhidos.
-              setContratoId(c?.contratos.length === 1 ? c.contratos[0].id : "");
-              setUnidadeId(c?.unidades.length === 1 ? c.unidades[0].id : "");
-              setEquipeIds([]);
+              const cId = c?.contratos.length === 1 ? c.contratos[0].id : "";
+              const uId = c?.unidades.length === 1 ? c.unidades[0].id : "";
+              setContratoId(cId);
+              setUnidadeId(uId);
+              aoMudarLocal(cId, uId);
             }}
             className={select}
           >
@@ -204,7 +231,7 @@ export function CheckinForm({
           </Label>
           <select id="contratoId" name="contratoId" value={contratoId} disabled={!cliente} onChange={(ev) => {
               setContratoId(ev.target.value);
-              setEquipeIds([]);
+              aoMudarLocal(ev.target.value, unidadeId);
             }} className={select}>
             <option value="">{cliente ? "Escolha o sistema" : "Escolha o cliente primeiro"}</option>
             {cliente?.contratos.map((k) => (
@@ -224,7 +251,10 @@ export function CheckinForm({
             name="unidadeId"
             value={unidadeId}
             disabled={!cliente}
-            onChange={(ev) => setUnidadeId(ev.target.value)}
+            onChange={(ev) => {
+              setUnidadeId(ev.target.value);
+              aoMudarLocal(contratoId, ev.target.value);
+            }}
             className={select}
           >
             <option value="">{cliente ? "Escolha o estabelecimento" : "Escolha o cliente primeiro"}</option>
@@ -240,7 +270,7 @@ export function CheckinForm({
               {unidade.endereco}
             </p>
           )}
-          {contratoId && unidade && <PendenciasCronograma itens={cronograma.filter((i) => i.contratoId === contratoId && i.unidadeId === unidade.id)} />}
+          {contratoId && unidade && <PendenciasCronograma itens={previstasDe(contratoId, unidade.id)} escolhidoId={previstaId} onEscolher={escolherPrevista} />}
           <Erro msg={e.unidade} />
         </div>
       </Secao>
@@ -255,7 +285,11 @@ export function CheckinForm({
                 tipo === t.valor ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted/50",
               )}
             >
-              <input type="radio" name="tipo" value={t.valor} checked={tipo === t.valor} onChange={() => escolherTipo(t.valor)} className="sr-only" />
+              <input type="radio" name="tipo" value={t.valor} checked={tipo === t.valor} onChange={() => {
+                  escolherTipo(t.valor);
+                  // Outra atividade: deixa de ser a visita prevista escolhida.
+                  if (cronograma.find((i) => i.id === previstaId)?.tipo !== t.valor) setPrevistaId(null);
+                }} className="sr-only" />
               {t.label}
             </label>
           ))}

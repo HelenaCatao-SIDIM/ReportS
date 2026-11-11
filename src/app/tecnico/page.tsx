@@ -67,9 +67,12 @@ async function Conteudo() {
   // O que ainda falta do cronograma de implantação nos estabelecimentos desses contratos (sem a observação interna).
   const hoje = dataLocal(await horaDoServidor());
   const cronograma = (await listarPendentesDosContratos(clientes.flatMap((c) => c.contratos.map((x) => x.id)), hoje)).map((i) => ({
+    id: i.id,
     contratoId: i.contratoId,
     unidadeId: i.unidadeId,
+    equipeIds: i.equipeIds,
     equipeNomes: i.equipeNomes,
+    horario: i.horario,
     tipo: i.tipo,
     prazo: i.prazo,
     situacao: i.situacao,

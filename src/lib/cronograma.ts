@@ -156,9 +156,15 @@ export function descreverPrazo(diasParaPrazo: number): string {
 
 /** O que o técnico vê no check-in: item pendente do cronograma, sem a observação interna. */
 export interface PendenciaCronograma {
+  /** Id do item do cronograma. */
+  id: string;
   contratoId: string;
   unidadeId: string;
+  /** Equipes do item (para o check-in já vir com elas marcadas). */
+  equipeIds: string[];
   equipeNomes: string[];
+  /** Horário combinado (opcional, só informativo). */
+  horario: string;
   tipo: TipoVisita;
   prazo: string;
   situacao: SituacaoCronograma;
