@@ -1,4 +1,4 @@
-# Regras de negócio — SIDIM Visitas
+# Regras de negócio — ReportS
 
 Este documento descreve as regras que o sistema aplica em produção (desde 30/10/2026: dados no PostgreSQL, login no cadastro único da SIDIM),
 levantadas a partir do código. O código continua sendo a fonte da verdade: cada seção indica onde a regra está implementada.

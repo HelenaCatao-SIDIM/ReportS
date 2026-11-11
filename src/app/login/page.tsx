@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { sincUrl } from "@/lib/config";
 import { LoginForm } from "./login-form";
 
-export const metadata: Metadata = { title: "Entrar · SIDIM Visitas" };
+export const metadata: Metadata = { title: "Entrar · ReportS" };
 
 export default function LoginPage() {
   return (
@@ -14,7 +14,7 @@ export default function LoginPage() {
           <div className="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <ClipboardCheck className="size-6" />
           </div>
-          <h1 className="text-xl font-semibold">SIDIM Visitas</h1>
+          <h1 className="text-xl font-semibold">ReportS</h1>
           <p className="text-sm text-muted-foreground">Registro de visitas e treinamentos</p>
         </div>
         <Card>

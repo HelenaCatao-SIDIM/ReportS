@@ -63,7 +63,7 @@ function Marca() {
         <ClipboardCheck className="size-4" />
       </div>
       <div className="leading-tight">
-        <div className="text-sm font-semibold">SIDIM Visitas</div>
+        <div className="text-sm font-semibold">ReportS</div>
         <div className="text-xs text-muted-foreground">Administração</div>
       </div>
     </div>

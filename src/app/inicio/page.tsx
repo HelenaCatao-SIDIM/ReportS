@@ -8,7 +8,7 @@ import { getUsuarioAtual } from "@/lib/dal";
 import { acessoAdministracao, acessoTecnico } from "@/lib/permissoes";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export const metadata: Metadata = { title: "Início · SIDIM Visitas" };
+export const metadata: Metadata = { title: "Início · ReportS" };
 
 export default function InicioPage() {
   return (
@@ -18,7 +18,7 @@ export default function InicioPage() {
           <div className="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <ClipboardCheck className="size-6" />
           </div>
-          <h1 className="text-xl font-semibold">SIDIM Visitas</h1>
+          <h1 className="text-xl font-semibold">ReportS</h1>
         </div>
         <Suspense fallback={<div className="h-40 animate-pulse rounded-xl bg-muted" />}>
           <Conteudo />

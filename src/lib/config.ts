@@ -39,7 +39,7 @@ export const emailRemetente = () => {
   const definido = process.env.EMAIL_REMETENTE?.trim();
   if (definido) return definido;
   const usuario = process.env.SMTP_USUARIO?.trim();
-  return usuario?.includes("@") ? `SIDIM Visitas <${usuario}>` : "SIDIM Visitas <nao-responda@localhost>";
+  return usuario?.includes("@") ? `ReportS <${usuario}>` : "ReportS <nao-responda@localhost>";
 };
 
 /** Trava de teste: se definido, todo e-mail real vai para este endereço, com o destinatário original no assunto. */
