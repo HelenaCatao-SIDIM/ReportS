@@ -4,8 +4,7 @@ import { getUsuarioAtual } from "@/lib/dal";
 import { buscarVisita } from "@/lib/repo/visitas";
 import { buscarContrato } from "@/lib/repo/contratos";
 import { listarUnidades } from "@/lib/repo/clientes";
-import { ehPresencial } from "@/lib/visitas";
-import { chaveRascunhoParticipante, exigeParticipantes } from "@/lib/regras-visita";
+import { chaveRascunhoParticipante, exigeAssinaturaNaPresenca, exigeParticipantes } from "@/lib/regras-visita";
 import { configLoginDoSistema } from "@/lib/repo/presenca-login";
 import { conferirProva } from "@/lib/saude-login";
 import { LimparRascunho } from "@/components/tecnico/limpar-rascunho";
@@ -37,7 +36,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/tecnico/visit
       <LimparRascunho chave={chaveRascunhoParticipante(id)} />
       <PresencaAutoatendimento
         visitaId={id}
-        exigeAssinatura={contrato?.nivel === "assinado" && ehPresencial(v.tipo)}
+        exigeAssinatura={exigeAssinaturaNaPresenca(contrato?.nivel, v.tipo)}
         exigeCpf={!!contrato?.exigeCpf}
         setores={setores}
         setorVisita={v.setorNome === "—" ? "" : v.setorNome}

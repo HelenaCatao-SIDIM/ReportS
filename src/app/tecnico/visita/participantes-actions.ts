@@ -4,8 +4,7 @@ import { revalidatePath } from "next/cache";
 import { exigirPermissaoAcao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
 import { cpfValido, mascararCpf, normalizar, soDigitos } from "@/lib/format";
-import { ehPresencial } from "@/lib/visitas";
-import { podeMostrarDonoDoCpf } from "@/lib/regras-visita";
+import { exigeAssinaturaNaPresenca, podeMostrarDonoDoCpf } from "@/lib/regras-visita";
 import { buscarContrato } from "@/lib/repo/contratos";
 import { buscarCbo } from "@/lib/repo/cbo";
 import { salvarImagem } from "@/lib/repo/arquivos";
@@ -22,7 +21,7 @@ async function contexto(visitaId: string) {
   const contrato = await buscarContrato(v.contratoId);
   if (!contrato) throw new Error("Contrato não encontrado");
   // A forma de comprovação e o CPF seguem o contrato da visita. Assinatura só no presencial; treinamento online é sempre nominal.
-  const exigeAssinatura = contrato.nivel === "assinado" && ehPresencial(v.tipo);
+  const exigeAssinatura = exigeAssinaturaNaPresenca(contrato.nivel, v.tipo);
   // Os participantes são do sistema do cliente do contrato (a mesma pessoa pode ter cadastros diferentes em cada sistema).
   return { tecnico, v, sistemaDoClienteId: contrato.sistemaDoClienteId, exigeAssinatura, exigeCpf: contrato.exigeCpf };
 }

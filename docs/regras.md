@@ -119,16 +119,19 @@ Onde: `src/lib/repo/cbo.ts`, `scripts/importar-cbo.ts`.
 
 ### Tipos de visita
 
-| Tipo | Presencial | Exige participante no check-out |
-|---|---|---|
-| Treinamento | sim | **sim** |
-| Implantação | sim | não |
-| Suporte presencial | sim | não |
-| Reunião | sim | não |
-| Visita técnica | sim | não |
-| Treinamento online | não | **sim** |
+| Tipo | Presencial | Exige participante no check-out | Assinatura na presença (contrato "assinado") |
+|---|---|---|---|
+| Treinamento | sim | **sim** | sim |
+| Implantação | sim | não | sim |
+| Suporte presencial | sim | não | sim |
+| Reunião | sim | não | sim |
+| Visita técnica | sim | não | sim |
+| Treinamento online | não | **sim** | não (sempre nominal) |
+| Análise de ambiente | sim | não | **não** (nominal mesmo em contrato assinado) |
 
-Onde: `src/lib/visitas.ts` (`TIPOS_VISITA`), `src/lib/regras-visita.ts` (`exigeParticipantes`).
+A **Análise de ambiente** (16/11/2026) é presencial (GPS e foto no check-in, como as outras), não registra equipes e abre direto na tela da visita; quem participa entra na lista **sem assinar**, mesmo quando o contrato pede assinatura.
+
+Onde: `src/lib/visitas.ts` (`TIPOS_VISITA`), `src/lib/regras-visita.ts` (`exigeParticipantes`, `exigeAssinaturaNaPresenca`).
 
 ### Check-in
 
