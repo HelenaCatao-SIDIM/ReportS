@@ -179,7 +179,7 @@ export interface Participante {
   cpf: string | null;
 }
 
-export type TipoVisita = "treinamento" | "implantacao" | "suporte_presencial" | "reuniao" | "visita_tecnica" | "treinamento_online";
+export type TipoVisita = "treinamento" | "implantacao" | "suporte_presencial" | "reuniao" | "visita_tecnica" | "treinamento_online" | "analise_ambiente";
 
 export type StatusVisita = "em_andamento" | "encerrada" | "cancelada";
 

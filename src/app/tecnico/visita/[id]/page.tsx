@@ -10,13 +10,14 @@ import { listarEquipes } from "@/lib/repo/equipes";
 import { listarUnidades } from "@/lib/repo/clientes";
 import { buscarContrato } from "@/lib/repo/contratos";
 import { formatarData, formatarDataHora, formatarHora } from "@/lib/datas";
-import { ehPresencial, rotuloAtendidos, rotuloTipo } from "@/lib/visitas";
+import { rotuloAtendidos, rotuloTipo } from "@/lib/visitas";
 import {
   chaveRascunho,
   chaveRascunhoCheckin,
   chaveRascunhoParticipante,
   chaveRascunhoTema,
   equipesDaVisita,
+  exigeAssinaturaNaPresenca,
   exigeParticipantes,
   sugereTemasPorEquipe,
 } from "@/lib/regras-visita";
@@ -138,7 +139,7 @@ async function EmAndamento({ v }: { v: VisitaDetalhada }) {
       <ParticipantesVisita
         visitaId={v.id}
         presencas={v.presencas}
-        exigeAssinatura={contrato?.nivel === "assinado" && ehPresencial(v.tipo)}
+        exigeAssinatura={exigeAssinaturaNaPresenca(contrato?.nivel, v.tipo)}
         ehTreinamento={v.tipo === "treinamento" || v.tipo === "treinamento_online"}
         semLoginHref={semLoginHref}
       />

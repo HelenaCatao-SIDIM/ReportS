@@ -1,6 +1,14 @@
 /** Regras de negócio da visita compartilhadas entre telas e servidor. */
 import { nomesParecidos } from "@/lib/similaridade";
-import type { Equipe, TipoVisita } from "@/lib/types";
+import { ehPresencial } from "@/lib/visitas";
+import type { Equipe, NivelComprovacao, TipoVisita } from "@/lib/types";
+
+/**
+ * A presença pede assinatura: contrato "assinado", visita presencial e tipo que não seja a análise de ambiente (nela a presença
+ * é só nominal, mesmo em contrato assinado). Treinamento online é sempre nominal.
+ */
+export const exigeAssinaturaNaPresenca = (nivel: NivelComprovacao | null | undefined, tipo: TipoVisita) =>
+  nivel === "assinado" && ehPresencial(tipo) && tipo !== "analise_ambiente";
 
 /** Tipos em que o check-out exige ao menos um participante na lista. */
 export const exigeParticipantes = (tipo: TipoVisita) => tipo === "treinamento" || tipo === "treinamento_online";

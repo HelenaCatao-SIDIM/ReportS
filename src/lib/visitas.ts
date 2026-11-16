@@ -8,6 +8,7 @@ export const TIPOS_VISITA: { valor: TipoVisita; label: string; presencial: boole
   { valor: "reuniao", label: "Reunião", presencial: true },
   { valor: "visita_tecnica", label: "Visita técnica", presencial: true },
   { valor: "treinamento_online", label: "Treinamento online", presencial: false },
+  { valor: "analise_ambiente", label: "Análise de ambiente", presencial: true },
 ];
 
 /** Nomes dos setores da visita: o do check-in e os acrescentados depois, sem repetir nem contar o "—" de quem não tem setor. */

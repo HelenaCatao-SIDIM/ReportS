@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { abrePelaPresenca, equipesDaVisita, podeMostrarDonoDoCpf, rotaDaVisita, sugereTemasPorEquipe } from "@/lib/regras-visita";
+import { abrePelaPresenca, equipesDaVisita, exigeAssinaturaNaPresenca, podeMostrarDonoDoCpf, rotaDaVisita, sugereTemasPorEquipe } from "@/lib/regras-visita";
 import { nomesDosSetores, rotuloAtendidos, tituloAtendidos } from "@/lib/visitas";
 
 const equipe = (id: string, temaIds: string[], ativo = true) => ({ id, nome: id, temaIds, ativo });
@@ -56,4 +56,13 @@ test("CPF que já é de alguém: o nome do dono só aparece se for parecido com 
   assert.equal(podeMostrarDonoDoCpf("Luciana Ferraz", "Luciana Ferrraz"), true, "erro de digitação");
   assert.equal(podeMostrarDonoDoCpf("Luciana Ferraz", "Rogério Batista"), false, "outra pessoa: o nome não é revelado");
   assert.equal(podeMostrarDonoDoCpf("Maria", "Patrícia Gomes"), false);
+});
+
+test("assinatura na presença: só em contrato assinado, visita presencial e fora da análise de ambiente", () => {
+  assert.equal(exigeAssinaturaNaPresenca("assinado", "treinamento"), true);
+  assert.equal(exigeAssinaturaNaPresenca("assinado", "visita_tecnica"), true);
+  assert.equal(exigeAssinaturaNaPresenca("assinado", "analise_ambiente"), false, "análise de ambiente não exige assinatura");
+  assert.equal(exigeAssinaturaNaPresenca("assinado", "treinamento_online"), false, "online é sempre nominal");
+  assert.equal(exigeAssinaturaNaPresenca("nominal", "treinamento"), false);
+  assert.equal(exigeAssinaturaNaPresenca(undefined, "treinamento"), false);
 });
