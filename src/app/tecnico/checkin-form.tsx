@@ -168,12 +168,17 @@ export function CheckinForm({
     setEquipeIds(item.equipeIds.filter((id) => equipes.some((e) => e.id === id)));
   }
 
-  /** Ao chegar num estabelecimento com uma só visita prevista para hoje, ela já vem escolhida. */
+  /**
+   * Mudou o cliente, o sistema ou o estabelecimento. O que o técnico já escolheu (tipo, equipes, foto) fica: a ordem dos
+   * campos é livre. Só sai o que tinha vindo da visita prevista do local anterior. A visita prevista de hoje (quando é uma só)
+   * vem escolhida sozinha apenas se o técnico ainda não escolheu o tipo, para não trocar o que ele já marcou.
+   */
   function aoMudarLocal(cId: string, uId: string) {
+    const anterior = cronograma.find((i) => i.id === previstaId);
     setPrevistaId(null);
-    setEquipeIds([]);
+    if (anterior) setEquipeIds((atuais) => atuais.filter((id) => !anterior.equipeIds.includes(id)));
     const deHoje = previstasDe(cId, uId).filter((i) => i.diasParaPrazo === 0);
-    if (deHoje.length === 1) escolherPrevista(deHoje[0]);
+    if (deHoje.length === 1 && (!tipo || anterior)) escolherPrevista(deHoje[0]);
   }
 
   if (!clientes.length) {
