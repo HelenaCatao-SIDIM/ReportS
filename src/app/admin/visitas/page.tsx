@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { AlertTriangle, History, MapPinCheck, MapPinOff } from "lucide-react";
+import { AlertTriangle, CheckCircle2, History, MapPinCheck, MapPinOff } from "lucide-react";
 import { listarEmAndamento, listarEncerradas, type VisitaDetalhada } from "@/lib/repo/visitas";
 import { listarClientes } from "@/lib/repo/clientes";
 import { listarComPermissao } from "@/lib/repo/usuarios";
@@ -16,6 +16,7 @@ import { SelosVisita } from "@/components/visita/selos";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AcoesAndamento } from "./acoes-andamento";
@@ -51,6 +52,12 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/visitas">, "sea
 
   return (
     <>
+      {sp.ok === "excluida" && (
+        <Alert className="mb-4 border-emerald-200 bg-emerald-50 text-emerald-800">
+          <CheckCircle2 />
+          <AlertDescription className="text-emerald-800">Visita excluída.</AlertDescription>
+        </Alert>
+      )}
       <div className="mb-4 flex gap-1 border-b">
         {[
           { id: "andamento", label: "Em andamento", n: emAndamento.length, href: "/admin/visitas" },

@@ -29,7 +29,7 @@ As regras com código `RN-PL-xx` são da Plataforma SIDIM e estão na Especifica
 | `reports.temas.gerenciar` | Temas das visitas e equipes com os temas mínimos |
 | `reports.participantes.gerenciar` | Ver e editar participantes (CPF, CBO, setor) e criar provisórios fora de uma visita |
 | `reports.participantes.revisar` | Reservada para a junção de participantes (Fase 5); ainda sem tela |
-| `reports.visitas.gerenciar` | Ver todas as visitas e o cronograma de implantação; corrigir, encerrar e cancelar |
+| `reports.visitas.gerenciar` | Ver todas as visitas e o cronograma de implantação; corrigir, encerrar, cancelar e excluir |
 | `reports.relatorios.gerenciar` | Criar rascunho, emitir, reenviar e acompanhar relatórios, e a Caixa de saída de e-mails |
 
 - O papel **Administrador** é protegido: tem todas as permissões ativas, inclusive as que forem criadas depois (RN-PL-63).
@@ -213,6 +213,13 @@ Aparecem da mais antiga para a mais recente, para que as esquecidas fiquem no to
 - Cliente, técnico, sistema, localizações, foto do ambiente e print não mudam.
 - O **motivo** é obrigatório (pelo menos 5 caracteres). Se nada mudou, nada é gravado.
 - Visita em **relatório aprovado** fica **travada**: ninguém altera.
+
+### Excluir visita encerrada
+
+- A tela de detalhe de uma visita **encerrada** tem **Excluir**, que apaga a visita **de vez** — presenças, temas, equipes, setores e o histórico saem junto, numa transação. **Não dá para desfazer.** Pede a palavra **EXCLUIR** digitada, para ninguém apagar sem querer. Mesma permissão (`reports.visitas.gerenciar`).
+- Só aparece quando a visita **não está em nenhum relatório** (`relatorioId` nulo — cobre rascunho, versões emitidas e aprovadas). Estando num relatório, **tire-a do relatório antes** (senão a exclusão quebraria o relatório).
+- As **fotos no disco ficam** (podem pertencer a uma versão de relatório já emitida; é o mesmo que a correção faz ao retirar uma foto).
+- Como a visita some, a exclusão **não entra no histórico** (não há mais visita onde registrar). Para guardar o motivo, use **Cancelar**/**Corrigir** no lugar.
 
 ### Lançamento retroativo (visita que já aconteceu)
 

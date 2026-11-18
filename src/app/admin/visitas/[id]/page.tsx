@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AcoesAndamento } from "../acoes-andamento";
+import { ExcluirVisita } from "./excluir-visita";
 
 const ACAO = { encerramento: "Encerrada pela administração", cancelamento: "Check-in cancelado", correcao: "Correção", lancamento: "Lançamento retroativo" } as const;
 
@@ -36,6 +37,8 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/visitas
   if (!v) notFound();
   agendarCepPendente(v, await horaDoServidor());
   const podeCorrigir = v.status === "encerrada" && !v.travada;
+  // Excluir é só para visitas encerradas que não estão em nenhum relatório (senão quebraria o relatório).
+  const podeExcluir = v.status === "encerrada" && v.relatorioId === null;
 
   return (
     <div className="space-y-6">
@@ -63,6 +66,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/visitas
               Corrigir
             </Button>
           )}
+          {podeExcluir && <ExcluirVisita visitaId={v.id} resumo={`${v.tecnicoNome} · ${v.clienteNome} · ${formatarData(v.entrada)}`} />}
         </div>
       </div>
 
