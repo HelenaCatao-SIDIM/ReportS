@@ -121,6 +121,24 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     assert.equal((await visitas.locaisSemCep(10)).length, 0);
   });
 
+  test("excluir visita: só encerrada e fora de relatório; a cascata leva presenças e histórico", async () => {
+    const v = await checkin();
+    assert.equal(await visitas.excluirVisita(v.id), "nao_encerrada", "em andamento não pode ser excluída");
+    await encerrar(v.id);
+
+    // Dentro de um relatório: bloqueada.
+    const r = await relatorios.criarRascunho(contratoId, "1990-01-01", "2099-12-31");
+    assert.ok("relatorio" in r);
+    assert.equal(await visitas.excluirVisita(v.id), "em_relatorio", "visita em relatório não pode ser excluída");
+
+    // Fora do relatório: excluída de vez.
+    await relatorios.excluirRascunho(r.relatorio.id);
+    assert.equal(await visitas.excluirVisita(v.id), "ok");
+    assert.equal(await visitas.buscarVisita(v.id), null, "a visita some");
+    assert.equal(await db.reports.alteracaoVisita.count({ where: { visitaId: v.id } }), 0, "o histórico some junto");
+    assert.equal(await visitas.excluirVisita(v.id), "nao_encontrada", "excluir de novo não encontra");
+  });
+
   // ---------- Cronograma de implantação ----------
 
   const hojeLocal = () => new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);

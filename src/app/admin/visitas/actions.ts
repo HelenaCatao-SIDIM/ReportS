@@ -10,7 +10,7 @@ import { equipesDaVisita, sugereTemasPorEquipe } from "@/lib/regras-visita";
 import { buscarSetor, buscarUnidade } from "@/lib/repo/clientes";
 import { listarEquipes } from "@/lib/repo/equipes";
 import { listarTemas } from "@/lib/repo/temas";
-import { buscarVisita, cancelarPelaAdministracao, corrigirPelaAdministracao, encerrarPelaAdministracao } from "@/lib/repo/visitas";
+import { buscarVisita, cancelarPelaAdministracao, corrigirPelaAdministracao, encerrarPelaAdministracao, excluirVisita } from "@/lib/repo/visitas";
 import type { TipoVisita } from "@/lib/types";
 
 // ---------- Encerrar / cancelar (visita em andamento) ----------
@@ -128,4 +128,24 @@ export async function corrigirVisita(id: string, _: CorrecaoState, fd: FormData)
 
   revalidatePath("/admin/visitas", "layout");
   redirect(`/admin/visitas/${id}?ok=corrigida`);
+}
+
+// ---------- Excluir (visita encerrada, fora de relatório) ----------
+
+export interface ExclusaoState {
+  erro?: string;
+}
+
+/** Exclui de vez uma visita encerrada que não está em relatório. Pede a palavra EXCLUIR digitada, porque não dá para desfazer. */
+export async function excluirVisitaAcao(id: string, _: ExclusaoState, fd: FormData): Promise<ExclusaoState> {
+  await exigirPermissaoAcao(PERMISSOES.visitasGerenciar);
+  if (String(fd.get("confirmar") ?? "").trim().toUpperCase() !== "EXCLUIR") return { erro: "Digite EXCLUIR para confirmar." };
+
+  const r = await excluirVisita(id);
+  if (r === "nao_encontrada") return { erro: "Visita não encontrada (talvez já tenha sido excluída)." };
+  if (r === "nao_encerrada") return { erro: "Só visitas encerradas podem ser excluídas." };
+  if (r === "em_relatorio") return { erro: "Esta visita está em um relatório. Tire-a do relatório antes de excluir." };
+
+  revalidatePath("/admin/visitas", "layout");
+  redirect("/admin/visitas?aba=encerradas&ok=excluida");
 }

@@ -586,6 +586,34 @@ export async function removerPresenca(id: string, tecnicoId: string, participant
   if (chave !== null) await reports.presenca.deleteMany({ where: { visitaId: id, participanteId: chave } });
 }
 
+export type ResultadoExclusao = "ok" | "nao_encontrada" | "nao_encerrada" | "em_relatorio";
+
+/**
+ * Exclui de vez uma visita encerrada que não está em nenhum relatório (`relatorioId` nulo cobre rascunho, versões emitidas e
+ * aprovadas). Apaga os filhos — presenças, temas, equipes, setores e histórico — na mesma transação. As fotos no disco ficam
+ * (podem ser de uma versão de relatório já emitida; é o mesmo que a correção faz). Não dá para desfazer.
+ */
+export async function excluirVisita(id: string): Promise<ResultadoExclusao> {
+  const v = await reports.visita.findUnique({ where: { id }, select: { status: true, relatorioId: true } });
+  if (!v) return "nao_encontrada";
+  if (v.status !== "encerrada") return "nao_encerrada";
+  if (v.relatorioId) return "em_relatorio";
+  return reports.$transaction(async (tx) => {
+    // Confere de novo dentro da transação (outro processo pode ter vinculado a visita a um relatório nesse meio-tempo).
+    const atual = await tx.visita.findUnique({ where: { id }, select: { status: true, relatorioId: true } });
+    if (!atual) return "nao_encontrada";
+    if (atual.status !== "encerrada") return "nao_encerrada";
+    if (atual.relatorioId) return "em_relatorio";
+    await tx.presenca.deleteMany({ where: { visitaId: id } });
+    await tx.visitaTema.deleteMany({ where: { visitaId: id } });
+    await tx.visitaEquipe.deleteMany({ where: { visitaId: id } });
+    await tx.visitaSetor.deleteMany({ where: { visitaId: id } });
+    await tx.alteracaoVisita.deleteMany({ where: { visitaId: id } });
+    await tx.visita.delete({ where: { id } });
+    return "ok";
+  });
+}
+
 export interface DadosCheckout {
   checkout: Visita["checkout"];
   observacoes: string;
