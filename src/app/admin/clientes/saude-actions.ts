@@ -8,6 +8,7 @@ import { codigosSaudeDoCliente, importarEstabelecimentosDoSaude, listarSistemasD
 import { enderecoApiDoTenant } from "@/lib/saude-login";
 import { buscarEstabelecimentosNoSaude, type EstabelecimentoSaude } from "@/lib/saude-estabelecimentos";
 import { fichasDoCnes } from "@/lib/cnes";
+import { mudancasDe, registrarAuditoria } from "@/lib/repo/auditoria";
 
 export interface BuscaSaudeState {
   erros?: Partial<Record<"usuario" | "senha" | "geral", string>>;
@@ -66,7 +67,7 @@ const coordenada = (v: unknown, limite: number) => (typeof v === "number" && Num
  * buscar de novo): só a administração chega aqui, e cada campo é conferido e cortado no tamanho antes de gravar.
  */
 export async function importarEstabelecimentosSaude(clienteId: string, itens: EstabelecimentoSaude[]): Promise<ResultadoImportacao> {
-  await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
+  const usuario = await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
   if (!(await listarSistemasDoCliente(clienteId)).some((s) => s.sistema === "saude")) return { ok: false, erro: "Este cliente não tem o sistema Saúde." };
   if (!Array.isArray(itens) || itens.length === 0) return { ok: false, erro: "Marque ao menos um estabelecimento." };
   if (itens.length > 2000) return { ok: false, erro: "Lista grande demais." };
@@ -92,6 +93,13 @@ export async function importarEstabelecimentosSaude(clienteId: string, itens: Es
   if (porCodigo.size === 0) return { ok: false, erro: "Nenhum estabelecimento válido na lista." };
 
   const r = await importarEstabelecimentosDoSaude(clienteId, [...porCodigo.values()], RAIO_PADRAO_METROS);
+  await registrarAuditoria({
+    autor: usuario, entidade: "estabelecimento", entidadeId: clienteId, rotulo: "Importação do Saúde", acao: "importar",
+    mudancas: mudancasDe([
+      { campo: "Incluídos", antes: 0, depois: r.incluidos },
+      { campo: "Atualizados", antes: 0, depois: r.atualizados },
+    ]),
+  });
   revalidatePath(`/admin/clientes/${clienteId}`);
   return { ok: true, ...r };
 }

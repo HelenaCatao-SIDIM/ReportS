@@ -16,6 +16,7 @@ import { listarComPermissao } from "@/lib/repo/usuarios";
 import { buscarParticipante, listarParticipantes } from "@/lib/repo/participantes";
 import { salvarImagem } from "@/lib/repo/arquivos";
 import { lancarVisitaRetroativa, tecnicoOcupadoNoHorario } from "@/lib/repo/visitas";
+import { registrarAuditoria } from "@/lib/repo/auditoria";
 import type { Foto, PresencaVisita, TipoVisita } from "@/lib/types";
 
 /*
@@ -151,6 +152,14 @@ export async function lancarRetroativa(_: RetroativaState, fd: FormData): Promis
     autor,
     motivo,
   );
+  const tecnicoNome = tecnicos.find((t) => t.id === tecnicoId)?.nome ?? "—";
+  await registrarAuditoria({
+    autor, entidade: "visita", entidadeId: id, rotulo: `${unidade?.nome ?? "—"} · ${tecnicoNome} · ${data}`, acao: "lancar",
+    mudancas: [
+      { campo: "Motivo", antes: "—", depois: motivo },
+      { campo: "Tipo", antes: "—", depois: tipo },
+    ],
+  });
   revalidatePath("/admin/visitas", "layout");
   revalidatePath("/admin/cronograma");
   redirect(`/admin/visitas/${id}?ok=lancada`);

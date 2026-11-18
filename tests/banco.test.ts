@@ -27,6 +27,7 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
   let equipes: typeof import("@/lib/repo/equipes");
   let temas: typeof import("@/lib/repo/temas");
   let configuracoes: typeof import("@/lib/repo/configuracoes");
+  let auditoria: typeof import("@/lib/repo/auditoria");
   let tecnico: { id: string; nome: string; email: string; ativo: boolean; telefone: null; papelIds: string[] };
   let sistemaDoClienteId: string;
   let clienteId: string;
@@ -48,6 +49,7 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     equipes = await import("@/lib/repo/equipes");
     temas = await import("@/lib/repo/temas");
     configuracoes = await import("@/lib/repo/configuracoes");
+    auditoria = await import("@/lib/repo/auditoria");
 
     const sdc = await db.plataforma.clients.findFirst({ where: { customer_id: { not: null }, estado: { in: ["em_implantacao", "vinculado"] } } });
     const usuario = await db.plataforma.users.findFirst({ where: { active: true } });
@@ -139,24 +141,37 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     assert.equal(await visitas.excluirVisita(v.id), "nao_encontrada", "excluir de novo não encontra");
   });
 
-  test("auditoria lista as alterações com autor, ação, campos e contexto da visita, e filtra", async () => {
-    const v = await checkin();
-    await visitas.encerrarPelaAdministracao(v.id, new Date().toISOString(), tecnico, "estava esquecida aberta");
+  test("auditoria: registra autor/ação/campos e filtra por tipo, período e busca", async () => {
+    const autor = { id: tecnico.id, nome: tecnico.nome };
+    await auditoria.registrarAuditoria({
+      autor, entidade: "cliente", entidadeId: "c1", rotulo: "Prefeitura X", acao: "criar",
+      mudancas: auditoria.mudancasDe([{ campo: "Nome", antes: undefined, depois: "Prefeitura X" }]),
+    });
+    await auditoria.registrarAuditoria({
+      autor, entidade: "tema", entidadeId: "t1", rotulo: "Prontuário", acao: "editar",
+      mudancas: auditoria.mudancasDe([
+        { campo: "Nome", antes: "Prontuario", depois: "Prontuário" },
+        { campo: "Sistema", antes: "saude", depois: "saude" },
+      ]),
+    });
 
-    const tudo = await visitas.listarAuditoria();
-    const r = tudo.find((x) => x.visitaId === v.id);
-    assert.ok(r, "a alteração aparece na auditoria");
-    assert.equal(r.acao, "encerramento");
-    assert.equal(r.autorNome, tecnico.nome);
-    assert.equal(r.motivo, "estava esquecida aberta");
-    assert.deepEqual(r.mudancas.map((m) => m.campo), ["Saída"]);
-    assert.notEqual(r.clienteNome, "—", "resolve o nome do cliente na plataforma");
-    assert.notEqual(r.tecnicoNome, "—", "resolve o nome do técnico na plataforma");
+    const tudo = await auditoria.listarAuditoria();
+    assert.equal(tudo.length, 2);
+    const cli = tudo.find((r) => r.entidade === "cliente")!;
+    assert.equal(cli.autorNome, tecnico.nome);
+    assert.equal(cli.acao, "criar");
+    assert.equal(cli.rotulo, "Prefeitura X");
+    assert.deepEqual(cli.mudancas, [{ campo: "Nome", antes: "—", depois: "Prefeitura X" }]);
+    // mudancasDe tira o campo que não mudou (Sistema).
+    const tema = tudo.find((r) => r.entidade === "tema")!;
+    assert.deepEqual(tema.mudancas.map((m) => m.campo), ["Nome"]);
 
     // Filtros.
-    assert.equal((await visitas.listarAuditoria({ acao: "correcao" })).length, 0, "ação sem registro não traz nada");
-    assert.ok((await visitas.listarAuditoria({ clienteId })).some((x) => x.visitaId === v.id), "filtra pelo cliente da visita");
-    assert.equal((await visitas.listarAuditoria({ clienteId: "999999999" })).length, 0, "cliente sem visita não traz nada");
+    assert.deepEqual((await auditoria.listarAuditoria({ entidade: "tema" })).map((r) => r.entidadeId), ["t1"]);
+    assert.equal((await auditoria.listarAuditoria({ entidade: "contrato" })).length, 0, "tipo sem registro não traz nada");
+    assert.deepEqual((await auditoria.listarAuditoria({ texto: "prontu" })).map((r) => r.rotulo), ["Prontuário"], "busca no rótulo, sem caixa");
+    assert.equal((await auditoria.listarAuditoria({ texto: tecnico.nome })).length, 2, "busca pelo nome de quem fez");
+    assert.equal((await auditoria.listarAuditoria({ de: new Date(Date.now() + 60_000).toISOString() })).length, 0, "período no futuro não traz nada");
   });
 
   // ---------- Cronograma de implantação ----------

@@ -5,6 +5,7 @@ import { exigirPermissaoAcao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
 import { urlN8nPermitida } from "@/lib/config-suporte";
 import { salvarUrlN8n } from "@/lib/repo/configuracoes";
+import { registrarAuditoria } from "@/lib/repo/auditoria";
 import { limparCacheSuporte, testarConexaoN8n } from "@/lib/suporte";
 
 export interface ConexaoN8nState {
@@ -18,7 +19,7 @@ export interface ConexaoN8nState {
 
 /** Salva o endereço do webhook do n8n e/ou testa a conexão (acao "testar" só testa o que já está guardado). */
 export async function salvarConexao(_: ConexaoN8nState, fd: FormData): Promise<ConexaoN8nState> {
-  await exigirPermissaoAcao(PERMISSOES.relatoriosGerenciar);
+  const usuario = await exigirPermissaoAcao(PERMISSOES.relatoriosGerenciar);
   const acao = String(fd.get("acao") ?? "salvar");
   const url = String(fd.get("url") ?? "").trim();
 
@@ -30,6 +31,8 @@ export async function salvarConexao(_: ConexaoN8nState, fd: FormData): Promise<C
     if (Object.keys(erros).length) return { erros, url };
     await salvarUrlN8n(url);
     limparCacheSuporte();
+    // Não guarda o endereço no log (pode conter token); registra só que foi alterado.
+    await registrarAuditoria({ autor: usuario, entidade: "configuracao", rotulo: "Conexão com o n8n (chamados de suporte)", acao: "editar" });
     revalidatePath("/admin/configuracoes");
   }
 

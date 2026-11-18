@@ -6,6 +6,7 @@ import { PERMISSOES } from "@/lib/permissoes";
 import type { ContextoImportacao, LinhaBruta, PedidoLinha } from "@/lib/importar-cronograma";
 import { LIMITE_ARQUIVO_BYTES, lerPlanilha } from "@/lib/planilha-cronograma";
 import { carregarContextoImportacao, gravarImportacao, type ResultadoImportacao } from "@/lib/repo/importar-cronograma";
+import { mudancasDe, registrarAuditoria } from "@/lib/repo/auditoria";
 
 export type Analise =
   | { ok: true; arquivo: string; linhas: LinhaBruta[]; avisos: string[]; contexto: ContextoImportacao; podeCadastrar: boolean }
@@ -33,6 +34,16 @@ export async function analisarPlanilha(fd: FormData): Promise<Analise> {
 export async function confirmarImportacao(pedido: PedidoLinha[]): Promise<ResultadoImportacao> {
   const usuario = await exigirPermissaoAcao(PERMISSOES.contratosGerenciar);
   const resultado = await gravarImportacao(pedido, usuario.permissoes.includes(PERMISSOES.clientesCadastrar));
-  if (resultado.ok) revalidatePath("/admin/cronograma");
+  if (resultado.ok) {
+    await registrarAuditoria({
+      autor: usuario, entidade: "cronograma", rotulo: "Importação de planilha", acao: "importar",
+      mudancas: mudancasDe([
+        { campo: "Itens criados", antes: 0, depois: resultado.criados },
+        { campo: "Itens ignorados", antes: 0, depois: resultado.ignorados },
+        { campo: "Estabelecimentos criados", antes: 0, depois: resultado.estabelecimentosCriados },
+      ]),
+    });
+    revalidatePath("/admin/cronograma");
+  }
   return resultado;
 }

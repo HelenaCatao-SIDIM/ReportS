@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { exigirPermissaoAcao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
-import { cpfValido, soDigitos } from "@/lib/format";
+import { cpfValido, mascararCpf, soDigitos } from "@/lib/format";
+import { mudancasDe, registrarAuditoria } from "@/lib/repo/auditoria";
 import { buscarSistemaDoCliente } from "@/lib/repo/clientes";
 import { buscarContratoDoSistemaDoCliente } from "@/lib/repo/contratos";
 import { buscarCbo } from "@/lib/repo/cbo";
@@ -84,8 +85,30 @@ export async function salvarParticipante(
   }
 
   const dados = { nome, cbo: cbo!, setor, cpf: exigeCpf ? cpf : null };
-  if (participanteId) await atualizarParticipante(participanteId, dados);
-  else await criarProvisorio(sistemaDoClienteId, dados, "cadastro_reports", usuario.id);
+  const mascara = (c: string | null | undefined) => (c ? mascararCpf(c) : "");
+  if (participanteId) {
+    await atualizarParticipante(participanteId, dados);
+    await registrarAuditoria({
+      autor: usuario, entidade: "participante", entidadeId: participanteId, rotulo: nome, acao: "editar",
+      mudancas: mudancasDe([
+        { campo: "Nome", antes: atual?.nome, depois: nome },
+        { campo: "Ocupação (CBO)", antes: atual?.cbo?.titulo, depois: cbo!.titulo },
+        { campo: "Setor", antes: atual?.setor, depois: setor },
+        { campo: "CPF", antes: mascara(atual?.cpf), depois: mascara(dados.cpf) },
+      ]),
+    });
+  } else {
+    const p = await criarProvisorio(sistemaDoClienteId, dados, "cadastro_reports", usuario.id);
+    await registrarAuditoria({
+      autor: usuario, entidade: "participante", entidadeId: p.id, rotulo: nome, acao: "criar",
+      mudancas: mudancasDe([
+        { campo: "Nome", antes: undefined, depois: nome },
+        { campo: "Ocupação (CBO)", antes: undefined, depois: cbo!.titulo },
+        { campo: "Setor", antes: undefined, depois: setor },
+        { campo: "CPF", antes: undefined, depois: mascara(dados.cpf) },
+      ]),
+    });
+  }
   revalidatePath("/admin/participantes");
   return { ok: true };
 }

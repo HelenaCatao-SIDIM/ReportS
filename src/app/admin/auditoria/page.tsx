@@ -1,12 +1,9 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowRight, ScrollText } from "lucide-react";
-import { listarAuditoria, LIMITE_AUDITORIA, type RegistroAuditoria } from "@/lib/repo/visitas";
-import { listarClientes } from "@/lib/repo/clientes";
-import { listarComPermissao } from "@/lib/repo/usuarios";
-import { PERMISSOES } from "@/lib/permissoes";
-import type { AlteracaoVisita } from "@/lib/types";
-import { fimDoDia, formatarData, formatarDataHora, inicioDoDia } from "@/lib/datas";
+import { listarAuditoria, LIMITE_AUDITORIA } from "@/lib/repo/auditoria";
+import type { AcaoAuditoria, EntidadeAuditoria, RegistroAuditoria } from "@/lib/types";
+import { fimDoDia, formatarDataHora, inicioDoDia } from "@/lib/datas";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/shell/placeholder";
 import { selectClass } from "@/components/form/campo";
@@ -17,17 +14,41 @@ import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const TITULO = "Auditoria";
-const DESCRICAO = "Tudo que a administração mudou nas visitas: quem, quando, a ação e cada campo antes e depois.";
+const DESCRICAO = "Tudo que a administração mudou no sistema: quem, quando, a ação e cada campo antes e depois.";
 
-/** Rótulo e cor de cada tipo de ação registrada no histórico da visita. */
-const ACAO: Record<AlteracaoVisita["acao"], { rotulo: string; classe: string }> = {
-  encerramento: { rotulo: "Encerramento", classe: "bg-amber-100 text-amber-800" },
-  cancelamento: { rotulo: "Cancelamento", classe: "bg-rose-100 text-rose-800" },
-  correcao: { rotulo: "Correção", classe: "bg-sky-100 text-sky-800" },
-  lancamento: { rotulo: "Lançamento retroativo", classe: "bg-emerald-100 text-emerald-800" },
+/** Rótulo de cada tipo de registro (no singular, como aparece na coluna e no filtro). */
+const ENTIDADE: Record<EntidadeAuditoria, string> = {
+  cliente: "Cliente",
+  estabelecimento: "Estabelecimento",
+  setor: "Setor",
+  contrato: "Contrato",
+  aprovador: "Aprovador",
+  tema: "Tema",
+  equipe: "Equipe",
+  participante: "Participante",
+  cronograma: "Cronograma",
+  relatorio: "Relatório",
+  configuracao: "Configuração",
+  visita: "Visita",
 };
 
-const ACOES = Object.keys(ACAO) as AlteracaoVisita["acao"][];
+const ENTIDADES = Object.keys(ENTIDADE) as EntidadeAuditoria[];
+
+/** Rótulo e cor de cada ação. */
+const ACAO: Record<AcaoAuditoria, { rotulo: string; classe: string }> = {
+  criar: { rotulo: "Criou", classe: "bg-emerald-100 text-emerald-800" },
+  editar: { rotulo: "Editou", classe: "bg-sky-100 text-sky-800" },
+  excluir: { rotulo: "Excluiu", classe: "bg-rose-100 text-rose-800" },
+  ativar: { rotulo: "Ativou", classe: "bg-emerald-100 text-emerald-800" },
+  inativar: { rotulo: "Inativou", classe: "bg-amber-100 text-amber-800" },
+  encerrar: { rotulo: "Encerrou", classe: "bg-amber-100 text-amber-800" },
+  cancelar: { rotulo: "Cancelou", classe: "bg-rose-100 text-rose-800" },
+  corrigir: { rotulo: "Corrigiu", classe: "bg-sky-100 text-sky-800" },
+  lancar: { rotulo: "Lançou", classe: "bg-emerald-100 text-emerald-800" },
+  emitir: { rotulo: "Emitiu", classe: "bg-sky-100 text-sky-800" },
+  enviar: { rotulo: "Enviou", classe: "bg-sky-100 text-sky-800" },
+  importar: { rotulo: "Importou", classe: "bg-emerald-100 text-emerald-800" },
+};
 
 export default function AuditoriaPage({ searchParams }: PageProps<"/admin/auditoria">) {
   return (
@@ -44,45 +65,28 @@ const str = (v: string | string[] | undefined) => (typeof v === "string" ? v : "
 
 async function Conteudo({ searchParams }: Pick<PageProps<"/admin/auditoria">, "searchParams">) {
   const sp = await searchParams;
-  const acao = ACOES.includes(str(sp.acao) as AlteracaoVisita["acao"]) ? (str(sp.acao) as AlteracaoVisita["acao"]) : undefined;
-  const f = { cliente: str(sp.cliente), tecnico: str(sp.tecnico), de: str(sp.de), ate: str(sp.ate) };
+  const entidade = ENTIDADES.includes(str(sp.entidade) as EntidadeAuditoria) ? (str(sp.entidade) as EntidadeAuditoria) : undefined;
+  const f = { texto: str(sp.q), de: str(sp.de), ate: str(sp.ate) };
 
-  const [registros, clientes, tecnicos] = await Promise.all([
-    listarAuditoria({
-      clienteId: f.cliente || undefined,
-      tecnicoId: f.tecnico || undefined,
-      acao,
-      de: f.de ? inicioDoDia(f.de) : undefined,
-      ate: f.ate ? fimDoDia(f.ate) : undefined,
-    }),
-    listarClientes(),
-    listarComPermissao(PERMISSOES.tecnico),
-  ]);
+  const registros = await listarAuditoria({
+    entidade,
+    texto: f.texto || undefined,
+    de: f.de ? inicioDoDia(f.de) : undefined,
+    ate: f.ate ? fimDoDia(f.ate) : undefined,
+  });
 
   return (
     <div className="mt-4">
       <form className="mb-4 flex flex-wrap items-end gap-2">
-        <select name="cliente" defaultValue={f.cliente} aria-label="Cliente" className={cn(selectClass, "w-auto bg-background")}>
-          <option value="">Todos os clientes</option>
-          {clientes.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nome}
-            </option>
-          ))}
-        </select>
-        <select name="tecnico" defaultValue={f.tecnico} aria-label="Técnico" className={cn(selectClass, "w-auto bg-background")}>
-          <option value="">Todos os técnicos</option>
-          {tecnicos.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.nome}
-            </option>
-          ))}
-        </select>
-        <select name="acao" defaultValue={acao ?? ""} aria-label="Ação" className={cn(selectClass, "w-auto bg-background")}>
-          <option value="">Todas as ações</option>
-          {ACOES.map((a) => (
-            <option key={a} value={a}>
-              {ACAO[a].rotulo}
+        <label className="text-xs text-muted-foreground">
+          Buscar
+          <Input name="q" defaultValue={f.texto} placeholder="Quem fez ou o nome do registro" className="h-9 w-64 bg-background" />
+        </label>
+        <select name="entidade" defaultValue={entidade ?? ""} aria-label="Tipo de registro" className={cn(selectClass, "w-auto bg-background")}>
+          <option value="">Todos os tipos</option>
+          {ENTIDADES.map((e) => (
+            <option key={e} value={e}>
+              {ENTIDADE[e]}
             </option>
           ))}
         </select>
@@ -104,6 +108,13 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/auditoria">, "s
   );
 }
 
+/** Link para o registro quando dá para abri-lo na Administração; senão, só o rótulo. */
+function alvo(r: RegistroAuditoria): string | null {
+  if (r.acao === "excluir") return null; // o registro não existe mais
+  if (r.entidade === "visita") return `/admin/visitas/${r.entidadeId}`;
+  return null;
+}
+
 function Lista({ registros }: { registros: RegistroAuditoria[] }) {
   return (
     <>
@@ -115,7 +126,7 @@ function Lista({ registros }: { registros: RegistroAuditoria[] }) {
                 <TableHead className="pl-4">Quando</TableHead>
                 <TableHead>Quem</TableHead>
                 <TableHead>Ação</TableHead>
-                <TableHead>Visita</TableHead>
+                <TableHead>Registro</TableHead>
                 <TableHead className="pr-4">O que mudou</TableHead>
               </TableRow>
             </TableHeader>
@@ -127,42 +138,48 @@ function Lista({ registros }: { registros: RegistroAuditoria[] }) {
                   </TableCell>
                 </TableRow>
               )}
-              {registros.map((r) => (
-                <TableRow key={r.id} className="align-top">
-                  <TableCell className="pl-4 whitespace-nowrap text-sm">{formatarDataHora(r.em)}</TableCell>
-                  <TableCell className="whitespace-nowrap text-sm font-medium">{r.autorNome}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className={cn("font-medium", ACAO[r.acao].classe)}>
-                      {ACAO[r.acao].rotulo}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    <Link href={`/admin/visitas/${r.visitaId}`} className="font-medium text-primary hover:underline">
-                      {r.clienteNome}
-                    </Link>
-                    <span className="block text-xs text-muted-foreground">
-                      {r.tecnicoNome} · {formatarData(r.entradaVisita)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="pr-4">
-                    <p className="text-sm">
-                      <span className="text-muted-foreground">Motivo:</span> {r.motivo}
-                    </p>
-                    {r.mudancas.length > 0 && (
-                      <ul className="mt-2 space-y-1">
-                        {r.mudancas.map((m, i) => (
-                          <li key={i} className="flex flex-wrap items-center gap-1.5 rounded bg-muted/60 px-2 py-1 text-xs">
-                            <span className="font-medium">{m.campo}:</span>
-                            <span className="text-muted-foreground line-through">{m.antes || "—"}</span>
-                            <ArrowRight className="size-3 shrink-0 text-muted-foreground" />
-                            <span>{m.depois || "—"}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {registros.map((r) => {
+                const href = alvo(r);
+                return (
+                  <TableRow key={r.id} className="align-top">
+                    <TableCell className="pl-4 whitespace-nowrap text-sm">{formatarDataHora(r.em)}</TableCell>
+                    <TableCell className="whitespace-nowrap text-sm font-medium">{r.autorNome}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className={cn("font-medium", ACAO[r.acao]?.classe)}>
+                        {ACAO[r.acao]?.rotulo ?? r.acao}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      <span className="text-xs text-muted-foreground">{ENTIDADE[r.entidade] ?? r.entidade}</span>
+                      <span className="block font-medium">
+                        {href ? (
+                          <Link href={href} className="text-primary hover:underline">
+                            {r.rotulo || "—"}
+                          </Link>
+                        ) : (
+                          r.rotulo || "—"
+                        )}
+                      </span>
+                    </TableCell>
+                    <TableCell className="pr-4">
+                      {r.mudancas.length === 0 ? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      ) : (
+                        <ul className="space-y-1">
+                          {r.mudancas.map((m, i) => (
+                            <li key={i} className="flex flex-wrap items-center gap-1.5 rounded bg-muted/60 px-2 py-1 text-xs">
+                              <span className="font-medium">{m.campo}:</span>
+                              <span className="text-muted-foreground line-through">{m.antes}</span>
+                              <ArrowRight className="size-3 shrink-0 text-muted-foreground" />
+                              <span>{m.depois}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
@@ -170,7 +187,7 @@ function Lista({ registros }: { registros: RegistroAuditoria[] }) {
       <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
         <ScrollText className="size-3.5" />
         {registros.length} {registros.length === 1 ? "alteração" : "alterações"}.
-        {registros.length >= LIMITE_AUDITORIA && ` Mostrando as ${LIMITE_AUDITORIA} mais recentes — refine o período para ver as anteriores.`}
+        {registros.length >= LIMITE_AUDITORIA && ` Mostrando as ${LIMITE_AUDITORIA} mais recentes — refine o período ou a busca para ver as anteriores.`}
       </p>
     </>
   );

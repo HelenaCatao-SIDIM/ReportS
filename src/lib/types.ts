@@ -257,6 +257,30 @@ export interface MudancaCampo {
   depois: string;
 }
 
+/** Tipos de coisa que a auditoria acompanha. */
+export type EntidadeAuditoria =
+  | "cliente" | "estabelecimento" | "setor" | "contrato" | "aprovador" | "tema" | "equipe"
+  | "participante" | "cronograma" | "relatorio" | "configuracao" | "visita";
+
+/** Verbos registrados na auditoria. */
+export type AcaoAuditoria =
+  | "criar" | "editar" | "excluir" | "ativar" | "inativar"
+  | "encerrar" | "cancelar" | "corrigir" | "lancar" | "emitir" | "enviar" | "importar";
+
+/** Uma linha do log central de auditoria: quem, quando, o que, qual ação e os campos antes → depois. */
+export interface RegistroAuditoria {
+  id: string;
+  /** Quando a ação foi feita (ISO, UTC). */
+  em: string;
+  autorNome: string;
+  entidade: EntidadeAuditoria;
+  entidadeId: string;
+  /** Nome legível da entidade no momento (ex.: nome do cliente). */
+  rotulo: string;
+  acao: AcaoAuditoria;
+  mudancas: MudancaCampo[];
+}
+
 /** Registro de alteração da visita: quem, quando, o que mudou e por quê. */
 export interface AlteracaoVisita {
   id: string;

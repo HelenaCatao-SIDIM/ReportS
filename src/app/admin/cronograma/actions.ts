@@ -15,6 +15,7 @@ import {
   definirItemCronogramaCancelado,
   itemCronogramaDuplicado,
 } from "@/lib/repo/cronograma";
+import { mudancasDe, registrarAuditoria } from "@/lib/repo/auditoria";
 import type { TipoVisita } from "@/lib/types";
 
 const LIMITE_OBSERVACAO = 500;
@@ -29,7 +30,7 @@ export interface ItemFormState {
 
 /** Cria (itemId null) ou edita um item do cronograma. O contrato de um item existente não muda. */
 export async function salvarItemCronograma(itemId: string | null, _: ItemFormState, fd: FormData): Promise<ItemFormState> {
-  await exigirPermissaoAcao(PERMISSOES.contratosGerenciar);
+  const usuario = await exigirPermissaoAcao(PERMISSOES.contratosGerenciar);
   const existente = itemId ? await buscarItemCronograma(itemId) : null;
   if (itemId && !existente) return { erros: { geral: "Este item não existe mais." } };
 
@@ -68,15 +69,35 @@ export async function salvarItemCronograma(itemId: string | null, _: ItemFormSta
   if (Object.keys(erros).length) return { erros, valores: d };
 
   const dados = { unidadeId: d.unidadeId, equipeIds: d.equipeIds, tipo: d.tipo as TipoVisita, prazo: d.prazo, horario: d.horario, observacao: d.observacao };
-  if (itemId) await atualizarItemCronograma(itemId, dados);
-  else await criarItemCronograma({ ...dados, contratoId: d.contratoId });
+  const rotulo = `${unidade?.nome ?? "—"} · ${d.tipo} · ${d.prazo}`;
+  if (itemId) {
+    await atualizarItemCronograma(itemId, dados);
+    await registrarAuditoria({
+      autor: usuario, entidade: "cronograma", entidadeId: itemId, rotulo, acao: "editar",
+      mudancas: mudancasDe([
+        { campo: "Atividade", antes: existente?.tipo, depois: dados.tipo },
+        { campo: "Prazo", antes: existente?.prazo, depois: dados.prazo },
+        { campo: "Horário", antes: existente?.horario, depois: dados.horario },
+        { campo: "Observação", antes: existente?.observacao, depois: dados.observacao },
+        { campo: "Equipes (qtde)", antes: existente?.equipeIds.length, depois: dados.equipeIds.length },
+      ]),
+    });
+  } else {
+    await criarItemCronograma({ ...dados, contratoId: d.contratoId });
+    await registrarAuditoria({ autor: usuario, entidade: "cronograma", rotulo, acao: "criar" });
+  }
   revalidatePath("/admin/cronograma");
   return { ok: true };
 }
 
 /** Cancela ou reativa o item. O cancelado deixa de contar e de aparecer ao técnico e ao cliente. */
 export async function alternarItemCronograma(id: string, cancelado: boolean) {
-  await exigirPermissaoAcao(PERMISSOES.contratosGerenciar);
+  const usuario = await exigirPermissaoAcao(PERMISSOES.contratosGerenciar);
   await definirItemCronogramaCancelado(id, cancelado);
+  const item = await buscarItemCronograma(id);
+  await registrarAuditoria({
+    autor: usuario, entidade: "cronograma", entidadeId: id,
+    rotulo: item ? `${item.tipo} · ${item.prazo}` : "", acao: cancelado ? "cancelar" : "ativar",
+  });
   revalidatePath("/admin/cronograma");
 }
