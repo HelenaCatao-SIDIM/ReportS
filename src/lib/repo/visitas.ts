@@ -170,6 +170,74 @@ export async function buscarVisita(id: string): Promise<VisitaDetalhada | null> 
   return detalhar(await reports.visita.findUnique({ where: { id }, include: INCLUIR }));
 }
 
+// ---------- Auditoria (todas as alterações de visitas) ----------
+
+/** Uma alteração do histórico com o contexto da visita (cliente e técnico), para a tela de auditoria. */
+export interface RegistroAuditoria {
+  id: string;
+  visitaId: string;
+  /** Quando a alteração foi feita (ISO, UTC). */
+  em: string;
+  autorNome: string;
+  acao: AlteracaoVisita["acao"];
+  motivo: string;
+  mudancas: MudancaCampo[];
+  clienteNome: string;
+  tecnicoNome: string;
+  /** Data de entrada da visita alterada (ISO, UTC). */
+  entradaVisita: string;
+}
+
+export interface FiltroAuditoria {
+  clienteId?: string;
+  tecnicoId?: string;
+  acao?: AlteracaoVisita["acao"];
+  /** ISO inclusive. */
+  de?: string;
+  ate?: string;
+}
+
+/** Teto de linhas da auditoria (mostra as mais recentes; a tela avisa quando bate o teto). */
+export const LIMITE_AUDITORIA = 500;
+
+/** Todas as alterações feitas pela administração nas visitas, da mais recente para a mais antiga. */
+export async function listarAuditoria(f: FiltroAuditoria = {}): Promise<RegistroAuditoria[]> {
+  const daVisita = f.clienteId || f.tecnicoId
+    ? {
+        visita: {
+          ...(f.clienteId ? { clienteId: porIdPlataforma(f.clienteId) } : {}),
+          ...(f.tecnicoId ? { tecnicoId: porIdPlataforma(f.tecnicoId) } : {}),
+        },
+      }
+    : {};
+  const linhas = await reports.alteracaoVisita.findMany({
+    where: {
+      ...(f.acao ? { acao: f.acao } : {}),
+      ...(f.de || f.ate ? { em: { ...(f.de ? { gte: new Date(f.de) } : {}), ...(f.ate ? { lte: new Date(f.ate) } : {}) } } : {}),
+      ...daVisita,
+    },
+    include: { visita: { select: { clienteId: true, tecnicoId: true, entrada: true } } },
+    orderBy: { em: "desc" },
+    take: LIMITE_AUDITORIA,
+  });
+  const [clientes, tecnicos] = await Promise.all([
+    nomesDosClientes([...new Set(linhas.map((l) => idTexto(l.visita.clienteId)))]),
+    nomesDosUsuarios([...new Set(linhas.map((l) => idTexto(l.visita.tecnicoId)))]),
+  ]);
+  return linhas.map((l) => ({
+    id: l.id,
+    visitaId: l.visitaId,
+    em: l.em.toISOString(),
+    autorNome: l.autorNome,
+    acao: l.acao as AlteracaoVisita["acao"],
+    motivo: l.motivo,
+    mudancas: l.mudancas as unknown as MudancaCampo[],
+    clienteNome: clientes.get(idTexto(l.visita.clienteId)) ?? "—",
+    tecnicoNome: tecnicos.get(idTexto(l.visita.tecnicoId)) ?? "—",
+    entradaVisita: l.visita.entrada.toISOString(),
+  }));
+}
+
 // ---------- Alterações pela administração ----------
 
 function registro(visitaId: string, autor: UsuarioPublico, acao: AlteracaoVisita["acao"], motivo: string, mudancas: MudancaCampo[]) {

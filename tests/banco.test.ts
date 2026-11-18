@@ -139,6 +139,26 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     assert.equal(await visitas.excluirVisita(v.id), "nao_encontrada", "excluir de novo não encontra");
   });
 
+  test("auditoria lista as alterações com autor, ação, campos e contexto da visita, e filtra", async () => {
+    const v = await checkin();
+    await visitas.encerrarPelaAdministracao(v.id, new Date().toISOString(), tecnico, "estava esquecida aberta");
+
+    const tudo = await visitas.listarAuditoria();
+    const r = tudo.find((x) => x.visitaId === v.id);
+    assert.ok(r, "a alteração aparece na auditoria");
+    assert.equal(r.acao, "encerramento");
+    assert.equal(r.autorNome, tecnico.nome);
+    assert.equal(r.motivo, "estava esquecida aberta");
+    assert.deepEqual(r.mudancas.map((m) => m.campo), ["Saída"]);
+    assert.notEqual(r.clienteNome, "—", "resolve o nome do cliente na plataforma");
+    assert.notEqual(r.tecnicoNome, "—", "resolve o nome do técnico na plataforma");
+
+    // Filtros.
+    assert.equal((await visitas.listarAuditoria({ acao: "correcao" })).length, 0, "ação sem registro não traz nada");
+    assert.ok((await visitas.listarAuditoria({ clienteId })).some((x) => x.visitaId === v.id), "filtra pelo cliente da visita");
+    assert.equal((await visitas.listarAuditoria({ clienteId: "999999999" })).length, 0, "cliente sem visita não traz nada");
+  });
+
   // ---------- Cronograma de implantação ----------
 
   const hojeLocal = () => new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);

@@ -29,7 +29,7 @@ As regras com código `RN-PL-xx` são da Plataforma SIDIM e estão na Especifica
 | `reports.temas.gerenciar` | Temas das visitas e equipes com os temas mínimos |
 | `reports.participantes.gerenciar` | Ver e editar participantes (CPF, CBO, setor) e criar provisórios fora de uma visita |
 | `reports.participantes.revisar` | Reservada para a junção de participantes (Fase 5); ainda sem tela |
-| `reports.visitas.gerenciar` | Ver todas as visitas e o cronograma de implantação; corrigir, encerrar, cancelar e excluir |
+| `reports.visitas.gerenciar` | Ver todas as visitas, a auditoria e o cronograma de implantação; corrigir, encerrar, cancelar e excluir |
 | `reports.relatorios.gerenciar` | Criar rascunho, emitir, reenviar e acompanhar relatórios, e a Caixa de saída de e-mails |
 
 - O papel **Administrador** é protegido: tem todas as permissões ativas, inclusive as que forem criadas depois (RN-PL-63).
@@ -240,6 +240,13 @@ Administração → Visitas → **Lançar visita retroativa** registra uma visit
 Toda ação da Administração numa visita (encerramento, cancelamento, correção ou lançamento retroativo) fica registrada com autor, data e hora, motivo e cada campo alterado (antes → depois).
 
 Onde: `src/app/admin/visitas/actions.ts`, `src/lib/repo/visitas.ts`, `src/components/visita/detalhe-visita.tsx`.
+
+### Auditoria (`reports.visitas.gerenciar`)
+
+- A tela **Auditoria** reúne, num só lugar, **todas as alterações** feitas pela Administração nas visitas — o mesmo histórico que aparece em cada visita, mas de todas, da mais recente para a mais antiga. Cada linha traz **quem** fez, **quando**, a **ação**, a **visita** (cliente, técnico e data, com link para o detalhe), o **motivo** e **cada campo antes → depois**.
+- Filtra por **cliente**, **técnico**, **ação** e **período** (a data é a da alteração, não a da visita).
+- Mostra no máximo as **500 mais recentes** (`LIMITE_AUDITORIA`); batendo o teto, a tela pede para refinar o período. Só leitura — não altera nada.
+- Onde: `src/app/admin/auditoria/`, `listarAuditoria` em `src/lib/repo/visitas.ts`.
 
 ## Relatórios (`reports.relatorios.gerenciar`)
 
