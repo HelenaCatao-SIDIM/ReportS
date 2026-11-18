@@ -409,6 +409,28 @@ model ItemCronogramaEquipe {
   @@map("cronograma_item_equipes")
 }
 
+/// Log central de auditoria: toda alteração feita pela Administração no sistema. Guarda o nome do autor e um rótulo
+/// da entidade no momento, para ler sem join nem depender do estado atual (o registro é imutável depois de gravado).
+model Auditoria {
+  id         String   @id
+  em         DateTime
+  autorId    BigInt   @map("autor_id")
+  autorNome  String   @map("autor_nome")
+  /// Tipo da coisa alterada: cliente, estabelecimento, setor, contrato, aprovador, tema, equipe, participante, cronograma, relatorio, configuracao, visita.
+  entidade   String
+  entidadeId String   @default("") @map("entidade_id")
+  /// Nome legível da entidade no momento (ex.: nome do cliente), para a tela não precisar buscar.
+  rotulo     String   @default("")
+  /// Verbo: criar, editar, excluir, ativar, inativar, encerrar, cancelar, corrigir, lancar, emitir, enviar, importar.
+  acao       String
+  /// Lista de { campo, antes, depois } (MudancaCampo), só os campos que mudaram.
+  mudancas   Json     @default("[]")
+
+  @@index([em])
+  @@index([entidade, entidadeId])
+  @@map("auditoria")
+}
+
 /// Configurações editadas na Administração (ex.: conexão com o n8n dos chamados de suporte). Valores secretos ficam cifrados.
 model Configuracao {
   chave        String   @id

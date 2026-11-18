@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { exigirPermissaoAcao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
 import { atualizarEquipe, buscarEquipe, criarEquipe, definirEquipeAtiva, equipeDuplicada } from "@/lib/repo/equipes";
+import { mudancasDe, registrarAuditoria } from "@/lib/repo/auditoria";
 import { listarTemas } from "@/lib/repo/temas";
 import { buscarCbo, cbosExistentes } from "@/lib/repo/cbo";
 import type { Cbo } from "@/lib/types";
@@ -19,10 +20,11 @@ const MAX_CBOS = 60;
 
 /** Cria (equipeId null) ou edita uma equipe e os seus temas mínimos. */
 export async function salvarEquipe(equipeId: string | null, _: EquipeFormState, fd: FormData): Promise<EquipeFormState> {
-  await exigirPermissaoAcao(PERMISSOES.temasGerenciar);
+  const usuario = await exigirPermissaoAcao(PERMISSOES.temasGerenciar);
   const nome = String(fd.get("nome") ?? "").replace(/\s+/g, " ").trim();
   // Temas ativos, ou os que a equipe já tinha (um tema inativado depois continua aceito).
-  const atuais = new Set(equipeId ? ((await buscarEquipe(equipeId))?.temaIds ?? []) : []);
+  const antesEq = equipeId ? await buscarEquipe(equipeId) : null;
+  const atuais = new Set(antesEq?.temaIds ?? []);
   const validos = new Set((await listarTemas()).filter((t) => t.ativo || atuais.has(t.id)).map((t) => t.id));
   const temaIds = [...new Set(fd.getAll("temaIds").map(String))].filter((id) => validos.has(id));
   // Ocupações: opcionais; só as que existem na tabela CBO.
@@ -42,14 +44,34 @@ export async function salvarEquipe(equipeId: string | null, _: EquipeFormState, 
     return { erros, valores: { nome, temaIds, cbos } };
   }
 
-  if (equipeId) await atualizarEquipe(equipeId, { nome, temaIds, cboCodigos });
-  else await criarEquipe({ nome, temaIds, cboCodigos });
+  if (equipeId) {
+    await atualizarEquipe(equipeId, { nome, temaIds, cboCodigos });
+    await registrarAuditoria({
+      autor: usuario, entidade: "equipe", entidadeId: equipeId, rotulo: nome, acao: "editar",
+      mudancas: mudancasDe([
+        { campo: "Nome", antes: antesEq?.nome, depois: nome },
+        { campo: "Temas mínimos (qtde)", antes: antesEq?.temaIds.length, depois: temaIds.length },
+        { campo: "Ocupações (qtde)", antes: antesEq?.cbos.length, depois: cboCodigos.length },
+      ]),
+    });
+  } else {
+    const e = await criarEquipe({ nome, temaIds, cboCodigos });
+    await registrarAuditoria({
+      autor: usuario, entidade: "equipe", entidadeId: e.id, rotulo: nome, acao: "criar",
+      mudancas: mudancasDe([
+        { campo: "Nome", antes: undefined, depois: nome },
+        { campo: "Temas mínimos (qtde)", antes: undefined, depois: temaIds.length },
+        { campo: "Ocupações (qtde)", antes: undefined, depois: cboCodigos.length },
+      ]),
+    });
+  }
   revalidatePath("/admin/equipes");
   return { ok: true };
 }
 
 export async function alternarEquipe(id: string, ativo: boolean) {
-  await exigirPermissaoAcao(PERMISSOES.temasGerenciar);
+  const usuario = await exigirPermissaoAcao(PERMISSOES.temasGerenciar);
   await definirEquipeAtiva(id, ativo);
+  await registrarAuditoria({ autor: usuario, entidade: "equipe", entidadeId: id, rotulo: (await buscarEquipe(id))?.nome ?? "", acao: ativo ? "ativar" : "inativar" });
   revalidatePath("/admin/equipes");
 }

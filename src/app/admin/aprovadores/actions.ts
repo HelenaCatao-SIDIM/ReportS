@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { exigirPermissaoAcao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
 import { emailValido } from "@/lib/format";
-import { atualizarAprovador, buscarAprovadorPorEmail, criarAprovador, definirAprovadorAtivo } from "@/lib/repo/aprovadores";
+import { atualizarAprovador, buscarAprovador, buscarAprovadorPorEmail, criarAprovador, definirAprovadorAtivo } from "@/lib/repo/aprovadores";
+import { mudancasDe, registrarAuditoria } from "@/lib/repo/auditoria";
 
 export interface AprovadorFormState {
   ok?: boolean;
@@ -14,7 +15,7 @@ export interface AprovadorFormState {
 
 /** Cria (aprovadorId null) ou edita um aprovador. O e-mail é único no cadastro. */
 export async function salvarAprovador(aprovadorId: string | null, _: AprovadorFormState, fd: FormData): Promise<AprovadorFormState> {
-  await exigirPermissaoAcao(PERMISSOES.contratosGerenciar);
+  const usuario = await exigirPermissaoAcao(PERMISSOES.contratosGerenciar);
   const d = {
     nome: String(fd.get("nome") ?? "").trim(),
     cargo: String(fd.get("cargo") ?? "").trim(),
@@ -30,16 +31,37 @@ export async function salvarAprovador(aprovadorId: string | null, _: AprovadorFo
   }
   if (Object.keys(erros).length) return { erros, valores: d };
 
-  if (aprovadorId) await atualizarAprovador(aprovadorId, d);
-  else await criarAprovador(d);
+  if (aprovadorId) {
+    const antes = await buscarAprovador(aprovadorId);
+    await atualizarAprovador(aprovadorId, d);
+    await registrarAuditoria({
+      autor: usuario, entidade: "aprovador", entidadeId: aprovadorId, rotulo: d.nome, acao: "editar",
+      mudancas: mudancasDe([
+        { campo: "Nome", antes: antes?.nome, depois: d.nome },
+        { campo: "Cargo", antes: antes?.cargo, depois: d.cargo },
+        { campo: "E-mail", antes: antes?.email, depois: d.email },
+      ]),
+    });
+  } else {
+    const a = await criarAprovador(d);
+    await registrarAuditoria({
+      autor: usuario, entidade: "aprovador", entidadeId: a.id, rotulo: d.nome, acao: "criar",
+      mudancas: mudancasDe([
+        { campo: "Nome", antes: undefined, depois: d.nome },
+        { campo: "Cargo", antes: undefined, depois: d.cargo },
+        { campo: "E-mail", antes: undefined, depois: d.email },
+      ]),
+    });
+  }
   revalidatePath("/admin/aprovadores");
   revalidatePath("/admin/clientes", "layout");
   return { ok: true };
 }
 
 export async function alternarAprovador(id: string, ativo: boolean) {
-  await exigirPermissaoAcao(PERMISSOES.contratosGerenciar);
+  const usuario = await exigirPermissaoAcao(PERMISSOES.contratosGerenciar);
   await definirAprovadorAtivo(id, ativo);
+  await registrarAuditoria({ autor: usuario, entidade: "aprovador", entidadeId: id, rotulo: (await buscarAprovador(id))?.nome ?? "", acao: ativo ? "ativar" : "inativar" });
   revalidatePath("/admin/aprovadores");
   revalidatePath("/admin/clientes", "layout");
 }

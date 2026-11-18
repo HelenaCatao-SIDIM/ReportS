@@ -8,6 +8,7 @@ import { emailValido } from "@/lib/format";
 import { buscarSistemaDoCliente } from "@/lib/repo/clientes";
 import { buscarAprovador, buscarAprovadorPorEmail, criarAprovador } from "@/lib/repo/aprovadores";
 import { buscarContratoDoSistemaDoCliente, salvarContrato } from "@/lib/repo/contratos";
+import { mudancasDe, registrarAuditoria } from "@/lib/repo/auditoria";
 import type { NivelComprovacao, TipoRelatorioAtendimentos } from "@/lib/types";
 
 export interface NovoAprovadorForm {
@@ -46,7 +47,7 @@ function lerContrato(fd: FormData) {
 
 /** Cria ou atualiza o contrato do sistema do cliente. Aprovadores novos entram no cadastro de aprovadores. */
 export async function salvarContratoDoSistema(clienteId: string, sistemaDoClienteId: string, _: ContratoFormState, fd: FormData): Promise<ContratoFormState> {
-  await exigirPermissaoAcao(PERMISSOES.contratosGerenciar);
+  const usuario = await exigirPermissaoAcao(PERMISSOES.contratosGerenciar);
   const sdc = await buscarSistemaDoCliente(sistemaDoClienteId);
   if (!sdc || sdc.clienteId !== clienteId) return { erros: { geral: "Sistema do cliente não encontrado." } };
   const existente = await buscarContratoDoSistemaDoCliente(sistemaDoClienteId);
@@ -75,13 +76,25 @@ export async function salvarContratoDoSistema(clienteId: string, sistemaDoClient
 
   const criados = [];
   for (const a of d.novos) criados.push(await criarAprovador(a));
-  await salvarContrato(sistemaDoClienteId, {
+  const aprovadorIds = [...marcados.map((a) => a!.id), ...criados.map((a) => a.id)];
+  const contrato = await salvarContrato(sistemaDoClienteId, {
     texto: d.texto,
     nivel: d.nivel,
     exigeCpf: d.exigeCpf,
     relatorioAtendimentos: d.relatorioAtendimentos,
     ativo: d.ativo,
-    aprovadorIds: [...marcados.map((a) => a!.id), ...criados.map((a) => a.id)],
+    aprovadorIds,
+  });
+  await registrarAuditoria({
+    autor: usuario, entidade: "contrato", entidadeId: contrato.id, rotulo: `Contrato (${sdc.sistema})`, acao: existente ? "editar" : "criar",
+    mudancas: mudancasDe([
+      { campo: "Texto do contrato", antes: existente?.texto, depois: d.texto },
+      { campo: "Nível de comprovação", antes: existente?.nivel, depois: d.nivel },
+      { campo: "Exige CPF", antes: existente?.exigeCpf, depois: d.exigeCpf },
+      { campo: "Relatório de atendimentos", antes: existente?.relatorioAtendimentos, depois: d.relatorioAtendimentos },
+      { campo: "Ativo", antes: existente?.ativo, depois: d.ativo },
+      { campo: "Aprovadores (qtde)", antes: existente?.aprovadorIds.length, depois: aprovadorIds.length },
+    ]),
   });
   revalidatePath(`/admin/clientes/${clienteId}`);
   revalidatePath("/admin/clientes");

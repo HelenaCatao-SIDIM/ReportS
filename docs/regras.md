@@ -29,7 +29,7 @@ As regras com código `RN-PL-xx` são da Plataforma SIDIM e estão na Especifica
 | `reports.temas.gerenciar` | Temas das visitas e equipes com os temas mínimos |
 | `reports.participantes.gerenciar` | Ver e editar participantes (CPF, CBO, setor) e criar provisórios fora de uma visita |
 | `reports.participantes.revisar` | Reservada para a junção de participantes (Fase 5); ainda sem tela |
-| `reports.visitas.gerenciar` | Ver todas as visitas e o cronograma de implantação; corrigir, encerrar, cancelar e excluir |
+| `reports.visitas.gerenciar` | Ver todas as visitas, a auditoria e o cronograma de implantação; corrigir, encerrar, cancelar e excluir |
 | `reports.relatorios.gerenciar` | Criar rascunho, emitir, reenviar e acompanhar relatórios, e a Caixa de saída de e-mails |
 
 - O papel **Administrador** é protegido: tem todas as permissões ativas, inclusive as que forem criadas depois (RN-PL-63).
@@ -240,6 +240,21 @@ Administração → Visitas → **Lançar visita retroativa** registra uma visit
 Toda ação da Administração numa visita (encerramento, cancelamento, correção ou lançamento retroativo) fica registrada com autor, data e hora, motivo e cada campo alterado (antes → depois).
 
 Onde: `src/app/admin/visitas/actions.ts`, `src/lib/repo/visitas.ts`, `src/components/visita/detalhe-visita.tsx`.
+
+### Auditoria (`reports.visitas.gerenciar`)
+
+- A tela **Auditoria** é o **log central do sistema**: reúne, num só lugar, tudo que a Administração **cria, edita ou exclui**, da ação mais recente para a mais antiga. Cada linha traz **quem** fez, **quando**, a **ação** (criou, editou, excluiu, ativou/inativou, encerrou, cancelou, corrigiu, lançou, emitiu, enviou, importou), o **tipo de registro** e seu nome, e **cada campo antes → depois**.
+- Filtra por **tipo de registro** (cliente, estabelecimento, setor, contrato, aprovador, tema, equipe, participante, cronograma, relatório, configuração, visita), por **período** (a data é a da ação) e por uma **busca** no nome de quem fez ou no nome do registro.
+- Mostra no máximo as **500 mais recentes** (`LIMITE_AUDITORIA`); batendo o teto, a tela pede para refinar. Só leitura — o log **nunca** é editado.
+
+Como funciona:
+
+- O registro fica na tabela `auditoria` (banco do ReportS). Guarda o **nome de quem fez** e um **rótulo do registro** no momento (ex.: nome do cliente), para a tela ler sem join e sem depender do estado atual — por isso o log mostra o nome como era quando a ação aconteceu, mesmo que mude depois.
+- Toda Server Action que grava chama `registrarAuditoria(...)` (`src/lib/repo/auditoria.ts`) **depois** da alteração dar certo, com o autor que vem do `exigirPermissaoAcao`. Se o registro do log falhar, a ação do usuário **não** é desfeita (auditoria não pode travar o trabalho; a falha vai para o log do servidor).
+- **Dado sensível não entra no log:** o CPF só aparece mascarado; o endereço do webhook do n8n não é guardado (pode ter token), só o fato de ter mudado.
+- As alterações de **visita** entram no log central **e** continuam no histórico da própria visita (a linha do tempo no detalhe, tabela `alteracoes_visita`).
+- **Ainda não auditado:** as ações do técnico no App (check-in, presença, check-out — já ficam na própria visita) e a decisão do aprovador na página de aprovação (fica na versão do relatório, e o aprovador não tem login). A busca de geolocalização/CEP e as consultas que não gravam não entram.
+- Onde: `src/app/admin/auditoria/`, `src/lib/repo/auditoria.ts`, e as chamadas a `registrarAuditoria` nos `actions.ts` da Administração.
 
 ## Relatórios (`reports.relatorios.gerenciar`)
 

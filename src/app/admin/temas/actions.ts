@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { exigirPermissaoAcao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
-import { atualizarTema, criarTema, definirTemaAtivo, grafiaCanonica, sistemaValido, temaDuplicado } from "@/lib/repo/temas";
+import { atualizarTema, buscarTemasPorIds, criarTema, definirTemaAtivo, grafiaCanonica, sistemaValido, temaDuplicado } from "@/lib/repo/temas";
+import { mudancasDe, registrarAuditoria } from "@/lib/repo/auditoria";
 
 export interface TemaFormState {
   ok?: boolean;
@@ -13,7 +14,7 @@ export interface TemaFormState {
 
 /** Cria (temaId null) ou edita um tema. */
 export async function salvarTema(temaId: string | null, _: TemaFormState, fd: FormData): Promise<TemaFormState> {
-  await exigirPermissaoAcao(PERMISSOES.temasGerenciar);
+  const usuario = await exigirPermissaoAcao(PERMISSOES.temasGerenciar);
   const d = {
     nome: String(fd.get("nome") ?? "").trim(),
     sistema: String(fd.get("sistema") ?? "").trim(),
@@ -31,14 +32,35 @@ export async function salvarTema(temaId: string | null, _: TemaFormState, fd: Fo
   if (Object.keys(erros).length) return { erros, valores: d };
 
   const final = await grafiaCanonica(d, temaId ?? undefined);
-  if (temaId) await atualizarTema(temaId, final);
-  else await criarTema(final);
+  if (temaId) {
+    const antes = (await buscarTemasPorIds([temaId]))[0];
+    await atualizarTema(temaId, final);
+    await registrarAuditoria({
+      autor: usuario, entidade: "tema", entidadeId: temaId, rotulo: final.nome, acao: "editar",
+      mudancas: mudancasDe([
+        { campo: "Nome", antes: antes?.nome, depois: final.nome },
+        { campo: "Sistema", antes: antes?.sistema, depois: final.sistema },
+        { campo: "Módulo", antes: antes?.modulo, depois: final.modulo },
+      ]),
+    });
+  } else {
+    const t = await criarTema(final);
+    await registrarAuditoria({
+      autor: usuario, entidade: "tema", entidadeId: t.id, rotulo: final.nome, acao: "criar",
+      mudancas: mudancasDe([
+        { campo: "Nome", antes: undefined, depois: final.nome },
+        { campo: "Sistema", antes: undefined, depois: final.sistema },
+        { campo: "Módulo", antes: undefined, depois: final.modulo },
+      ]),
+    });
+  }
   revalidatePath("/admin/temas");
   return { ok: true };
 }
 
 export async function alternarTema(id: string, ativo: boolean) {
-  await exigirPermissaoAcao(PERMISSOES.temasGerenciar);
+  const usuario = await exigirPermissaoAcao(PERMISSOES.temasGerenciar);
   await definirTemaAtivo(id, ativo);
+  await registrarAuditoria({ autor: usuario, entidade: "tema", entidadeId: id, rotulo: (await buscarTemasPorIds([id]))[0]?.nome ?? "", acao: ativo ? "ativar" : "inativar" });
   revalidatePath("/admin/temas");
 }

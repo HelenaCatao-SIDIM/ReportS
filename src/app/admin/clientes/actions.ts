@@ -8,6 +8,7 @@ import { RAIO_PADRAO_METROS } from "@/lib/distancia";
 import { cnpjValido, normalizar, soDigitos } from "@/lib/format";
 import * as repo from "@/lib/repo/clientes";
 import { listarSistemas } from "@/lib/repo/sistemas";
+import { mudancasDe, registrarAuditoria } from "@/lib/repo/auditoria";
 
 // ---------- Cliente ----------
 
@@ -61,13 +62,21 @@ export async function criarCliente(_: ClienteFormState, fd: FormData): Promise<C
   if (Object.keys(erros).length) return { erros, valores: d };
 
   const c = await repo.criarCliente({ nome: d.nome, cnpj: d.cnpj, ativo: true, nomesFortics: d.nomesFortics }, d.sistemas, usuario.id);
+  await registrarAuditoria({
+    autor: usuario, entidade: "cliente", entidadeId: c.id, rotulo: d.nome, acao: "criar",
+    mudancas: mudancasDe([
+      { campo: "Nome", antes: undefined, depois: d.nome },
+      { campo: "CNPJ", antes: undefined, depois: d.cnpj },
+      { campo: "Sistemas (qtde)", antes: undefined, depois: d.sistemas.length },
+    ]),
+  });
   revalidatePath("/admin/clientes");
   // Segue para a tela do cliente, onde ficam os contratos e os estabelecimentos.
   redirect(`/admin/clientes/${c.id}?ok=criado`);
 }
 
 export async function editarCliente(id: string, _: ClienteFormState, fd: FormData): Promise<ClienteFormState> {
-  await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
+  const usuario = await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
   const atual = await repo.buscarCliente(id);
   if (!atual) return { erros: { nome: "Cliente não encontrado." } };
   // Com os chamados de suporte desligados o campo não aparece no formulário; os nomes já cadastrados ficam como estão.
@@ -81,6 +90,16 @@ export async function editarCliente(id: string, _: ClienteFormState, fd: FormDat
 
   await repo.atualizarCliente(id, { nome: d.nome, cnpj: d.cnpj, ativo: d.ativo, nomesFortics: d.nomesFortics });
   for (const codigo of d.sistemas) await repo.adicionarSistemaAoCliente(id, codigo);
+  await registrarAuditoria({
+    autor: usuario, entidade: "cliente", entidadeId: id, rotulo: d.nome, acao: "editar",
+    mudancas: mudancasDe([
+      { campo: "Nome", antes: atual.nome, depois: d.nome },
+      { campo: "CNPJ", antes: atual.cnpj, depois: d.cnpj },
+      { campo: "Ativo", antes: atual.ativo, depois: d.ativo },
+      { campo: "Nomes no SINC (qtde)", antes: atual.nomesFortics.length, depois: d.nomesFortics.length },
+      ...(d.sistemas.length ? [{ campo: "Sistemas adicionados (qtde)", antes: 0, depois: d.sistemas.length }] : []),
+    ]),
+  });
   revalidatePath("/admin/clientes");
   redirect(`/admin/clientes/${id}?ok=salvo`);
 }
@@ -115,7 +134,7 @@ export async function salvarUnidade(
   _: UnidadeFormState,
   fd: FormData,
 ): Promise<UnidadeFormState> {
-  await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
+  const usuario = await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
   const nome = String(fd.get("nome") ?? "").trim();
   const endereco = String(fd.get("endereco") ?? "").trim();
   const latitude = lerCoordenada(fd.get("latitude"), 90);
@@ -135,8 +154,21 @@ export async function salvarUnidade(
   }
 
   const dados = { nome, endereco, latitude: latitude as number | null, longitude: longitude as number | null, raioMetros: raio as number };
-  if (unidadeId) await repo.atualizarUnidade(unidadeId, dados);
-  else await repo.criarUnidade(clienteId, dados);
+  const campos = (antes: Partial<typeof dados> | null) => [
+    { campo: "Nome", antes: antes?.nome, depois: dados.nome },
+    { campo: "Endereço", antes: antes?.endereco, depois: dados.endereco },
+    { campo: "Raio (m)", antes: antes?.raioMetros, depois: dados.raioMetros },
+    { campo: "Latitude", antes: antes?.latitude, depois: dados.latitude },
+    { campo: "Longitude", antes: antes?.longitude, depois: dados.longitude },
+  ];
+  if (unidadeId) {
+    const antes = await repo.buscarUnidade(unidadeId);
+    await repo.atualizarUnidade(unidadeId, dados);
+    await registrarAuditoria({ autor: usuario, entidade: "estabelecimento", entidadeId: unidadeId, rotulo: nome, acao: "editar", mudancas: mudancasDe(campos(antes)) });
+  } else {
+    const u = await repo.criarUnidade(clienteId, dados);
+    await registrarAuditoria({ autor: usuario, entidade: "estabelecimento", entidadeId: u.id, rotulo: nome, acao: "criar", mudancas: mudancasDe(campos(null)) });
+  }
 
   revalidatePath(`/admin/clientes/${clienteId}`);
   return { ok: true };
@@ -144,7 +176,7 @@ export async function salvarUnidade(
 
 /** Retorna a mensagem de erro, se houver (estabelecimento com visitas não é removido). */
 export async function removerUnidade(unidadeId: string): Promise<string | null> {
-  await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
+  const usuario = await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
   const u = await repo.buscarUnidade(unidadeId);
   if (!u) return null;
   try {
@@ -153,6 +185,7 @@ export async function removerUnidade(unidadeId: string): Promise<string | null> 
     if (e instanceof repo.EmUsoError) return e.message;
     throw e;
   }
+  await registrarAuditoria({ autor: usuario, entidade: "estabelecimento", entidadeId: unidadeId, rotulo: u.nome, acao: "excluir" });
   revalidatePath(`/admin/clientes/${u.clienteId}`);
   return null;
 }
@@ -166,20 +199,29 @@ async function revalidarPorUnidade(unidadeId: string) {
 
 /** Cria (setorId null) ou renomeia um setor. Retorna mensagem de erro, se houver. */
 export async function salvarSetor(unidadeId: string, setorId: string | null, nome: string): Promise<string | null> {
-  await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
+  const usuario = await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
   const n = nome.trim();
   if (!n) return "Informe o nome do setor.";
   if (await repo.setorDuplicado(unidadeId, n, setorId ?? undefined)) return "Este setor já existe no estabelecimento.";
 
-  if (setorId) await repo.renomearSetor(setorId, n);
-  else await repo.criarSetor(unidadeId, n);
+  if (setorId) {
+    const antes = await repo.buscarSetor(setorId);
+    await repo.renomearSetor(setorId, n);
+    await registrarAuditoria({
+      autor: usuario, entidade: "setor", entidadeId: setorId, rotulo: n, acao: "editar",
+      mudancas: mudancasDe([{ campo: "Nome", antes: antes?.nome, depois: n }]),
+    });
+  } else {
+    const s = await repo.criarSetor(unidadeId, n);
+    await registrarAuditoria({ autor: usuario, entidade: "setor", entidadeId: s.id, rotulo: n, acao: "criar" });
+  }
   await revalidarPorUnidade(unidadeId);
   return null;
 }
 
 /** Retorna a mensagem de erro, se houver (setor com visitas não é removido). */
 export async function removerSetor(setorId: string): Promise<string | null> {
-  await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
+  const usuario = await exigirPermissaoAcao(PERMISSOES.clientesCadastrar);
   const s = await repo.buscarSetor(setorId);
   if (!s) return null;
   try {
@@ -188,6 +230,7 @@ export async function removerSetor(setorId: string): Promise<string | null> {
     if (e instanceof repo.EmUsoError) return e.message;
     throw e;
   }
+  await registrarAuditoria({ autor: usuario, entidade: "setor", entidadeId: setorId, rotulo: s.nome, acao: "excluir" });
   await revalidarPorUnidade(s.unidadeId);
   return null;
 }

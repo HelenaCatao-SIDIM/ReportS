@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   Mail,
   Menu,
+  ScrollText,
   Settings,
   ShieldCheck,
   Timer,
@@ -49,6 +50,7 @@ const GRUPOS: { titulo?: string; itens: NavItem[] }[] = [
     itens: [
       { href: "/admin/cronograma", label: "Cronograma", icon: CalendarClock },
       { href: "/admin/visitas", label: "Visitas", icon: Timer },
+      { href: "/admin/auditoria", label: "Auditoria", icon: ScrollText },
       { href: "/admin/relatorios", label: "Relatórios", icon: FileText },
       { href: "/admin/emails", label: "Caixa de saída (teste)", icon: Mail },
     ],

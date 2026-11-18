@@ -11,7 +11,13 @@ import { buscarSetor, buscarUnidade } from "@/lib/repo/clientes";
 import { listarEquipes } from "@/lib/repo/equipes";
 import { listarTemas } from "@/lib/repo/temas";
 import { buscarVisita, cancelarPelaAdministracao, corrigirPelaAdministracao, encerrarPelaAdministracao, excluirVisita } from "@/lib/repo/visitas";
+import { registrarAuditoria } from "@/lib/repo/auditoria";
+import { formatarData } from "@/lib/datas";
 import type { TipoVisita } from "@/lib/types";
+
+/** Rótulo da visita para a auditoria (cliente · técnico · data). */
+const rotuloVisita = (v: { clienteNome: string; tecnicoNome: string; entrada: string }) =>
+  `${v.clienteNome} · ${v.tecnicoNome} · ${formatarData(v.entrada)}`;
 
 // ---------- Encerrar / cancelar (visita em andamento) ----------
 
@@ -38,6 +44,10 @@ export async function encerrarVisita(id: string, _: AcaoVisitaState, fd: FormDat
   if (Object.keys(erros).length) return { erros, valores: { saida: saidaTxt, justificativa } };
 
   await encerrarPelaAdministracao(id, saida!, autor, justificativa);
+  await registrarAuditoria({
+    autor, entidade: "visita", entidadeId: id, rotulo: rotuloVisita(v), acao: "encerrar",
+    mudancas: [{ campo: "Motivo", antes: "—", depois: justificativa }],
+  });
   revalidatePath("/admin/visitas", "layout");
   return { ok: true };
 }
@@ -52,6 +62,10 @@ export async function cancelarVisita(id: string, _: AcaoVisitaState, fd: FormDat
     return { erros: { justificativa: "Explique por que o check-in está sendo cancelado." }, valores: { saida: "", justificativa } };
   }
   await cancelarPelaAdministracao(id, autor, justificativa);
+  await registrarAuditoria({
+    autor, entidade: "visita", entidadeId: id, rotulo: rotuloVisita(v), acao: "cancelar",
+    mudancas: [{ campo: "Motivo", antes: "—", depois: justificativa }],
+  });
   revalidatePath("/admin/visitas", "layout");
   return { ok: true };
 }
@@ -126,6 +140,10 @@ export async function corrigirVisita(id: string, _: CorrecaoState, fd: FormData)
   );
   if (!mudancas.length) return { erros: { geral: "Nenhuma alteração foi feita." } };
 
+  await registrarAuditoria({
+    autor, entidade: "visita", entidadeId: id, rotulo: rotuloVisita(v), acao: "corrigir",
+    mudancas: [{ campo: "Motivo", antes: "—", depois: motivo }, ...mudancas],
+  });
   revalidatePath("/admin/visitas", "layout");
   redirect(`/admin/visitas/${id}?ok=corrigida`);
 }
@@ -138,14 +156,17 @@ export interface ExclusaoState {
 
 /** Exclui de vez uma visita encerrada que não está em relatório. Pede a palavra EXCLUIR digitada, porque não dá para desfazer. */
 export async function excluirVisitaAcao(id: string, _: ExclusaoState, fd: FormData): Promise<ExclusaoState> {
-  await exigirPermissaoAcao(PERMISSOES.visitasGerenciar);
+  const autor = await exigirPermissaoAcao(PERMISSOES.visitasGerenciar);
   if (String(fd.get("confirmar") ?? "").trim().toUpperCase() !== "EXCLUIR") return { erro: "Digite EXCLUIR para confirmar." };
 
+  // Guarda o rótulo antes de apagar: depois a visita não existe mais para consultar.
+  const v = await buscarVisita(id);
   const r = await excluirVisita(id);
   if (r === "nao_encontrada") return { erro: "Visita não encontrada (talvez já tenha sido excluída)." };
   if (r === "nao_encerrada") return { erro: "Só visitas encerradas podem ser excluídas." };
   if (r === "em_relatorio") return { erro: "Esta visita está em um relatório. Tire-a do relatório antes de excluir." };
 
+  await registrarAuditoria({ autor, entidade: "visita", entidadeId: id, rotulo: v ? rotuloVisita(v) : "", acao: "excluir" });
   revalidatePath("/admin/visitas", "layout");
   redirect("/admin/visitas?aba=encerradas&ok=excluida");
 }
