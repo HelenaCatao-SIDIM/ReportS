@@ -8,7 +8,9 @@ import { emailValido } from "@/lib/format";
 import { buscarSistemaDoCliente } from "@/lib/repo/clientes";
 import { buscarAprovador, buscarAprovadorPorEmail, criarAprovador } from "@/lib/repo/aprovadores";
 import { buscarContratoDoSistemaDoCliente, salvarContrato } from "@/lib/repo/contratos";
+import { configLoginDoSistema } from "@/lib/repo/presenca-login";
 import { mudancasDe, registrarAuditoria } from "@/lib/repo/auditoria";
+import { NIVEIS_VALIDOS } from "@/lib/contratos";
 import type { NivelComprovacao, TipoRelatorioAtendimentos } from "@/lib/types";
 
 export interface NovoAprovadorForm {
@@ -35,7 +37,7 @@ function lerContrato(fd: FormData) {
   } catch {}
   return {
     texto: String(fd.get("texto") ?? "").trim(),
-    nivel: (fd.get("nivel") === "assinado" ? "assinado" : "nominal") as NivelComprovacao,
+    nivel: (NIVEIS_VALIDOS.has(String(fd.get("nivel") ?? "") as NivelComprovacao) ? String(fd.get("nivel")) : "nominal") as NivelComprovacao,
     exigeCpf: fd.get("exigeCpf") !== null,
     relatorioAtendimentos: (fd.get("relatorioAtendimentos") === "analitico" ? "analitico" : "sintetico") as TipoRelatorioAtendimentos,
     ativo: fd.get("ativo") !== null,
@@ -59,6 +61,10 @@ export async function salvarContratoDoSistema(clienteId: string, sistemaDoClient
   const erros: NonNullable<ContratoFormState["erros"]> = {};
   const errosNovos: Record<number, string> = {};
   if (!d.texto) erros.texto = "Informe o contrato (aparece na capa do relatório).";
+  // Login só vale onde o sistema do cliente tem login do participante (hoje, Saúde).
+  if (d.nivel === "login" && !(await configLoginDoSistema(sistemaDoClienteId))) {
+    erros.geral = "A comprovação por login só vale para sistemas com login do participante (Saúde). Escolha Nominal ou Assinado.";
+  }
 
   // Aprovadores marcados: precisam existir; ao menos um tem de estar ativo.
   const marcados = (await Promise.all(d.aprovadorIds.map(buscarAprovador))).filter((a) => !!a);

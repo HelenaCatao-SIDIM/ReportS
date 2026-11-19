@@ -125,9 +125,13 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/admin/cliente
                         <Item rotulo="Contrato (capa do relatório)">{contrato.texto}</Item>
                       </div>
                       <Item rotulo="Comprovação">
-                        <Badge variant={contrato.nivel === "assinado" ? "default" : "secondary"}>{rotuloNivel(contrato.nivel)}</Badge>
+                        <Badge variant={contrato.nivel === "nominal" ? "secondary" : "default"}>{rotuloNivel(contrato.nivel)}</Badge>
                         <span className="ml-2 text-xs text-muted-foreground">
-                          {contrato.nivel === "assinado" ? "participantes assinam na tela" : "basta a lista"}
+                          {contrato.nivel === "assinado"
+                            ? "participantes assinam na tela"
+                            : contrato.nivel === "login"
+                              ? "participantes entram com o login do Saúde"
+                              : "basta a lista"}
                         </span>
                       </Item>
                       <Item rotulo="CPF dos participantes">{contrato.exigeCpf ? "Exigido" : "Não exigido"}</Item>

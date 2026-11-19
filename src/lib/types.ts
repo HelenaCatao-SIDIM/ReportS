@@ -21,7 +21,7 @@ export interface UsuarioLogado extends UsuarioPublico {
   papeis: string[];
 }
 
-export type NivelComprovacao = "nominal" | "assinado";
+export type NivelComprovacao = "nominal" | "assinado" | "login";
 
 /**
  * Pessoa que aprova relatórios, em cadastro próprio (independente dos participantes).
