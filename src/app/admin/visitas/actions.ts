@@ -7,7 +7,7 @@ import { PERMISSOES } from "@/lib/permissoes";
 import { deInputLocal } from "@/lib/datas";
 import { TIPOS_VISITA } from "@/lib/visitas";
 import { equipesDaVisita, sugereTemasPorEquipe } from "@/lib/regras-visita";
-import { buscarSetor, buscarUnidade } from "@/lib/repo/clientes";
+import { buscarUnidade } from "@/lib/repo/clientes";
 import { listarEquipes } from "@/lib/repo/equipes";
 import { listarTemas } from "@/lib/repo/temas";
 import { buscarVisita, cancelarPelaAdministracao, corrigirPelaAdministracao, encerrarPelaAdministracao, excluirVisita } from "@/lib/repo/visitas";
@@ -73,7 +73,7 @@ export async function cancelarVisita(id: string, _: AcaoVisitaState, fd: FormDat
 // ---------- Corrigir (visita encerrada) ----------
 
 export interface CorrecaoState {
-  erros?: Partial<Record<"entrada" | "saida" | "unidade" | "setor" | "motivo" | "geral", string>>;
+  erros?: Partial<Record<"entrada" | "saida" | "unidade" | "motivo" | "geral", string>>;
 }
 
 export async function corrigirVisita(id: string, _: CorrecaoState, fd: FormData): Promise<CorrecaoState> {
@@ -86,8 +86,6 @@ export async function corrigirVisita(id: string, _: CorrecaoState, fd: FormData)
   const saida = deInputLocal(String(fd.get("saida") ?? ""));
   const tipo = String(fd.get("tipo") ?? "") as TipoVisita;
   const unidadeId = String(fd.get("unidadeId") ?? "");
-  const setorValor = String(fd.get("setorId") ?? "");
-  const setorOutro = String(fd.get("setorOutro") ?? "").trim();
   const motivo = String(fd.get("motivo") ?? "").trim();
 
   const erros: NonNullable<CorrecaoState["erros"]> = {};
@@ -98,15 +96,6 @@ export async function corrigirVisita(id: string, _: CorrecaoState, fd: FormData)
 
   const unidade = await buscarUnidade(unidadeId);
   if (!unidade || unidade.clienteId !== v.clienteId) erros.unidade = "Escolha um estabelecimento do cliente.";
-  // O setor saiu do check-in (as visitas novas usam equipes): fica opcional, para corrigir as visitas antigas.
-  let setorId: string | null = null;
-  if (setorValor === "outro") {
-    if (!setorOutro) erros.setor = "Informe o nome do setor.";
-  } else if (setorValor) {
-    const setor = await buscarSetor(setorValor);
-    if (!setor || setor.unidadeId !== unidadeId) erros.setor = "Escolha um setor do estabelecimento.";
-    else setorId = setor.id;
-  }
   if (motivo.length < 5) erros.motivo = "Informe o motivo da correção (fica no histórico).";
   if (Object.keys(erros).length) return { erros };
 
@@ -124,8 +113,6 @@ export async function corrigirVisita(id: string, _: CorrecaoState, fd: FormData)
       saida: saida!,
       tipo: tipoFinal,
       unidadeId,
-      setorId,
-      setorOutro: setorId || !setorOutro ? null : setorOutro,
       equipeIds: sugereTemasPorEquipe(tipoFinal) ? fd.getAll("equipeIds").map(String).filter((id) => equipesPermitidas.has(id)) : [],
       temaIds: fd.getAll("temaIds").map(String).filter((id) => permitidos.has(id)),
       temaAdicional: String(fd.get("temaAdicional") ?? "").trim(),

@@ -12,9 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 
-/** Junta os textos preenchidos com " · " (o setor é opcional). */
-const juntar = (...partes: string[]) => partes.filter(Boolean).join(" · ");
-
 function LinhaPresenca({ visitaId, p }: { visitaId: string; p: PresencaVisita }) {
   const [pending, start] = useTransition();
   return (
@@ -25,7 +22,7 @@ function LinhaPresenca({ visitaId, p }: { visitaId: string; p: PresencaVisita })
           <SeloParticipante estado={p.estado} className="shrink-0" />
         </div>
         <div className="truncate text-xs text-muted-foreground">
-          {juntar(p.cbo?.titulo ?? "", p.setor)}
+          {p.cbo?.titulo ?? ""}
           {p.cpf && ` · ${mascararCpf(p.cpf)}`}
         </div>
       </div>

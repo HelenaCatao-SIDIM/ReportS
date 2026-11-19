@@ -2,7 +2,6 @@ import "server-only";
 import { Prisma } from "@/generated/reports/client";
 import { idPlataforma, idTexto, plataforma, reports } from "@/lib/db";
 import { formatarDataHora } from "@/lib/datas";
-import { normalizar } from "@/lib/format";
 import { rotuloTipo } from "@/lib/visitas";
 import type {
   AlteracaoVisita, EnderecoVisita, EstadoParticipante, Foto, LocalVisita, MeioRegistro, MudancaCampo, PresencaVisita, StatusVisita, TipoVisita,
@@ -28,8 +27,6 @@ const INCLUIR = {
   presencas: { orderBy: { ordem: "asc" } },
   alteracoes: { orderBy: { em: "asc" } },
   estabelecimento: { select: { nome: true } },
-  setor: { select: { nome: true } },
-  setoresExtras: { orderBy: { ordem: "asc" }, include: { setor: { select: { nome: true } } } },
   contrato: { select: { sistemaDoClienteId: true } },
   relatorio: { select: { status: true } },
 } as const;
@@ -44,7 +41,6 @@ const paraPresenca = (p: Linha["presencas"][number]): PresencaVisita => ({
   estado: p.estado as EstadoParticipante,
   nome: p.nome,
   cbo: p.cboCodigo ? { codigo: p.cboCodigo, titulo: p.cboTitulo ?? "" } : null,
-  setor: p.setor,
   cpf: p.cpf,
   confirmacao: p.confirmacao as PresencaVisita["confirmacao"],
   validacao: (p.validacao as PresencaVisita["validacao"]) ?? null,
@@ -67,8 +63,6 @@ const paraVisita = (v: Linha): Visita => ({
   clienteId: idTexto(v.clienteId),
   contratoId: v.contratoId,
   unidadeId: v.estabelecimentoId,
-  setorId: v.setorId,
-  setorOutro: v.setorOutro,
   tipo: v.tipo as TipoVisita,
   status: v.status as StatusVisita,
   entrada: v.entrada.toISOString(),
@@ -116,8 +110,6 @@ async function detalharTodas(linhas: Linha[]): Promise<VisitaDetalhada[]> {
       sistema,
       sistemaNome: sistema ? nomeDoSistema(sistema) : "—",
       unidadeNome: linha.estabelecimento.nome,
-      setorNome: linha.setor?.nome ?? v.setorOutro ?? "—",
-      setoresExtras: linha.setoresExtras.map((s) => ({ id: s.id, setorId: s.setorId, nome: s.setor?.nome ?? s.setorOutro ?? "—" })),
       equipes: v.equipeIds.map((id) => equipes.get(id) ?? "—").sort((a, b) => a.localeCompare(b, "pt-BR")),
       temas: temas.filter((t) => v.temaIds.includes(t.id)),
       travada: linha.relatorio?.status === "aprovado",
@@ -221,8 +213,6 @@ export interface CorrecaoVisita {
   saida: string;
   tipo: TipoVisita;
   unidadeId: string;
-  setorId: string | null;
-  setorOutro: string | null;
   /** Equipes treinadas; vazio quando o tipo não registra equipes. */
   equipeIds: string[];
   temaIds: string[];
@@ -242,16 +232,14 @@ export async function corrigirPelaAdministracao(id: string, c: CorrecaoVisita, a
   if (!v || v.status !== "encerrada") throw new Error("Só visitas encerradas podem ser corrigidas");
   if (v.travada) throw new Error("Visita em relatório aprovado");
 
-  const [temas, equipes, unidades, setores] = await Promise.all([
+  const [temas, equipes, unidades] = await Promise.all([
     buscarTemasPorIds([...new Set([...v.temaIds, ...c.temaIds])]),
     nomesDasEquipes([...new Set([...v.equipeIds, ...c.equipeIds])]),
     reports.estabelecimento.findMany({ where: { id: { in: [v.unidadeId, c.unidadeId] } }, select: { id: true, nome: true } }),
-    reports.setor.findMany({ where: { id: { in: [v.setorId, c.setorId].filter((x): x is string => !!x) } }, select: { id: true, nome: true } }),
   ]);
   const nomeTemas = (ids: string[]) => temas.filter((t) => ids.includes(t.id)).map((t) => t.nome).join(", ") || "—";
   const nomeEquipes = (ids: string[]) =>
     [...new Set(ids)].map((id) => equipes.get(id) ?? "—").sort((a, b) => a.localeCompare(b, "pt-BR")).join(", ") || "—";
-  const nomeSetor = (setorId: string | null, outro: string | null) => (setorId ? setores.find((s) => s.id === setorId)?.nome : outro) ?? "—";
   const nomeUnidade = (uid: string) => unidades.find((u) => u.id === uid)?.nome ?? "—";
 
   const mudancas: MudancaCampo[] = [];
@@ -263,18 +251,12 @@ export async function corrigirPelaAdministracao(id: string, c: CorrecaoVisita, a
   comparar("Saída", v.saida ? formatarDataHora(v.saida) : "", formatarDataHora(c.saida));
   comparar("Tipo", rotuloTipo(v.tipo), rotuloTipo(c.tipo));
   comparar("Estabelecimento", nomeUnidade(v.unidadeId), nomeUnidade(c.unidadeId));
-  comparar("Setor", nomeSetor(v.setorId, v.setorOutro), nomeSetor(c.setorId, c.setorOutro));
   comparar("Equipes treinadas", nomeEquipes(v.equipeIds), nomeEquipes(c.equipeIds));
   comparar("Temas", nomeTemas(v.temaIds), nomeTemas(c.temaIds));
   comparar("Tema adicional", v.temaAdicional, c.temaAdicional);
   comparar("Observações", v.observacoes, c.observacoes);
   comparar("Pendências", v.pendencias, c.pendencias);
   comparar("Próximos passos", v.proximosPassos, c.proximosPassos);
-
-  // Os setores acrescentados são do estabelecimento da visita: ao trocar de estabelecimento, saem junto (e ficam no histórico).
-  const extras = v.setoresExtras ?? [];
-  const limparExtras = c.unidadeId !== v.unidadeId && extras.length > 0;
-  if (limparExtras) mudancas.push({ campo: "Setores acrescentados", antes: extras.map((s) => s.nome).join(", "), depois: "— (eram do estabelecimento anterior)" });
 
   const presencasRemovidas = v.presencas.filter((p) => c.removerPresencas.includes(p.participanteId));
   if (presencasRemovidas.length) {
@@ -298,8 +280,6 @@ export async function corrigirPelaAdministracao(id: string, c: CorrecaoVisita, a
         saida: new Date(c.saida),
         tipo: c.tipo,
         estabelecimentoId: c.unidadeId,
-        setorId: c.setorId,
-        setorOutro: c.setorOutro,
         temaAdicional: c.temaAdicional,
         observacoes: c.observacoes,
         pendencias: c.pendencias,
@@ -312,7 +292,6 @@ export async function corrigirPelaAdministracao(id: string, c: CorrecaoVisita, a
     await tx.visitaTema.createMany({ data: temaIds.map((temaId) => ({ visitaId: id, temaId })) });
     await tx.visitaEquipe.deleteMany({ where: { visitaId: id } });
     await tx.visitaEquipe.createMany({ data: equipeIds.map((equipeId) => ({ visitaId: id, equipeId })) });
-    if (limparExtras) await tx.visitaSetor.deleteMany({ where: { visitaId: id } });
     if (presencasRemovidas.length) {
       await tx.presenca.deleteMany({ where: { visitaId: id, participanteId: { in: presencasRemovidas.map((p) => idPlataforma(p.participanteId)!) } } });
     }
@@ -409,7 +388,6 @@ export async function lancarVisitaRetroativa(d: DadosRetroativa, autor: UsuarioP
             nome: p.nome,
             cboCodigo: p.cbo?.codigo ?? null,
             cboTitulo: p.cbo?.titulo ?? null,
-            setor: p.setor,
             cpf: p.cpf,
             confirmacao: "nominal",
             assinatura: null,
@@ -488,44 +466,6 @@ export async function definirEquipes(id: string, tecnicoId: string, equipeIds: s
   ]);
 }
 
-/** Mesmo nome, sem diferenciar acento nem caixa (para não acrescentar o setor "protocolo" quando "Protocolo" já está na visita). */
-const mesmoNome = (a: string, b: string) => normalizar(a) === normalizar(b);
-
-/**
- * Acrescenta um setor à visita em andamento (o técnico treinou mais gente do que previa). Recebe um setor cadastrado do
- * estabelecimento (`setorId`) ou um nome digitado (`setorOutro`). Quem chama já conferiu que o setor é do estabelecimento.
- * Devolve o erro para mostrar, ou null.
- */
-export async function adicionarSetorExtra(id: string, tecnicoId: string, setor: { setorId: string } | { setorOutro: string }): Promise<string | null> {
-  await abertaDe(id, tecnicoId);
-  const v = await buscarVisita(id);
-  if (!v) throw new Error("Visita não encontrada");
-  const setorId = "setorId" in setor ? setor.setorId : null;
-  const outro = "setorOutro" in setor ? setor.setorOutro.trim() : null;
-  if (setorId === null && !outro) return "Digite o nome do setor.";
-  const nomeNovo = setorId ? ((await reports.setor.findUnique({ where: { id: setorId }, select: { nome: true } }))?.nome ?? "") : (outro ?? "");
-  // Já na visita: o setor do check-in ou um acrescentado antes (pelo cadastro ou pelo nome).
-  const jaTem =
-    (setorId !== null && v.setorId === setorId) ||
-    (v.setoresExtras ?? []).some((s) => (setorId !== null ? s.setorId === setorId : mesmoNome(s.nome, nomeNovo))) ||
-    (setorId === null && mesmoNome(v.setorNome, nomeNovo));
-  if (jaTem) return "Este setor já está na visita.";
-  const ultima = await reports.visitaSetor.aggregate({ where: { visitaId: id }, _max: { ordem: true } });
-  try {
-    await reports.visitaSetor.create({ data: { id: crypto.randomUUID(), visitaId: id, setorId, setorOutro: setorId ? null : outro, ordem: (ultima._max.ordem ?? -1) + 1 } });
-  } catch (e) {
-    // Dois toques ao mesmo tempo no mesmo setor: o índice único do banco recusa o segundo.
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return "Este setor já está na visita.";
-    throw e;
-  }
-  return null;
-}
-
-export async function removerSetorExtra(id: string, tecnicoId: string, extraId: string) {
-  await abertaDe(id, tecnicoId);
-  await reports.visitaSetor.deleteMany({ where: { id: extraId, visitaId: id } });
-}
-
 export async function definirTemaAdicional(id: string, tecnicoId: string, texto: string) {
   await abertaDe(id, tecnicoId);
   await reports.visita.update({ where: { id }, data: { temaAdicional: texto } });
@@ -566,7 +506,6 @@ export async function adicionarPresenca(id: string, tecnicoId: string, p: Presen
         nome: p.nome,
         cboCodigo: p.cbo?.codigo ?? null,
         cboTitulo: p.cbo?.titulo ?? null,
-        setor: p.setor,
         cpf: p.cpf,
         confirmacao: p.confirmacao,
         validacao: p.validacao ?? null,
@@ -590,7 +529,7 @@ export type ResultadoExclusao = "ok" | "nao_encontrada" | "nao_encerrada" | "em_
 
 /**
  * Exclui de vez uma visita encerrada que não está em nenhum relatório (`relatorioId` nulo cobre rascunho, versões emitidas e
- * aprovadas). Apaga os filhos — presenças, temas, equipes, setores e histórico — na mesma transação. As fotos no disco ficam
+ * aprovadas). Apaga os filhos — presenças, temas, equipes e histórico — na mesma transação. As fotos no disco ficam
  * (podem ser de uma versão de relatório já emitida; é o mesmo que a correção faz). Não dá para desfazer.
  */
 export async function excluirVisita(id: string): Promise<ResultadoExclusao> {
@@ -607,7 +546,6 @@ export async function excluirVisita(id: string): Promise<ResultadoExclusao> {
     await tx.presenca.deleteMany({ where: { visitaId: id } });
     await tx.visitaTema.deleteMany({ where: { visitaId: id } });
     await tx.visitaEquipe.deleteMany({ where: { visitaId: id } });
-    await tx.visitaSetor.deleteMany({ where: { visitaId: id } });
     await tx.alteracaoVisita.deleteMany({ where: { visitaId: id } });
     await tx.visita.delete({ where: { id } });
     return "ok";

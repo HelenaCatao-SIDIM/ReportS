@@ -100,12 +100,6 @@ export interface Unidade {
   cnes: string;
 }
 
-export interface Setor {
-  id: string;
-  unidadeId: string;
-  nome: string;
-}
-
 /**
  * Sistema (ERP) da SIDIM. O cadastro é do SINC; o ReportS só lê.
  * O código é a chave gravada em todos os registros e nunca muda.
@@ -174,7 +168,6 @@ export interface Participante {
   nome: string;
   /** Null no confirmado que ainda não teve a ocupação preenchida no ReportS. */
   cbo: Cbo | null;
-  setor: string;
   /** Somente dígitos; preenchido só quando o contrato exige CPF. */
   cpf: string | null;
 }
@@ -238,7 +231,6 @@ export interface PresencaVisita {
   estado: EstadoParticipante;
   nome: string;
   cbo: Cbo | null;
-  setor: string;
   cpf: string | null;
   confirmacao: "nominal" | "assinatura";
   /** Imagem da assinatura (data URL ou endereço no storage). */
@@ -259,7 +251,7 @@ export interface MudancaCampo {
 
 /** Tipos de coisa que a auditoria acompanha. */
 export type EntidadeAuditoria =
-  | "cliente" | "estabelecimento" | "setor" | "contrato" | "aprovador" | "tema" | "equipe"
+  | "cliente" | "estabelecimento" | "contrato" | "aprovador" | "tema" | "equipe"
   | "participante" | "cronograma" | "relatorio" | "configuracao" | "visita";
 
 /** Verbos registrados na auditoria. */
@@ -299,9 +291,6 @@ export interface Visita {
   /** Contrato escolhido no check-in: dele saem o sistema, a forma de comprovação, o CPF e os aprovadores. */
   contratoId: string;
   unidadeId: string;
-  /** Setor da lista do estabelecimento, ou null quando o técnico escolheu "outro". */
-  setorId: string | null;
-  setorOutro: string | null;
   tipo: TipoVisita;
   status: StatusVisita;
   /** Data e hora do servidor (ISO, UTC). */
@@ -359,15 +348,7 @@ export interface VersaoRelatorio {
   decisao: DecisaoRelatorio | null;
 }
 
-/** Setor acrescentado à visita depois do check-in (o técnico treinou mais gente do que previa). */
-export interface SetorExtraVisita {
-  id: string;
-  /** Setor cadastrado do estabelecimento; null quando foi digitado ("outro"). */
-  setorId: string | null;
-  nome: string;
-}
-
-/** Visita com os nomes resolvidos (cliente, técnico, estabelecimento, setor, temas). */
+/** Visita com os nomes resolvidos (cliente, técnico, estabelecimento, temas). */
 export interface VisitaDetalhada extends Visita {
   tecnicoNome: string;
   clienteNome: string;
@@ -375,10 +356,6 @@ export interface VisitaDetalhada extends Visita {
   sistema: string;
   sistemaNome: string;
   unidadeNome: string;
-  /** Setor do check-in. */
-  setorNome: string;
-  /** Setores acrescentados depois. Opcional: as versões de relatório emitidas antes disso não têm. */
-  setoresExtras?: SetorExtraVisita[];
   /** Nomes das equipes treinadas. Opcional: as versões de relatório emitidas antes das equipes não têm. */
   equipes?: string[];
   temas: Tema[];
@@ -492,10 +469,8 @@ export interface CronogramaCongelado {
   em: string;
   itens: {
     unidadeNome: string;
-    /** Equipes do item. Opcional: versões emitidas antes das equipes no cronograma não têm (e trazem o setor). */
+    /** Equipes do item. Opcional: versões emitidas antes das equipes no cronograma não têm. */
     equipes?: string[];
-    /** Legado: setor do item nas versões emitidas antes das equipes. */
-    setorNome?: string | null;
     tipo: TipoVisita;
     prazo: string;
     situacao: SituacaoCronograma;

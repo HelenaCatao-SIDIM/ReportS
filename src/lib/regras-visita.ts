@@ -59,7 +59,7 @@ export const CAMPOS_ANOTACAO = [
 /** Chave do rascunho do check-out guardado no aparelho. */
 export const chaveRascunho = (visitaId: string) => `checkout-rascunho:${visitaId}`;
 
-/** Rascunho do check-in (cliente, estabelecimento, setor, tipo e link); a foto e a localização não são guardadas. */
+/** Rascunho do check-in (cliente, sistema, estabelecimento, equipes, tipo e link); a foto e a localização não são guardadas. */
 export const chaveRascunhoCheckin = "checkin-rascunho";
 
 /** Rascunho do cadastro de novo participante durante a visita; a assinatura não é guardada. */

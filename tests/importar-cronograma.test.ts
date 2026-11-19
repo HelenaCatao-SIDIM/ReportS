@@ -78,11 +78,12 @@ test("horário: texto fica como veio; hora do Excel (data de 1899 ou fração do
   assert.equal(lerHorario(null), "");
 });
 
-test("a coluna 'Setor' é ignorada com aviso, porque o cronograma usa as equipes", () => {
+test("colunas fora da lista são ignoradas com aviso", () => {
   const r = lerLinhas([[...CAB, "Setor", "Coisa"], ["P", "SCA", "Sede", "", "Treinamento", "13/11/2026", "", "Recepção", "x"]]);
   assert.equal(r.linhas.length, 1);
   assert.equal(r.avisos.length, 2);
-  assert.ok(r.avisos.some((a) => /Setor.*equipes/.test(a)));
+  assert.ok(r.avisos.some((a) => /Setor.*ignorada/.test(a)));
+  assert.ok(r.avisos.some((a) => /Coisa.*ignorada/.test(a)));
   assert.deepEqual(separarEquipes(" ; Equipe médica,, "), ["Equipe médica"]);
 });
 

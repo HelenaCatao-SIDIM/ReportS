@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { Search } from "lucide-react";
-import { listarClientes, listarUnidades } from "@/lib/repo/clientes";
+import { listarClientes } from "@/lib/repo/clientes";
 import { buscarContratoDoSistemaDoCliente } from "@/lib/repo/contratos";
 import { listarParticipantes } from "@/lib/repo/participantes";
 import { formatarCbo, formatarCpf } from "@/lib/format";
@@ -48,21 +48,19 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/participantes">
 
   // Os participantes são de um sistema do cliente.
   const sistema = cliente.sistemas.find((x) => x.id === sp.sistema) ?? cliente.sistemas[0];
-  const [participantes, unidades, contrato] = await Promise.all([
+  const [participantes, contrato] = await Promise.all([
     listarParticipantes(sistema.id, q),
-    listarUnidades(cliente.id),
     buscarContratoDoSistemaDoCliente(sistema.id),
   ]);
   const exigeCpf = contrato?.exigeCpf ?? false;
-  const setores = [...new Set(unidades.flatMap((u) => u.setores.map((s) => s.nome)))].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  const colunas = exigeCpf ? 7 : 6;
+  const colunas = exigeCpf ? 6 : 5;
   const ORIGEM = { painel_sinc: "Painel do SINC", campo_reports: "Em campo", cadastro_reports: "Cadastro no ReportS" } as const;
 
   return (
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <PageHeader titulo={TITULO} descricao={DESCRICAO} />
-        <ParticipanteDialogo sistemaDoClienteId={sistema.id} exigeCpf={exigeCpf} setores={setores} />
+        <ParticipanteDialogo sistemaDoClienteId={sistema.id} exigeCpf={exigeCpf} />
       </div>
 
       <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-center">
@@ -75,7 +73,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/participantes">
           <input type="hidden" name="cliente" value={cliente.id} />
           <input type="hidden" name="sistema" value={sistema.id} />
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input name="q" defaultValue={q} placeholder="Buscar nome, ocupação ou setor" className="h-9 bg-background pl-8" />
+          <Input name="q" defaultValue={q} placeholder="Buscar nome ou ocupação" className="h-9 bg-background pl-8" />
         </form>
         <span className="text-xs text-muted-foreground lg:ml-auto">
           {exigeCpf ? "O contrato deste sistema exige CPF." : "O contrato deste sistema não exige CPF."}
@@ -90,7 +88,6 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/participantes">
                 <TableHead className="pl-4">Nome</TableHead>
                 <TableHead>ID no ERP</TableHead>
                 <TableHead>CBO</TableHead>
-                <TableHead>Setor</TableHead>
                 {exigeCpf && <TableHead>CPF</TableHead>}
                 <TableHead>Origem</TableHead>
                 <TableHead className="pr-4 text-right">Ações</TableHead>
@@ -121,13 +118,12 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/admin/participantes">
                       <span className="text-xs text-muted-foreground">Ocupação não informada</span>
                     )}
                   </TableCell>
-                  <TableCell>{p.setor || "—"}</TableCell>
                   {exigeCpf && <TableCell className="font-mono text-xs">{p.cpf ? formatarCpf(p.cpf) : "—"}</TableCell>}
                   <TableCell>
                     <Badge variant={p.origem === "painel_sinc" ? "outline" : "secondary"}>{ORIGEM[p.origem]}</Badge>
                   </TableCell>
                   <TableCell className="pr-4 text-right">
-                    <ParticipanteDialogo sistemaDoClienteId={sistema.id} exigeCpf={exigeCpf} setores={setores} participante={p} />
+                    <ParticipanteDialogo sistemaDoClienteId={sistema.id} exigeCpf={exigeCpf} participante={p} />
                   </TableCell>
                 </TableRow>
               ))}

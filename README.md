@@ -5,8 +5,8 @@ do check-in em campo até o relatório periódico aprovado pelo cliente (que lib
 
 Três interfaces:
 
-- **Administração** (computador; as telas que cada pessoa vê dependem das permissões): usuários e permissões (aviso do SINC), clientes (sistemas e contratos, estabelecimentos e setores), aprovadores, temas, equipes (com os temas mínimos), participantes, gestão de visitas e relatórios.
-- **App do Técnico** (celular ou computador): check-in com GPS e foto (escolhendo o cliente e o sistema), tela de presença em que os próprios participantes buscam o nome e assinam (quando o contrato exige), temas do sistema, anotações durante a visita, setores acrescentados no fim, fotos extras, check-out e histórico.
+- **Administração** (computador; as telas que cada pessoa vê dependem das permissões): usuários e permissões (aviso do SINC), clientes (sistemas e contratos, estabelecimentos), aprovadores, temas, equipes (com os temas mínimos), participantes, gestão de visitas e relatórios.
+- **App do Técnico** (celular ou computador): check-in com GPS e foto (escolhendo o cliente e o sistema), tela de presença em que os próprios participantes buscam o nome e assinam (quando o contrato exige), temas do sistema, anotações durante a visita, fotos extras, check-out e histórico.
 - **Aprovação** (cliente, sem login): página aberta pelo link do e-mail para aprovar o relatório ou pedir ajuste.
 
 Tecnologia: Next.js 16 (App Router) + TypeScript + Tailwind CSS 4 + shadcn/ui (Base UI). PDF com `@react-pdf/renderer`.
@@ -17,7 +17,7 @@ Desde 30/10/2026 os dados ficam no PostgreSQL, em dois bancos (plano "Plataforma
 
 - **`plataforma`**, comum com o SINC, que define a estrutura dele: sistemas, usuários da SIDIM, papéis e permissões, clientes,
   sistemas do cliente e participantes. O ReportS lê e grava só as colunas liberadas ao seu usuário de banco (ADR-035 do SINC).
-- **`reports`**, só do ReportS, com migrações próprias: estabelecimentos, setores, contratos, aprovadores, temas, CBO, visitas,
+- **`reports`**, só do ReportS, com migrações próprias: estabelecimentos, contratos, aprovadores, temas, CBO, visitas,
   relatórios, links de aprovação, arquivos e e-mails.
 
 Login com o e-mail e a senha do cadastro único (os mesmos do SINC); usuários, papéis e senhas são gerenciados no Admin do SINC.
@@ -113,7 +113,7 @@ npm run dev
 ```
 
 Depois abra http://localhost:3000. O contrato do **SCA** é "nominal" e sem CPF, o mais simples para testar uma visita (os de SERP e Saúde exigem
-assinatura e CPF). O GPS funciona em `localhost`; sem permissão de localização, use "Treinamento online". Login do participante no Saúde (na tela de presença): sempre ligado, para todos os clientes do Saúde, com o endereço de cada um tirado do diretório de servidores do Saúde, sempre em `https://` (veja `docs/regras.md`). Roteiros: cronograma, `docs/teste-cronograma.md`; presença em autoatendimento e setores acrescentados, `docs/teste-presenca-setores.md`.
+assinatura e CPF). O GPS funciona em `localhost`; sem permissão de localização, use "Treinamento online". Login do participante no Saúde (na tela de presença): sempre ligado, para todos os clientes do Saúde, com o endereço de cada um tirado do diretório de servidores do Saúde, sempre em `https://` (veja `docs/regras.md`). Roteiros: cronograma, `docs/teste-cronograma.md`; presença em autoatendimento, `docs/teste-presenca.md`.
 
 Opcional — **localização por CEP** (desligada por padrão; com ela desligada, nada muda):
 
@@ -205,7 +205,7 @@ nenhuma permissão do ReportS vê o aviso de que não tem acesso.
 O cliente precisa ter CNPJ (os que vieram do SINC começam com "CNPJ pendente": preencha em **Clientes → Editar**).
 
 Os dados de exemplo (`npm run db:exemplo`) criam, para os clientes que já existem no SINC de desenvolvimento, um estabelecimento
-"Sede" com três setores e um contrato por sistema do cliente, com dois aprovadores. Cliente com dois sistemas tem **dois relatórios
+"Sede" e um contrato por sistema do cliente, com dois aprovadores. Cliente com dois sistemas tem **dois relatórios
 por período**, um por contrato.
 
 ## Testar no celular
@@ -218,9 +218,9 @@ nesse endereço — use um treinamento online para testar sem GPS.
 
 - `docs/regras.md` — regras de negócio implementadas (o que o sistema exige e permite em cada etapa)
 - `docs/teste-cronograma.md` — roteiro de teste do cronograma de implantação, no ambiente de teste local
-- `docs/teste-presenca-setores.md` — roteiro de teste da presença em autoatendimento (busca e assinatura), das anotações e dos setores acrescentados à visita
+- `docs/teste-presenca.md` — roteiro de teste da presença em autoatendimento (busca e assinatura) e das anotações da visita
 - `docs/deploy-cronograma.md` — passo a passo para publicar o cronograma de implantação no servidor (antes, durante, conferência e como voltar)
-- `src/lib/cronograma.ts`, `src/lib/repo/cronograma.ts`, `src/app/admin/cronograma/` — cronograma de implantação: prazos por estabelecimento e setor, com a situação calculada pelas visitas encerradas; aparece na Administração, no check-in do técnico e no relatório ao cliente. Também se cadastra em lote por **planilha do Excel** (`src/lib/importar-cronograma.ts`, `src/lib/planilha-cronograma.ts`), com prévia e perguntas "cadastrar ou alterar" antes de gravar
+- `src/lib/cronograma.ts`, `src/lib/repo/cronograma.ts`, `src/app/admin/cronograma/` — cronograma de implantação: prazos por estabelecimento e equipes, com a situação calculada pelas visitas encerradas; aparece na Administração, no check-in do técnico e no relatório ao cliente. Também se cadastra em lote por **planilha do Excel** (`src/lib/importar-cronograma.ts`, `src/lib/planilha-cronograma.ts`), com prévia e perguntas "cadastrar ou alterar" antes de gravar
 - `AGENTS.md` — convenções do código, para quem for programar (pessoas ou agentes de IA)
 - `src/proxy.ts` — só confere se há sessão; a área certa (Administração ou App do Técnico) é decidida pelas permissões, na página `/inicio`
 - `src/lib/session.ts`, `src/lib/dal.ts`, `src/lib/permissoes.ts` — sessão (JWT em cookie httpOnly com só o id do usuário), verificação de permissão (uma para páginas, outra para ações; lida a cada requisição, sem cache) e catálogo de permissões

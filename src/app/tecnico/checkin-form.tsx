@@ -38,7 +38,7 @@ interface RascunhoCheckin {
   /** Contrato (sistema). Rascunhos antigos não têm. */
   contratoId?: string;
   unidadeId: string;
-  /** Equipes marcadas. Rascunhos antigos (do tempo do setor) não têm. */
+  /** Equipes marcadas. Rascunhos muito antigos podem não ter. */
   equipeIds?: string[];
   tipo: TipoVisita | "";
   link: string;
@@ -138,7 +138,7 @@ export function CheckinForm({
   const presencial = tipo ? ehPresencial(tipo) : null;
 
   const contrato = cliente?.contratos.find((k) => k.id === contratoId);
-  // No lugar do setor: as equipes que vão ser treinadas (implantação e treinamentos). Obrigatórias quando há equipe cadastrada.
+  // As equipes que vão ser treinadas (implantação e treinamentos). Obrigatórias quando há equipe cadastrada.
   const opcoesEquipe = contrato && tipo && sugereTemasPorEquipe(tipo) ? equipes : [];
   const equipesOk = !opcoesEquipe.length || equipeIds.some((id) => opcoesEquipe.some((e) => e.id === id));
   const localOk = !!clienteId && !!contratoId && !!unidadeId && equipesOk;

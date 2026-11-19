@@ -3,7 +3,6 @@ import { notFound, redirect } from "next/navigation";
 import { getUsuarioAtual } from "@/lib/dal";
 import { buscarVisita } from "@/lib/repo/visitas";
 import { buscarContrato } from "@/lib/repo/contratos";
-import { listarUnidades } from "@/lib/repo/clientes";
 import { chaveRascunhoParticipante, exigeAssinaturaNaPresenca, exigeLoginNaPresenca, exigeParticipantes } from "@/lib/regras-visita";
 import { configLoginDoSistema } from "@/lib/repo/presenca-login";
 import { conferirProva } from "@/lib/saude-login";
@@ -24,12 +23,11 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/tecnico/visit
   // O técnico só vê as próprias visitas; encerrada não recebe mais presença.
   if (!v || !usuario || v.tecnicoId !== usuario.id) notFound();
   if (v.status !== "em_andamento") redirect(`/tecnico/visita/${id}`);
-  const [contrato, unidades] = await Promise.all([buscarContrato(v.contratoId), listarUnidades(v.clienteId)]);
+  const contrato = await buscarContrato(v.contratoId);
   // Login do participante no Saúde: só quando o contrato marca "login" (e o sistema tem login). O técnico abre o "modo sem login" por um link com token assinado.
   const exigeLogin = !!contrato && exigeLoginNaPresenca(contrato.nivel, v.tipo) && !!(await configLoginDoSistema(contrato.sistemaDoClienteId));
   const token = typeof sp.tecnico === "string" ? sp.tecnico : "";
   const modoTecnico = exigeLogin && (await conferirProva(token, { finalidade: "sem_login", visitaId: id }));
-  const setores = [...new Set(unidades.flatMap((u) => u.setores.map((s) => s.nome)))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   return (
     <>
       {/* Rascunho de cadastro de participante: esta tela não guarda dados de ninguém no aparelho. */}
@@ -38,8 +36,6 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/tecnico/visit
         visitaId={id}
         exigeAssinatura={exigeAssinaturaNaPresenca(contrato?.nivel, v.tipo)}
         exigeCpf={!!contrato?.exigeCpf}
-        setores={setores}
-        setorVisita={v.setorNome === "—" ? "" : v.setorNome}
         presentes={v.presencas.length}
         exigeParticipantes={exigeParticipantes(v.tipo)}
         proximaRota={`/tecnico/visita/${id}`}

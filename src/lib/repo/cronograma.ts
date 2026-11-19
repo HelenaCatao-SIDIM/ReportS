@@ -6,7 +6,6 @@ import type { CronogramaCongelado, ItemCronograma, ItemCronogramaComSituacao, Ti
 /*
  * Cronograma de implantação — banco do ReportS. Um item é de um contrato e pede uma atividade (tipo de visita) num
  * estabelecimento, para algumas equipes, até um prazo. A situação nunca é gravada: sai das visitas encerradas do contrato.
- * A coluna setor_id é legado (o cronograma usava setor antes das equipes) e não é mais lida.
  */
 
 const INCLUIR = {

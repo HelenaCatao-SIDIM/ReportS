@@ -264,7 +264,7 @@ export function RetroativaForm({
                   <input type="hidden" name="participanteIds" value={p.id} />
                   <span className="min-w-0 truncate">
                     {p.nome}
-                    <span className="ml-2 text-xs text-muted-foreground">{[p.ocupacao, p.setor].filter(Boolean).join(" · ")}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">{p.ocupacao}</span>
                   </span>
                   <button
                     type="button"
@@ -302,7 +302,7 @@ export function RetroativaForm({
                     <Plus className="size-4 shrink-0 text-primary" />
                     <span className="min-w-0 truncate">
                       {s.nome}
-                      <span className="ml-2 text-xs text-muted-foreground">{[s.ocupacao, s.setor, s.cpfMascarado].filter(Boolean).join(" · ")}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">{[s.ocupacao, s.cpfMascarado].filter(Boolean).join(" · ")}</span>
                     </span>
                   </button>
                 </li>

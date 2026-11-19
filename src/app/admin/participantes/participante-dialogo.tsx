@@ -15,11 +15,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 interface Props {
   sistemaDoClienteId: string;
   exigeCpf: boolean;
-  setores: string[];
   participante?: Participante;
 }
 
-function ParticipanteForm({ sistemaDoClienteId, exigeCpf, setores, participante, onSalvo }: Props & { onSalvo: () => void }) {
+function ParticipanteForm({ sistemaDoClienteId, exigeCpf, participante, onSalvo }: Props & { onSalvo: () => void }) {
   const [state, action, pending] = useActionState<ParticipanteFormState, FormData>(
     salvarParticipante.bind(null, sistemaDoClienteId, participante?.id ?? null),
     {},
@@ -60,7 +59,7 @@ function ParticipanteForm({ sistemaDoClienteId, exigeCpf, setores, participante,
                   {x.nome}
                   <SeloParticipante estado={x.estado} />
                 </div>
-                <div className="text-xs text-muted-foreground">{[x.cbo?.titulo, x.setor].filter(Boolean).join(" · ")}</div>
+                <div className="text-xs text-muted-foreground">{x.cbo?.titulo}</div>
               </li>
             ))}
           </ul>
@@ -71,14 +70,6 @@ function ParticipanteForm({ sistemaDoClienteId, exigeCpf, setores, participante,
           </label>
         </div>
       )}
-      <Campo id="p-setor" label="Setor (opcional)">
-        <Input id="p-setor" name="setor" list="lista-setores" defaultValue={v?.setor} className="h-9" />
-      </Campo>
-      <datalist id="lista-setores">
-        {setores.map((s) => (
-          <option key={s} value={s} />
-        ))}
-      </datalist>
       <Campo id="p-cbo" label="Ocupação (CBO)" erro={e.cbo} dica="Busque pelo nome da ocupação na tabela CBO.">
         <CboCampo id="p-cbo" name="cbo" inicial={v?.cbo ?? null} invalido={!!e.cbo} />
       </Campo>
@@ -136,7 +127,7 @@ export function ParticipanteDialogo(props: Props) {
             <DialogTitle>{participante ? "Editar participante" : "Novo participante (provisório)"}</DialogTitle>
             <DialogDescription>
               {participante
-                ? "CBO, setor e CPF são do ReportS; o nome do participante confirmado vem do ERP."
+                ? "CBO e CPF são do ReportS; o nome do participante confirmado vem do ERP."
                 : "Antes de cadastrar, o ReportS procura quem já tem o mesmo CPF ou um nome parecido neste sistema. Quem não tem o id do ERP entra como provisório."}
             </DialogDescription>
           </DialogHeader>

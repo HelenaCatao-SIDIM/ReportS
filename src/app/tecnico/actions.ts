@@ -50,7 +50,7 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
 
   if (!TIPOS_VISITA.some((t) => t.valor === tipo)) erros.tipo = "Escolha o tipo de visita.";
 
-  // Equipes (no lugar do setor): nos tipos que registram equipes, as que vão ser treinadas. São as mesmas "equipes
+  // Equipes: nos tipos que registram equipes, as que vão ser treinadas. São as mesmas "equipes
   // treinadas" da visita, que o técnico ajusta até o check-out. Obrigatórias quando há equipe ativa cadastrada.
   let equipeIds: string[] = [];
   if (contrato && sugereTemasPorEquipe(tipo)) {

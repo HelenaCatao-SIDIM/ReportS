@@ -5,8 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
 import type { VisitaDetalhada } from "@/lib/repo/visitas";
-import type { UnidadeComSetores } from "@/lib/repo/clientes";
-import type { Equipe, Tema, TipoVisita } from "@/lib/types";
+import type { Equipe, Tema, TipoVisita, Unidade } from "@/lib/types";
 import { paraInputLocal } from "@/lib/datas";
 import { TIPOS_VISITA } from "@/lib/visitas";
 import { sugereTemasPorEquipe } from "@/lib/regras-visita";
@@ -27,7 +26,7 @@ export function CorrecaoForm({
   equipes,
 }: {
   visita: VisitaDetalhada;
-  unidades: UnidadeComSetores[];
+  unidades: Unidade[];
   temas: Tema[];
   /** Equipes que a visita aceita (com tema mínimo do sistema do contrato, ou já marcadas). */
   equipes: Pick<Equipe, "id" | "nome" | "ativo">[];
@@ -37,8 +36,6 @@ export function CorrecaoForm({
   const [tipo, setTipo] = useState<TipoVisita>(v.tipo);
   const registraEquipes = sugereTemasPorEquipe(tipo);
   const [unidadeId, setUnidadeId] = useState(v.unidadeId);
-  const [setor, setSetor] = useState(v.setorId ?? (v.setorOutro ? "outro" : ""));
-  const setores = unidades.find((u) => u.id === unidadeId)?.setores ?? [];
 
   // Só temas do sistema do contrato da visita, agrupados; inativos só aparecem se já estavam marcados.
   const visiveis = temas.filter((t) => t.sistema === v.sistema && (t.ativo || v.temaIds.includes(t.id)));
@@ -75,16 +72,7 @@ export function CorrecaoForm({
             </select>
           </Campo>
           <Campo id="unidadeId" label="Estabelecimento" erro={e.unidade}>
-            <select
-              id="unidadeId"
-              name="unidadeId"
-              value={unidadeId}
-              onChange={(ev) => {
-                setUnidadeId(ev.target.value);
-                setSetor("");
-              }}
-              className={selectClass}
-            >
+            <select id="unidadeId" name="unidadeId" value={unidadeId} onChange={(ev) => setUnidadeId(ev.target.value)} className={selectClass}>
               {unidades.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.nome}
@@ -92,22 +80,6 @@ export function CorrecaoForm({
               ))}
             </select>
           </Campo>
-          <Campo id="setorId" label="Setor (só visitas antigas)" erro={e.setor}>
-            <select id="setorId" name="setorId" value={setor} onChange={(ev) => setSetor(ev.target.value)} className={selectClass} aria-invalid={!!e.setor}>
-              <option value="">Sem setor</option>
-              {setores.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nome}
-                </option>
-              ))}
-              <option value="outro">Outro…</option>
-            </select>
-          </Campo>
-          {setor === "outro" && (
-            <Campo id="setorOutro" label="Nome do setor">
-              <Input id="setorOutro" name="setorOutro" defaultValue={v.setorOutro ?? ""} className="h-9" />
-            </Campo>
-          )}
         </CardContent>
       </Card>
 

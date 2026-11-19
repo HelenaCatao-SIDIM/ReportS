@@ -24,10 +24,10 @@ export interface PermissaoDoCatalogo {
 
 export const CATALOGO: PermissaoDoCatalogo[] = [
   { codigo: PERMISSOES.tecnico, grupo: "App do Técnico", descricao: "App do Técnico: check-in, visita, presenças, check-out e o próprio histórico." },
-  { codigo: PERMISSOES.clientesCadastrar, grupo: "Administração", descricao: "Criar cliente à mão; editar nome, CNPJ e nomes no SINC; estabelecimentos e setores." },
+  { codigo: PERMISSOES.clientesCadastrar, grupo: "Administração", descricao: "Criar cliente à mão; editar nome, CNPJ e nomes no SINC; estabelecimentos." },
   { codigo: PERMISSOES.contratosGerenciar, grupo: "Administração", descricao: "Contratos, tipo de comprovação, exigência de CPF e aprovadores; cadastro do cronograma de implantação." },
   { codigo: PERMISSOES.temasGerenciar, grupo: "Administração", descricao: "Temas das visitas e equipes com os temas mínimos." },
-  { codigo: PERMISSOES.participantesGerenciar, grupo: "Administração", descricao: "Ver e editar participantes (CPF, CBO, setor) e criar provisórios fora de uma visita." },
+  { codigo: PERMISSOES.participantesGerenciar, grupo: "Administração", descricao: "Ver e editar participantes (CPF, CBO) e criar provisórios fora de uma visita." },
   { codigo: PERMISSOES.participantesRevisar, grupo: "Administração", descricao: "Lista de revisão: juntar e desfazer junções de participantes." },
   { codigo: PERMISSOES.visitasGerenciar, grupo: "Administração", descricao: "Ver todas as visitas, a auditoria e o cronograma de implantação; corrigir, encerrar e cancelar." },
   { codigo: PERMISSOES.relatoriosGerenciar, grupo: "Administração", descricao: "Criar rascunho, emitir, reenviar e acompanhar relatórios." },

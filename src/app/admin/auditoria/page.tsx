@@ -20,7 +20,6 @@ const DESCRICAO = "Tudo que a administração mudou no sistema: quem, quando, a 
 const ENTIDADE: Record<EntidadeAuditoria, string> = {
   cliente: "Cliente",
   estabelecimento: "Estabelecimento",
-  setor: "Setor",
   contrato: "Contrato",
   aprovador: "Aprovador",
   tema: "Tema",

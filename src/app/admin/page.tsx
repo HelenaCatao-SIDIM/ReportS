@@ -9,7 +9,7 @@ import { PERMISSOES_DA_TELA, temAlguma } from "@/lib/permissoes";
 
 const ATALHOS = [
   { href: "/admin/usuarios", titulo: "Usuários e permissões", desc: "Gerenciados no SINC", icon: ShieldCheck },
-  { href: "/admin/clientes", titulo: "Clientes", desc: "Sistemas e contratos, estabelecimentos e setores", icon: Building2 },
+  { href: "/admin/clientes", titulo: "Clientes", desc: "Sistemas e contratos, estabelecimentos", icon: Building2 },
   { href: "/admin/aprovadores", titulo: "Aprovadores", desc: "Quem aprova os relatórios de cada contrato", icon: BadgeCheck },
   { href: "/admin/temas", titulo: "Temas", desc: "Assuntos trabalhados nas visitas", icon: BookOpen },
   { href: "/admin/participantes", titulo: "Participantes", desc: "Pessoas treinadas por cliente", icon: Users },

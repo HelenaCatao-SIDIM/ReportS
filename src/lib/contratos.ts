@@ -9,7 +9,7 @@ export const ROTULO_ESTADO: Record<EstadoSistemaCliente, string> = {
 
 /** Comprovação da presença: o contrato marca uma só; `requerLogin` só pode ser escolhida onde o sistema tem login (Saúde). */
 export const NIVEIS: { valor: NivelComprovacao; titulo: string; descricao: string; requerLogin?: boolean }[] = [
-  { valor: "nominal", titulo: "Nominal", descricao: "Basta a lista de participantes com nome e CBO (o setor é opcional)." },
+  { valor: "nominal", titulo: "Nominal", descricao: "Basta a lista de participantes com nome e CBO." },
   { valor: "assinado", titulo: "Assinado", descricao: "Cada participante assina com o dedo na tela do celular do técnico." },
   { valor: "login", titulo: "Login", descricao: "Cada participante confirma a presença entrando com o próprio login do Saúde (sem assinatura).", requerLogin: true },
 ];

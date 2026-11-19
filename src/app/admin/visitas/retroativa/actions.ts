@@ -38,7 +38,6 @@ export interface ParticipanteOpcao {
   id: string;
   nome: string;
   ocupacao: string;
-  setor: string;
   cpfMascarado: string;
 }
 
@@ -52,7 +51,7 @@ export async function buscarParticipantesRetroativa(contratoId: string, termo: s
   return (await listarParticipantes(contrato.sistemaDoClienteId))
     .filter((p) => normalizar(p.nome).includes(n))
     .slice(0, 10)
-    .map((p) => ({ id: p.id, nome: p.nome, ocupacao: p.cbo?.titulo ?? "", setor: p.setor, cpfMascarado: p.cpf ? mascararCpf(p.cpf) : "" }));
+    .map((p) => ({ id: p.id, nome: p.nome, ocupacao: p.cbo?.titulo ?? "", cpfMascarado: p.cpf ? mascararCpf(p.cpf) : "" }));
 }
 
 const arquivos = (fd: FormData, nome: string) => fd.getAll(nome).filter((f): f is File => f instanceof File && f.size > 0);
@@ -102,7 +101,7 @@ export async function lancarRetroativa(_: RetroativaState, fd: FormData): Promis
     for (const id of new Set(fd.getAll("participanteIds").map(String))) {
       const p = await buscarParticipante(id);
       if (!p || p.sistemaDoClienteId !== contrato.sistemaDoClienteId) continue;
-      presencas.push({ participanteId: p.id, estado: p.estado, nome: p.nome, cbo: p.cbo, setor: p.setor, cpf: p.cpf, confirmacao: "nominal", assinatura: null, validacao: null });
+      presencas.push({ participanteId: p.id, estado: p.estado, nome: p.nome, cbo: p.cbo, cpf: p.cpf, confirmacao: "nominal", assinatura: null, validacao: null });
     }
   }
   // A presença pode vir dos nomes marcados, da foto da lista em papel, ou dos dois.

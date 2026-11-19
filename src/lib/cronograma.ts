@@ -80,14 +80,10 @@ export const mesmasEquipes = (a: string[], b: string[]) => {
   return x.size === y.size && [...x].every((id) => y.has(id));
 };
 
-/**
- * Quem o item pede, em texto: as equipes; sem equipe, "Todas as equipes". Nas versões de relatório emitidas antes das
- * equipes no cronograma, o setor que o item tinha.
- */
-export function equipesDoItem(i: { equipes?: string[]; equipeNomes?: string[]; setorNome?: string | null }): string {
+/** Quem o item pede, em texto: as equipes; sem equipe (ou versão emitida antes das equipes), "Todas as equipes". */
+export function equipesDoItem(i: { equipes?: string[]; equipeNomes?: string[] }): string {
   const nomes = i.equipes ?? i.equipeNomes;
-  if (nomes) return nomes.length ? nomes.join(", ") : "Todas as equipes";
-  return i.setorNome ? `Setor ${i.setorNome}` : "Todas as equipes";
+  return nomes && nomes.length ? nomes.join(", ") : "Todas as equipes";
 }
 
 /**

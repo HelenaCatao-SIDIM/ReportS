@@ -47,13 +47,14 @@ test("coluna nova obrigatória sem valor padrão falha em tabela com linhas; com
   assert.deepEqual(analisarSql(`ALTER TABLE "visitas" ADD COLUMN "nota" INTEGER;`), []);
 });
 
-test("todas as migrações que já estão no repositório: só a que apaga a chave antiga do n8n é perigosa", () => {
+test("todas as migrações que já estão no repositório: as perigosas são as revisadas (chave antiga do n8n e remoção dos setores)", () => {
   const pasta = join(process.cwd(), "prisma/reports/migrations");
   const perigosas = readdirSync(pasta, { withFileTypes: true })
     .filter((d) => d.isDirectory())
     .filter((d) => analisarSql(readFileSync(join(pasta, d.name, "migration.sql"), "utf8")).length > 0)
     .map((d) => d.name);
-  assert.deepEqual(perigosas, ["20261105190000_remove_chave_n8n"]);
+  // As remoções de setor apagam tabelas e colunas de propósito: perigosas e revisadas.
+  assert.deepEqual(perigosas, ["20261105190000_remove_chave_n8n", "20261119140000_remover_setores", "20261119160000_remover_setor_de_tudo"]);
 });
 
 test("compara dois commits: migração nova segura, perigosa, e migração antiga mexida", () => {

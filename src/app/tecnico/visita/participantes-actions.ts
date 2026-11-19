@@ -33,7 +33,6 @@ export interface SugestaoParticipante {
   nome: string;
   estado: EstadoParticipante;
   cbo: Cbo | null;
-  setor: string;
   cpfMascarado: string;
   /** O cadastro tem o id do Saúde, então dá para validar a presença por login. Só o fato: o id não sai do servidor. */
   ligadoAoSaude: boolean;
@@ -44,7 +43,6 @@ const sugestao = (p: Participante): SugestaoParticipante => ({
   nome: p.nome,
   estado: p.estado,
   cbo: p.cbo,
-  setor: p.setor,
   cpfMascarado: p.cpf ? mascararCpf(p.cpf) : "",
   ligadoAoSaude: !!p.idErp,
 });
@@ -136,7 +134,6 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
 
   if (!participante) {
     const nome = String(fd.get("nome") ?? "").trim();
-    const setor = String(fd.get("setor") ?? "").trim();
     const cpf = soDigitos(String(fd.get("cpf") ?? ""));
     const cbo = await buscarCbo(String(fd.get("cbo") ?? ""));
 
@@ -160,7 +157,7 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
       return { erros: { nome: "Já existe alguém com nome igual ou parecido. Confira se é a mesma pessoa." }, semelhantes: achados.nomesParecidos.map(sugestao) };
     }
 
-    participante = await criarProvisorio(sistemaDoClienteId, { nome, cbo: cbo!, setor, cpf: exigeCpf ? cpf : null }, "campo_reports", tecnico.id);
+    participante = await criarProvisorio(sistemaDoClienteId, { nome, cbo: cbo!, cpf: exigeCpf ? cpf : null }, "campo_reports", tecnico.id);
   } else if (Object.keys(erros).length) {
     return { erros };
   }
@@ -178,15 +175,11 @@ export async function registrarPresenca(visitaId: string, _: PresencaState, fd: 
     participante = { ...participante, cpf: cpfNovo };
   }
 
-  // Quem não tem setor no cadastro entra na lista com o setor da visita (só na presença; o cadastro não muda).
-  const setorDaVisita = v.setorNome === "—" ? "" : v.setorNome;
-
   await adicionarPresenca(visitaId, tecnico.id, {
     participanteId: participante.id,
     estado: participante.estado,
     nome: participante.nome,
     cbo: participante.cbo,
-    setor: participante.setor || setorDaVisita,
     cpf: participante.cpf,
     confirmacao: exigeAssinatura ? "assinatura" : "nominal",
     assinatura,
