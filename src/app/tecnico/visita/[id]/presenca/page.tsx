@@ -4,7 +4,7 @@ import { getUsuarioAtual } from "@/lib/dal";
 import { buscarVisita } from "@/lib/repo/visitas";
 import { buscarContrato } from "@/lib/repo/contratos";
 import { listarUnidades } from "@/lib/repo/clientes";
-import { chaveRascunhoParticipante, exigeAssinaturaNaPresenca, exigeParticipantes } from "@/lib/regras-visita";
+import { chaveRascunhoParticipante, exigeAssinaturaNaPresenca, exigeLoginNaPresenca, exigeParticipantes } from "@/lib/regras-visita";
 import { configLoginDoSistema } from "@/lib/repo/presenca-login";
 import { conferirProva } from "@/lib/saude-login";
 import { LimparRascunho } from "@/components/tecnico/limpar-rascunho";
@@ -25,8 +25,8 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/tecnico/visit
   if (!v || !usuario || v.tecnicoId !== usuario.id) notFound();
   if (v.status !== "em_andamento") redirect(`/tecnico/visita/${id}`);
   const [contrato, unidades] = await Promise.all([buscarContrato(v.contratoId), listarUnidades(v.clienteId)]);
-  // Login do participante no Saúde (ligado por tenant). O técnico abre o "modo sem login" por um link da tela da visita, com um token assinado.
-  const exigeLogin = contrato ? !!(await configLoginDoSistema(contrato.sistemaDoClienteId)) : false;
+  // Login do participante no Saúde: só quando o contrato marca "login" (e o sistema tem login). O técnico abre o "modo sem login" por um link com token assinado.
+  const exigeLogin = !!contrato && exigeLoginNaPresenca(contrato.nivel, v.tipo) && !!(await configLoginDoSistema(contrato.sistemaDoClienteId));
   const token = typeof sp.tecnico === "string" ? sp.tecnico : "";
   const modoTecnico = exigeLogin && (await conferirProva(token, { finalidade: "sem_login", visitaId: id }));
   const setores = [...new Set(unidades.flatMap((u) => u.setores.map((s) => s.nome)))].sort((a, b) => a.localeCompare(b, "pt-BR"));

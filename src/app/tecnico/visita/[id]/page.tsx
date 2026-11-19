@@ -18,6 +18,7 @@ import {
   chaveRascunhoTema,
   equipesDaVisita,
   exigeAssinaturaNaPresenca,
+  exigeLoginNaPresenca,
   exigeParticipantes,
   sugereTemasPorEquipe,
 } from "@/lib/regras-visita";
@@ -114,8 +115,8 @@ async function EmAndamento({ v }: { v: VisitaDetalhada }) {
         inicial: v.equipeIds,
       }
     : undefined;
-  // Com o login do participante ligado, o técnico tem o atalho "registrar sem login" (link com token assinado, válido por 30 minutos).
-  const loginLigado = contrato ? !!(await configLoginDoSistema(contrato.sistemaDoClienteId)) : false;
+  // Login só quando o contrato marca "login" (e o sistema tem login). Aí o técnico tem o atalho "registrar sem login" (token assinado, 30 min).
+  const loginLigado = !!contrato && exigeLoginNaPresenca(contrato.nivel, v.tipo) && !!(await configLoginDoSistema(contrato.sistemaDoClienteId));
   const semLoginHref = loginLigado ? `/tecnico/visita/${v.id}/presenca?tecnico=${await assinarProva({ finalidade: "sem_login", visitaId: v.id }, 30)}` : null;
   // Setores que ainda podem ser acrescentados: os do estabelecimento da visita que não estão nela.
   const extras = v.setoresExtras ?? [];

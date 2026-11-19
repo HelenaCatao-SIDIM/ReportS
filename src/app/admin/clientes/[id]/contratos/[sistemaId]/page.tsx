@@ -6,6 +6,7 @@ import { exigirAdministracao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
 import { buscarCliente, buscarSistemaDoCliente } from "@/lib/repo/clientes";
 import { buscarContratoDoSistemaDoCliente } from "@/lib/repo/contratos";
+import { configLoginDoSistema } from "@/lib/repo/presenca-login";
 import { listarAprovadores } from "@/lib/repo/aprovadores";
 import { PageHeader } from "@/components/shell/placeholder";
 import { ContratoForm } from "./contrato-form";
@@ -23,8 +24,14 @@ export default function ContratoPage({ params }: PageProps<"/admin/clientes/[id]
 
 async function Conteudo({ params }: Pick<PageProps<"/admin/clientes/[id]/contratos/[sistemaId]">, "params">) {
   const [{ id, sistemaId }] = await Promise.all([params, exigirAdministracao(PERMISSOES.contratosGerenciar)]);
-  const [cliente, sdc, contrato] = await Promise.all([buscarCliente(id), buscarSistemaDoCliente(sistemaId), buscarContratoDoSistemaDoCliente(sistemaId)]);
+  const [cliente, sdc, contrato, loginConfig] = await Promise.all([
+    buscarCliente(id),
+    buscarSistemaDoCliente(sistemaId),
+    buscarContratoDoSistemaDoCliente(sistemaId),
+    configLoginDoSistema(sistemaId),
+  ]);
   if (!cliente || !sdc || sdc.clienteId !== id) notFound();
+  const suportaLogin = !!loginConfig;
 
   // Todos os aprovadores ativos, mais os inativos que o contrato ainda cita (aparecem marcados, para poder tirar).
   const ativos = await listarAprovadores();
@@ -46,6 +53,7 @@ async function Conteudo({ params }: Pick<PageProps<"/admin/clientes/[id]/contrat
         clienteId={id}
         contrato={contrato ? { texto: contrato.texto, nivel: contrato.nivel, exigeCpf: contrato.exigeCpf, relatorioAtendimentos: contrato.relatorioAtendimentos, ativo: contrato.ativo, aprovadorIds: contrato.aprovadorIds } : undefined}
         aprovadores={lista}
+        suportaLogin={suportaLogin}
       />
     </>
   );

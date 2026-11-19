@@ -5,7 +5,7 @@ import { useActionState, useState } from "react";
 import { AlertCircle, Loader2, Plus, Trash2 } from "lucide-react";
 import type { ContratoFormState, NovoAprovadorForm } from "../../../contrato-actions";
 import type { Aprovador, NivelComprovacao, TipoRelatorioAtendimentos } from "@/lib/types";
-import { NIVEIS, TIPOS_RELATORIO_ATENDIMENTOS } from "@/lib/contratos";
+import { niveisDisponiveis, TIPOS_RELATORIO_ATENDIMENTOS } from "@/lib/contratos";
 import { cn } from "@/lib/utils";
 import { Campo } from "@/components/form/campo";
 import { Button } from "@/components/ui/button";
@@ -77,11 +77,14 @@ export function ContratoForm({
   clienteId,
   contrato,
   aprovadores,
+  suportaLogin,
 }: {
   acao: Acao;
   clienteId: string;
   contrato?: ValoresContrato;
   aprovadores: Aprovador[];
+  /** O sistema do cliente tem login do participante (Saúde): só então a opção "Login" aparece. */
+  suportaLogin: boolean;
 }) {
   const [state, action, pending] = useActionState(acao, {});
   const v: ValoresContrato | undefined = state.valores ?? contrato;
@@ -126,7 +129,7 @@ export function ContratoForm({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
-            {NIVEIS.map((n) => (
+            {niveisDisponiveis(suportaLogin).map((n) => (
               <label
                 key={n.valor}
                 className={cn(

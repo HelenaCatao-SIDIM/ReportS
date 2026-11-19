@@ -10,6 +10,14 @@ import type { Equipe, NivelComprovacao, TipoVisita } from "@/lib/types";
 export const exigeAssinaturaNaPresenca = (nivel: NivelComprovacao | null | undefined, tipo: TipoVisita) =>
   nivel === "assinado" && ehPresencial(tipo) && tipo !== "analise_ambiente";
 
+/**
+ * A presença pede login do participante no Saúde: contrato "login", visita presencial e tipo que não seja a análise de
+ * ambiente (nela a presença é só nominal). É alternativa à assinatura — o contrato marca uma só. Depende ainda de o sistema
+ * do cliente ter login configurado (ver `configLoginDoSistema`); sem isso, não dá para exigir.
+ */
+export const exigeLoginNaPresenca = (nivel: NivelComprovacao | null | undefined, tipo: TipoVisita) =>
+  nivel === "login" && ehPresencial(tipo) && tipo !== "analise_ambiente";
+
 /** Tipos em que o check-out exige ao menos um participante na lista. */
 export const exigeParticipantes = (tipo: TipoVisita) => tipo === "treinamento" || tipo === "treinamento_online";
 

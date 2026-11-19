@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { abrePelaPresenca, equipesDaVisita, exigeAssinaturaNaPresenca, podeMostrarDonoDoCpf, rotaDaVisita, sugereTemasPorEquipe } from "@/lib/regras-visita";
+import { abrePelaPresenca, equipesDaVisita, exigeAssinaturaNaPresenca, exigeLoginNaPresenca, podeMostrarDonoDoCpf, rotaDaVisita, sugereTemasPorEquipe } from "@/lib/regras-visita";
 import { nomesDosSetores, rotuloAtendidos, tituloAtendidos } from "@/lib/visitas";
 
 const equipe = (id: string, temaIds: string[], ativo = true) => ({ id, nome: id, temaIds, ativo });
@@ -65,4 +65,19 @@ test("assinatura na presença: só em contrato assinado, visita presencial e for
   assert.equal(exigeAssinaturaNaPresenca("assinado", "treinamento_online"), false, "online é sempre nominal");
   assert.equal(exigeAssinaturaNaPresenca("nominal", "treinamento"), false);
   assert.equal(exigeAssinaturaNaPresenca(undefined, "treinamento"), false);
+  // Login é o nível, não assinatura: um exclui o outro.
+  assert.equal(exigeAssinaturaNaPresenca("login", "treinamento"), false, "contrato login não pede assinatura");
+});
+
+test("login na presença: só em contrato login, visita presencial e fora da análise de ambiente", () => {
+  assert.equal(exigeLoginNaPresenca("login", "treinamento"), true);
+  assert.equal(exigeLoginNaPresenca("login", "visita_tecnica"), true);
+  assert.equal(exigeLoginNaPresenca("login", "analise_ambiente"), false, "análise de ambiente não exige login");
+  assert.equal(exigeLoginNaPresenca("login", "treinamento_online"), false, "online é sempre nominal");
+  assert.equal(exigeLoginNaPresenca("assinado", "treinamento"), false, "contrato assinado não pede login");
+  assert.equal(exigeLoginNaPresenca("nominal", "treinamento"), false);
+  assert.equal(exigeLoginNaPresenca(undefined, "treinamento"), false);
+  // Nunca os dois ao mesmo tempo: o contrato marca um nível só.
+  const niveis = ["nominal", "assinado", "login"] as const;
+  for (const n of niveis) assert.equal(exigeAssinaturaNaPresenca(n, "treinamento") && exigeLoginNaPresenca(n, "treinamento"), false, "assinatura e login nunca juntos");
 });

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { exigirPermissaoAcao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
 import { cpfValido, mascararCpf, normalizar, soDigitos } from "@/lib/format";
-import { exigeAssinaturaNaPresenca, podeMostrarDonoDoCpf } from "@/lib/regras-visita";
+import { exigeAssinaturaNaPresenca, exigeLoginNaPresenca, podeMostrarDonoDoCpf } from "@/lib/regras-visita";
 import { buscarContrato } from "@/lib/repo/contratos";
 import { buscarCbo } from "@/lib/repo/cbo";
 import { salvarImagem } from "@/lib/repo/arquivos";
@@ -22,8 +22,10 @@ async function contexto(visitaId: string) {
   if (!contrato) throw new Error("Contrato não encontrado");
   // A forma de comprovação e o CPF seguem o contrato da visita. Assinatura só no presencial; treinamento online é sempre nominal.
   const exigeAssinatura = exigeAssinaturaNaPresenca(contrato.nivel, v.tipo);
+  // Login é alternativa à assinatura: só quando o contrato marca "login" e o sistema tem login configurado.
+  const exigeLogin = exigeLoginNaPresenca(contrato.nivel, v.tipo) && !!(await configLoginDoSistema(contrato.sistemaDoClienteId));
   // Os participantes são do sistema do cliente do contrato (a mesma pessoa pode ter cadastros diferentes em cada sistema).
-  return { tecnico, v, sistemaDoClienteId: contrato.sistemaDoClienteId, exigeAssinatura, exigeCpf: contrato.exigeCpf };
+  return { tecnico, v, sistemaDoClienteId: contrato.sistemaDoClienteId, exigeAssinatura, exigeLogin, exigeCpf: contrato.exigeCpf };
 }
 
 export interface SugestaoParticipante {
@@ -82,13 +84,13 @@ export interface PresencaState {
  * do sistema do cliente como provisório ("campo_reports"), depois da busca por CPF e por nome (RN-PL-34).
  */
 export async function registrarPresenca(visitaId: string, _: PresencaState, fd: FormData): Promise<PresencaState> {
-  const { tecnico, v, sistemaDoClienteId, exigeAssinatura, exigeCpf } = await contexto(visitaId);
+  const { tecnico, v, sistemaDoClienteId, exigeAssinatura, exigeLogin, exigeCpf } = await contexto(visitaId);
   if (v.status !== "em_andamento") return { erros: { geral: "Esta visita já foi encerrada." } };
 
-  // Com o login do participante ligado no tenant, a presença só vale com a prova do login dele (ou com a do técnico, "sem login").
+  // Com o login exigido pelo contrato, a presença só vale com a prova do login do participante (ou com a do técnico, "sem login").
   // A prova é assinada pelo servidor: o navegador não decide sozinho que o login passou.
   let validacao: "login_saude" | "sem_login" | null = null;
-  if (await configLoginDoSistema(sistemaDoClienteId)) {
+  if (exigeLogin) {
     const idEscolhido = String(fd.get("participanteId") ?? "");
     if (idEscolhido && (await conferirProva(String(fd.get("prova") ?? ""), { finalidade: "login_saude", visitaId, participanteId: idEscolhido }))) validacao = "login_saude";
     else if (await conferirProva(String(fd.get("provaTecnico") ?? ""), { finalidade: "sem_login", visitaId })) validacao = "sem_login";
@@ -209,8 +211,9 @@ export async function entrarNoSaude(visitaId: string, participanteId: string, fd
   // os argumentos de cada Server Action, e a senha não pode aparecer lá.
   const usuario = fd.get("usuario");
   const senha = fd.get("senha");
-  const { v, sistemaDoClienteId } = await contexto(visitaId);
+  const { v, sistemaDoClienteId, exigeLogin } = await contexto(visitaId);
   if (v.status !== "em_andamento") return { ok: false, erro: "Esta visita já foi encerrada." };
+  if (!exigeLogin) return { ok: false, erro: "Este contrato não exige login do participante." };
   const cfg = await configLoginDoSistema(sistemaDoClienteId);
   if (!cfg) return { ok: false, erro: "O login do Saúde não está ligado para este cliente." };
 
