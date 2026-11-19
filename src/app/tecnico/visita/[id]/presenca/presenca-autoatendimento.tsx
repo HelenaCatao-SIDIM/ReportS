@@ -18,10 +18,6 @@ interface Config {
   visitaId: string;
   exigeAssinatura: boolean;
   exigeCpf: boolean;
-  /** Setores do cliente, para sugerir no cadastro de quem não achou o próprio nome. */
-  setores: string[];
-  /** Setor da visita; já vem preenchido no cadastro de quem não achou o próprio nome. */
-  setorVisita: string;
   /** O tenant do cliente liga o login do participante no Saúde: a presença só vale depois de a pessoa entrar. */
   exigeLogin: boolean;
   /** O técnico abriu a presença "sem login" (com o token que a tela da visita gera); as presenças ficam marcadas como tal. */
@@ -33,10 +29,10 @@ const Erro = ({ msg }: { msg?: string }) => (msg ? <p className="mt-1 text-sm te
 const primeiroNome = (nome: string) => nome.trim().split(/\s+/)[0] ?? "";
 
 /**
- * Uma pessoa por vez: busca o próprio nome, toca nele e assina. A tela não mostra os dados de ninguém (ocupação, setor, CPF,
+ * Uma pessoa por vez: busca o próprio nome, toca nele e assina. A tela não mostra os dados de ninguém (ocupação, CPF,
  * quem já assinou), porque o aparelho passa de mão em mão. Quem não acha o nome pode se cadastrar ali mesmo.
  */
-function Formulario({ visitaId, exigeAssinatura, exigeCpf, setores, setorVisita, exigeLogin, modoTecnico, tokenTecnico, onFeito }: Config & { onFeito: (nome: string) => void }) {
+function Formulario({ visitaId, exigeAssinatura, exigeCpf, exigeLogin, modoTecnico, tokenTecnico, onFeito }: Config & { onFeito: (nome: string) => void }) {
   const [state, onSubmit, pending] = useAcao<PresencaState>(registrarPresenca.bind(null, visitaId), {});
   const e = state.erros ?? {};
   const [modo, setModo] = useState<"busca" | "existente" | "novo">("busca");
@@ -47,7 +43,6 @@ function Formulario({ visitaId, exigeAssinatura, exigeCpf, setores, setorVisita,
   const [escolhido, setEscolhido] = useState<SugestaoParticipante | null>(null);
   const [nome, setNome] = useState("");
   const [cbo, setCbo] = useState<Cbo | null>(null);
-  const [setor, setSetor] = useState(setorVisita);
   const [cpf, setCpf] = useState("");
   const [assinado, setAssinado] = useState(false);
   // Login no Saúde (só quando o tenant liga): usuário e senha ficam só aqui, nunca no formulário da presença.
@@ -119,7 +114,7 @@ function Formulario({ visitaId, exigeAssinatura, exigeCpf, setores, setorVisita,
     }
   }
 
-  // Dois nomes iguais na lista: só então aparece a ocupação e o setor, para a pessoa saber qual é a dela.
+  // Dois nomes iguais na lista: só então aparece a ocupação, para a pessoa saber qual é a dela.
   const repetidos = new Set(sugestoes.map((s) => normalizar(s.nome)).filter((n, i, todos) => todos.indexOf(n) !== i));
   // Com login exigido, CPF, assinatura e confirmação só aparecem depois de a pessoa entrar (quem não achou o nome fica com o técnico).
   const liberado = modo !== "busca" && (!precisaLogin || (modo === "existente" && !!prova));
@@ -180,8 +175,8 @@ function Formulario({ visitaId, exigeAssinatura, exigeCpf, setores, setorVisita,
                         className="w-full px-4 py-3.5 text-left"
                       >
                         <span className="block text-base font-medium">{s.nome}</span>
-                        {repetidos.has(normalizar(s.nome)) && (
-                          <span className="block text-sm text-muted-foreground">{[s.cbo?.titulo, s.setor].filter(Boolean).join(" · ")}</span>
+                        {repetidos.has(normalizar(s.nome)) && s.cbo?.titulo && (
+                          <span className="block text-sm text-muted-foreground">{s.cbo.titulo}</span>
                         )}
                       </button>
                     </li>
@@ -207,7 +202,6 @@ function Formulario({ visitaId, exigeAssinatura, exigeCpf, setores, setorVisita,
                   }
                   setNome(termo.trim());
                   setCbo(null);
-                  setSetor(setorVisita);
                   setCpf("");
                   setModo("novo");
                 }}
@@ -387,17 +381,6 @@ function Formulario({ visitaId, exigeAssinatura, exigeCpf, setores, setorVisita,
             </Label>
             <CboCampo id="n-cbo" name="cbo" inicial={cbo} onMudar={setCbo} invalido={!!e.cbo} />
             <Erro msg={e.cbo} />
-          </div>
-          <div>
-            <Label htmlFor="n-setor" className="mb-1.5 text-base">
-              Setor (opcional)
-            </Label>
-            <Input id="n-setor" name="setor" list="setores-cliente" value={setor} onChange={(ev) => setSetor(ev.target.value)} className="h-12 text-lg" />
-            <datalist id="setores-cliente">
-              {setores.map((s) => (
-                <option key={s} value={s} />
-              ))}
-            </datalist>
           </div>
           {exigeCpf && (
             <div>

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { abrePelaPresenca, equipesDaVisita, exigeAssinaturaNaPresenca, exigeLoginNaPresenca, podeMostrarDonoDoCpf, rotaDaVisita, sugereTemasPorEquipe } from "@/lib/regras-visita";
-import { nomesDosSetores, rotuloAtendidos, tituloAtendidos } from "@/lib/visitas";
+import { rotuloAtendidos, tituloAtendidos } from "@/lib/visitas";
 
 const equipe = (id: string, temaIds: string[], ativo = true) => ({ id, nome: id, temaIds, ativo });
 
@@ -28,18 +28,11 @@ test("só implantação e treinamentos registram equipes", () => {
   );
 });
 
-test("os setores da visita: o do check-in e os acrescentados, sem repetir (nem acento ou caixa) e sem o traço de quem não tem setor", () => {
-  assert.deepEqual(nomesDosSetores({ setorNome: "Protocolo", setoresExtras: [{ nome: "Recursos Humanos" }, { nome: "protocolo" }, { nome: "Recursos HUMANOS" }] }), ["Protocolo", "Recursos Humanos"]);
-  assert.equal(rotuloAtendidos({ setorNome: "Protocolo", setoresExtras: [{ nome: "Tributação" }, { nome: "Farmácia" }] }), "Protocolo, Tributação, Farmácia");
-  assert.equal(rotuloAtendidos({ setorNome: "—", setoresExtras: [{ nome: "Farmácia" }] }), "Farmácia", "sem setor no check-in, só os acrescentados");
-  assert.equal(rotuloAtendidos({ setorNome: "—" }), "—", "versões antigas de relatório não têm a lista de setores acrescentados");
-  assert.equal(rotuloAtendidos({ setorNome: "Protocolo" }), "Protocolo");
-  assert.equal(rotuloAtendidos({ setorNome: "—", equipes: ["Médica", "Enfermagem"] }), "Médica, Enfermagem", "visita nova: as equipes no lugar do setor");
-  assert.equal(rotuloAtendidos({ setorNome: "Protocolo", equipes: ["Médica"] }), "Protocolo", "visita antiga continua mostrando o setor");
-  assert.equal(rotuloAtendidos({ setorNome: "—", equipes: [] }), "—");
-  assert.equal(tituloAtendidos({ setorNome: "Protocolo" }), "Setor");
-  assert.equal(tituloAtendidos({ setorNome: "Protocolo", setoresExtras: [{ nome: "Farmácia" }] }), "Setores");
-  assert.equal(tituloAtendidos({ setorNome: "—" }), "Equipes");
+test("quem a visita atendeu: as equipes treinadas", () => {
+  assert.equal(rotuloAtendidos({ equipes: ["Médica", "Enfermagem"] }), "Médica, Enfermagem");
+  assert.equal(rotuloAtendidos({ equipes: [] }), "—");
+  assert.equal(rotuloAtendidos({}), "—", "versões antigas de relatório não têm equipes");
+  assert.equal(tituloAtendidos(), "Equipes");
 });
 
 test("a visita abre pela presença nos tipos com participantes, e a tela da visita só depois de alguém assinar", () => {

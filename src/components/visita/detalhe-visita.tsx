@@ -109,24 +109,7 @@ export function DetalheVisita({
             <Item rotulo="Data">{formatarData(v.entrada)}</Item>
             <Item rotulo="Tipo">{rotuloTipo(v.tipo)}</Item>
             <Item rotulo="Estabelecimento">{v.unidadeNome}</Item>
-            {(() => {
-              // O setor do check-in e os acrescentados depois; "(outro)" marca o que foi digitado em vez de escolhido do cadastro.
-              const setores = [{ id: "checkin", nome: v.setorNome, outro: !!v.setorOutro }, ...(v.setoresExtras ?? []).map((s) => ({ id: s.id, nome: s.nome, outro: !s.setorId }))].filter((s) => s.nome !== "—");
-              return (
-                // Visitas novas não têm setor (o check-in pede as equipes): mostra as equipes no lugar.
-                <Item rotulo={setores.length > 1 ? "Setores" : setores.length ? "Setor" : "Equipes"}>
-                  {setores.length
-                    ? setores.map((s, i) => (
-                        <span key={s.id}>
-                          {i > 0 && ", "}
-                          {s.nome}
-                          {s.outro && <span className="ml-1 text-xs text-muted-foreground">(outro)</span>}
-                        </span>
-                      ))
-                    : v.equipes?.join(", ") || "—"}
-                </Item>
-              );
-            })()}
+            <Item rotulo="Equipes">{v.equipes?.join(", ") || "—"}</Item>
             <Item rotulo="Entrada">{formatarHora(v.entrada)}</Item>
             <Item rotulo="Saída">{v.saida ? formatarHora(v.saida) : "—"}</Item>
             <Item rotulo="Duração">{v.saida ? formatarDuracao(v.entrada, v.saida) : "—"}</Item>
@@ -212,7 +195,6 @@ export function DetalheVisita({
                 <TableRow>
                   <TableHead className="pl-4">Nome</TableHead>
                   <TableHead>CBO</TableHead>
-                  <TableHead>Setor</TableHead>
                   <TableHead>CPF</TableHead>
                   <TableHead className="pr-4">Confirmação</TableHead>
                 </TableRow>
@@ -233,7 +215,6 @@ export function DetalheVisita({
                         "—"
                       )}
                     </TableCell>
-                    <TableCell>{p.setor || "—"}</TableCell>
                     <TableCell className="font-mono text-xs">{p.cpf ? (cpf === "completo" ? formatarCpf(p.cpf) : mascararCpf(p.cpf)) : "—"}</TableCell>
                     <TableCell className="pr-4">
                       {p.confirmacao === "assinatura" && p.assinatura ? (

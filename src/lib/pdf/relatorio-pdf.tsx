@@ -128,7 +128,7 @@ function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao, marca }: { v
       <View style={s.caixa}>
         <View style={s.grade}>
           <Campo rotulo="Estabelecimento" valor={v.unidadeNome} />
-          <Campo rotulo={tituloAtendidos(v)} valor={rotuloAtendidos(v)} />
+          <Campo rotulo={tituloAtendidos()} valor={rotuloAtendidos(v)} />
           <Campo rotulo="Técnico" valor={v.tecnicoNome} />
           <Campo rotulo="Registrado por" valor={ROTULO_MEIO[v.meio]} />
           <Campo rotulo="Entrada" valor={formatarHora(v.entrada)} />
@@ -152,23 +152,21 @@ function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao, marca }: { v
       {v.presencas.length ? (
         <View style={s.tabela}>
           <View style={[s.linha, s.cabecalho]}>
-            <Text style={{ width: "26%" }}>Nome</Text>
-            <Text style={{ width: "28%" }}>CBO</Text>
-            <Text style={{ width: "15%" }}>Setor</Text>
-            <Text style={{ width: "15%" }}>CPF</Text>
-            <Text style={{ width: "16%" }}>Confirmação</Text>
+            <Text style={{ width: "30%" }}>Nome</Text>
+            <Text style={{ width: "34%" }}>CBO</Text>
+            <Text style={{ width: "18%" }}>CPF</Text>
+            <Text style={{ width: "18%" }}>Confirmação</Text>
           </View>
           {v.presencas.map((p) => {
             const assinatura = p.assinatura ? imagens.get(p.assinatura) : undefined;
             return (
               <View key={p.participanteId} style={s.linha} wrap={false}>
-                <Text style={{ width: "26%" }}>{p.nome}</Text>
-                <Text style={{ width: "28%", fontSize: 8 }}>
+                <Text style={{ width: "30%" }}>{p.nome}</Text>
+                <Text style={{ width: "34%", fontSize: 8 }}>
                   {p.cbo ? `${formatarCbo(p.cbo.codigo)} ${p.cbo.titulo}` : "—"}
                 </Text>
-                <Text style={{ width: "15%" }}>{p.setor || "—"}</Text>
-                <Text style={{ width: "15%" }}>{p.cpf ? mascararCpf(p.cpf) : "—"}</Text>
-                <View style={{ width: "16%" }}>
+                <Text style={{ width: "18%" }}>{p.cpf ? mascararCpf(p.cpf) : "—"}</Text>
+                <View style={{ width: "18%" }}>
                   {p.confirmacao === "assinatura" && assinatura ? <Image src={assinatura} style={{ height: 20, objectFit: "contain" }} /> : <Text>Nominal</Text>}
                 </View>
               </View>
@@ -411,7 +409,7 @@ export function RelatorioPdf({
             <View style={[s.linha, s.cabecalho]}>
               <Text style={{ width: "14%" }}>Data</Text>
               <Text style={{ width: "22%" }}>Tipo</Text>
-              <Text style={{ width: "30%" }}>Estabelecimento / setor</Text>
+              <Text style={{ width: "30%" }}>Estabelecimento / equipes</Text>
               <Text style={{ width: "20%" }}>Horário</Text>
               <Text style={{ width: "14%" }}>Duração</Text>
             </View>

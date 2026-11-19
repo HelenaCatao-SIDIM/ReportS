@@ -4,7 +4,7 @@ Passo a passo para quem tem acesso ao servidor do ReportS (usuário `reports`, e
 
 O que esta publicação traz:
 - **Cronograma de implantação:** a tabela nova `cronograma_itens` (migração `*_cronograma`), as telas na Administração, no App do Técnico e no relatório ao cliente, e a importação por planilha do Excel. Regras: `docs/regras.md`, "Cronograma de implantação". Roteiro: `docs/teste-cronograma.md`.
-- **Presença em autoatendimento e setores acrescentados à visita:** a tela em que os próprios participantes buscam o nome e assinam, as anotações durante a visita e os setores acrescentados até o check-out. Duas migrações que **só acrescentam** (a tabela `visita_setores` e a coluna `presencas.validacao`). Regras: `docs/regras.md`, "Lista de presença" e "Durante a visita". Roteiro: `docs/teste-presenca-setores.md`.
+- **Presença em autoatendimento e setores acrescentados à visita:** a tela em que os próprios participantes buscam o nome e assinam, as anotações durante a visita e os setores acrescentados até o check-out. Duas migrações que **só acrescentam** (a tabela `visita_setores` e a coluna `presencas.validacao`). Regras: `docs/regras.md`, "Lista de presença" e "Durante a visita". Roteiro: `docs/teste-presenca.md`.
 - **Login do participante no Saúde (na tela de presença):** vale **sempre**, para todo cliente do Saúde que está no diretório de servidores do Saúde (sem configuração). Confira o acesso do servidor na seção "Login do participante no Saúde" abaixo.
 
 ## 1. Antes de rodar (2 minutos)
@@ -49,7 +49,7 @@ curl -sI https://reports.sidim.com.br/login | head -1     # esperado: 200
 3. Envie uma planilha pequena, de 2 ou 3 linhas, de um cliente real, e confira o resumo antes de confirmar. **Isso grava dado de verdade em produção**: combine com a Helena qual cliente usar.
 4. Confirme e veja os itens em **Cronograma**. Estabelecimento novo criado pela importação aparece em **Clientes**, só com o nome (sem endereço nem coordenadas).
 5. (Opcional) No App do Técnico, faça o check-in no estabelecimento que tem item: a tela mostra o que ainda falta ali.
-6. **Presença e setores (App do Técnico, de preferência no celular):** faça o check-in de um **Treinamento** de teste. Depois do check-in deve abrir **"Confirme sua presença"**, só com a busca e o contador, **sem menu e sem barra de baixo**. Busque um nome, assine (ou confirme, se o contrato é nominal) e toque em **Todos assinaram? Continuar**. Na tela da visita confira **Anotações** (salvam sozinhas) e **Setores atendidos** (acrescente um setor). Termine com o check-out, ou cancele a visita de teste em Administração → Visitas. Roteiro completo: `docs/teste-presenca-setores.md`.
+6. **Presença (App do Técnico, de preferência no celular):** faça o check-in de um **Treinamento** de teste. Depois do check-in deve abrir **"Confirme sua presença"**, só com a busca e o contador, **sem menu e sem barra de baixo**. Busque um nome, assine (ou confirme, se o contrato é nominal) e toque em **Todos assinaram? Continuar**. Na tela da visita confira **Anotações** (salvam sozinhas). Termine com o check-out, ou cancele a visita de teste em Administração → Visitas. Roteiro completo: `docs/teste-presenca.md`.
 
 ## 5. Permissões
 
@@ -78,7 +78,7 @@ Vale para **todos os clientes do Saúde** que estiverem no diretório de servido
    ```
    Esperado: `200 22 servidores` (o número pode mudar) e `400 {"error":"invalid_grant"...}`. Se aparecer `ERRO UNABLE_TO_VERIFY_LEAF_SIGNATURE` (ou parecido), o certificado não está completo para o Node: peça ao time do Saúde para incluir o certificado intermediário. **Não** desligue a verificação.
 2. Condições para aparecer na tela: o sistema **Saúde** do cliente precisa ter um tenant (vem do SINC) igual ao **nome da pasta da logo** dele no diretório (ex.: `saude_parademinas` para `.../saude_parademinas/Imagens/Logo_Prefeitura.png`), e o participante precisa ter o **id do Saúde** (`external_user_id`) igual ao `userId` do login. Cliente que o diretório não encontra continua com a presença de antes. Atenção: cliente que está no diretório, mas com a API fora do ar, passa a pedir o login e mostra "Não foi possível falar com o Saúde agora"; o técnico usa o modo sem login.
-3. Teste com **uma pessoa de verdade**, em um treinamento de teste: busque o nome, entre com o usuário e a senha dela e assine. Se a pessoa certa for recusada ("este usuário não é o da pessoa escolhida"), o `userId` do login pode ser diferente do id guardado no participante: avise o time de desenvolvimento. Roteiro: `docs/teste-presenca-setores.md`, seção 7.
+3. Teste com **uma pessoa de verdade**, em um treinamento de teste: busque o nome, entre com o usuário e a senha dela e assine. Se a pessoa certa for recusada ("este usuário não é o da pessoa escolhida"), o `userId` do login pode ser diferente do id guardado no participante: avise o time de desenvolvimento. Roteiro: `docs/teste-presenca.md`, seção 7.
 
 ## 7. Se algo der errado
 

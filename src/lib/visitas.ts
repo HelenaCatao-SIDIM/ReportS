@@ -11,29 +11,11 @@ export const TIPOS_VISITA: { valor: TipoVisita; label: string; presencial: boole
   { valor: "analise_ambiente", label: "Análise de ambiente", presencial: true },
 ];
 
-/** Nomes dos setores da visita: o do check-in e os acrescentados depois, sem repetir nem contar o "—" de quem não tem setor. */
-export function nomesDosSetores(v: { setorNome: string; setoresExtras?: { nome: string }[] }): string[] {
-  const vistos = new Set<string>();
-  return [v.setorNome, ...(v.setoresExtras ?? []).map((s) => s.nome)].filter((n) => {
-    const k = n.trim().toLowerCase();
-    if (!k || k === "—" || vistos.has(k)) return false;
-    vistos.add(k);
-    return true;
-  });
-}
+/** Quem a visita atendeu, numa linha: as equipes treinadas ("Médica, Enfermagem"). */
+export const rotuloAtendidos = (v: { equipes?: string[] }) => (v.equipes ?? []).join(", ") || "—";
 
-/**
- * Quem a visita atendeu, numa linha: os setores ("Protocolo, Recursos Humanos") nas visitas antigas, que tinham setor; nas
- * novas, as equipes ("Médica, Enfermagem"), que tomaram o lugar do setor no check-in.
- */
-export const rotuloAtendidos = (v: { setorNome: string; setoresExtras?: { nome: string }[]; equipes?: string[] }) =>
-  nomesDosSetores(v).join(", ") || (v.equipes ?? []).join(", ") || "—";
-
-/** Rótulo do campo de {@link rotuloAtendidos}: "Setor", "Setores" ou "Equipes". */
-export const tituloAtendidos = (v: { setorNome: string; setoresExtras?: { nome: string }[] }) => {
-  const n = nomesDosSetores(v).length;
-  return n > 1 ? "Setores" : n === 1 ? "Setor" : "Equipes";
-};
+/** Rótulo do campo de {@link rotuloAtendidos}. */
+export const tituloAtendidos = () => "Equipes";
 
 /** Fotos da lista de presença em papel (lançamento retroativo), que ficam junto das fotos extras. */
 export const fotosDaLista = <F extends { legenda?: string }>(v: { fotosExtras: F[] }): F[] => v.fotosExtras.filter((f) => f.legenda === "lista_presenca");

@@ -1,6 +1,6 @@
 /*
  * Dados de exemplo para desenvolvimento: amostra da CBO, temas, aprovadores e, para os clientes que já existem no
- * banco plataforma de desenvolvimento, estabelecimentos, setores e contratos. Só roda fora de produção e com o banco
+ * banco plataforma de desenvolvimento, estabelecimentos e contratos. Só roda fora de produção e com o banco
  * do ReportS vazio. Clientes, sistemas do cliente, participantes e usuários vêm do SINC de desenvolvimento.
  *
  * Uso: npm run db:exemplo
@@ -70,7 +70,6 @@ rodar(async () => {
         latitude: -22.9035,
         longitude: -47.0621,
         raioMetros: 50,
-        setores: { create: ["Protocolo", "Recursos Humanos", "Tributação"].map((nome) => ({ id: id(), nome })) },
       },
     });
     for (const s of c.clients) {

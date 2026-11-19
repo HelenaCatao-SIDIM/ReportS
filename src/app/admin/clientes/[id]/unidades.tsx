@@ -1,12 +1,10 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
-import { Check, ChevronDown, CloudDownload, ExternalLink, Loader2, MapPin, Pencil, Plus, Search, Trash2, X } from "lucide-react";
-import type { UnidadeComSetores } from "@/lib/repo/clientes";
-import type { Setor } from "@/lib/types";
+import { Check, CloudDownload, ExternalLink, Loader2, MapPin, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import type { Unidade } from "@/lib/types";
 import { RAIO_PADRAO_METROS } from "@/lib/distancia";
-import { cn } from "@/lib/utils";
-import { removerSetor, removerUnidade, salvarSetor, salvarUnidade, type UnidadeFormState } from "../actions";
+import { removerUnidade, salvarUnidade, type UnidadeFormState } from "../actions";
 import { buscarEstabelecimentosSaude, importarEstabelecimentosSaude, type BuscaSaudeState, type ResultadoImportacao } from "../saude-actions";
 import type { EstabelecimentoSaude } from "@/lib/saude-estabelecimentos";
 import { normalizar } from "@/lib/format";
@@ -57,7 +55,7 @@ function UnidadeForm({
   onSalvo,
 }: {
   clienteId: string;
-  unidade?: UnidadeComSetores;
+  unidade?: Unidade;
   buscaAtiva: boolean;
   onSalvo: () => void;
 }) {
@@ -151,7 +149,7 @@ function UnidadeDialog({
   onFechar,
 }: {
   clienteId: string;
-  unidade?: UnidadeComSetores;
+  unidade?: Unidade;
   aberto: boolean;
   buscaAtiva: boolean;
   onFechar: () => void;
@@ -170,155 +168,26 @@ function UnidadeDialog({
   );
 }
 
-// ---------- Setores ----------
-
-function LinhaSetor({ setor, podeEditar }: { setor: Setor; podeEditar: boolean }) {
-  const [editando, setEditando] = useState(false);
-  const [nome, setNome] = useState(setor.nome);
-  const [erro, setErro] = useState<string | null>(null);
-  const [pending, start] = useTransition();
-
-  const salvar = () =>
-    start(async () => {
-      const e = await salvarSetor(setor.unidadeId, setor.id, nome);
-      setErro(e);
-      if (!e) setEditando(false);
-    });
-
-  if (editando) {
-    return (
-      <li className="py-1.5">
-        <div className="flex items-center gap-2">
-          <Input
-            aria-label="Nome do setor"
-            value={nome}
-            onChange={(ev) => setNome(ev.target.value)}
-            onKeyDown={(ev) => {
-              if (ev.key === "Enter") salvar();
-              if (ev.key === "Escape") {
-                setNome(setor.nome);
-                setEditando(false);
-                setErro(null);
-              }
-            }}
-            autoFocus
-            className="h-8"
-          />
-          <Button size="icon-sm" aria-label="Salvar setor" onClick={salvar} disabled={pending}>
-            {pending ? <Loader2 className="animate-spin" /> : <Check />}
-          </Button>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label="Cancelar edição"
-            onClick={() => {
-              setNome(setor.nome);
-              setEditando(false);
-              setErro(null);
-            }}
-          >
-            <X />
-          </Button>
-        </div>
-        {erro && <p className="mt-1 text-xs text-destructive">{erro}</p>}
-      </li>
-    );
-  }
-
-  return (
-    <li className="group flex items-center justify-between gap-2 py-1.5 text-sm">
-      <span>{setor.nome}</span>
-      <span className={cn("flex gap-1 opacity-60 group-hover:opacity-100", !podeEditar && "hidden")}>
-        <Button size="icon-sm" variant="ghost" aria-label={`Renomear ${setor.nome}`} onClick={() => setEditando(true)}>
-          <Pencil />
-        </Button>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          aria-label={`Remover ${setor.nome}`}
-          disabled={pending}
-          onClick={() =>
-            confirm(`Remover o setor "${setor.nome}"?`) &&
-            start(async () => {
-              const erro = await removerSetor(setor.id);
-              if (erro) alert(erro);
-            })
-          }
-        >
-          {pending ? <Loader2 className="animate-spin" /> : <Trash2 />}
-        </Button>
-      </span>
-    </li>
-  );
-}
-
-function NovoSetor({ unidadeId }: { unidadeId: string }) {
-  const [nome, setNome] = useState("");
-  const [erro, setErro] = useState<string | null>(null);
-  const [pending, start] = useTransition();
-
-  const adicionar = () =>
-    start(async () => {
-      const e = await salvarSetor(unidadeId, null, nome);
-      setErro(e);
-      if (!e) setNome("");
-    });
-
-  return (
-    <div className="pt-2">
-      <div className="flex gap-2">
-        <Input
-          aria-label="Novo setor"
-          placeholder="Novo setor"
-          value={nome}
-          onChange={(ev) => setNome(ev.target.value)}
-          onKeyDown={(ev) => ev.key === "Enter" && (ev.preventDefault(), adicionar())}
-          className="h-8"
-        />
-        <Button size="sm" variant="outline" onClick={adicionar} disabled={pending}>
-          {pending ? <Loader2 className="animate-spin" /> : <Plus />}
-          Adicionar
-        </Button>
-      </div>
-      {erro && <p className="mt-1 text-xs text-destructive">{erro}</p>}
-    </div>
-  );
-}
-
 // ---------- Cartão do estabelecimento ----------
 
-function CartaoUnidade({ unidade, inicialAberta, onEditar, podeEditar }: { unidade: UnidadeComSetores; inicialAberta: boolean; onEditar: () => void; podeEditar: boolean }) {
-  const [aberta, setAberta] = useState(inicialAberta);
+function CartaoUnidade({ unidade, onEditar, podeEditar }: { unidade: Unidade; onEditar: () => void; podeEditar: boolean }) {
   const [pending, start] = useTransition();
-  const n = unidade.setores.length;
 
   return (
     <Card className="gap-0 py-0">
       <div className="flex items-center gap-2 p-3">
-        <button
-          type="button"
-          onClick={() => setAberta((a) => !a)}
-          aria-expanded={aberta}
-          className="flex min-w-0 flex-1 items-center gap-3 text-left"
-        >
-          <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", !aberta && "-rotate-90")} />
-          <span className="min-w-0">
-            <span className="block truncate font-medium">{unidade.nome}</span>
-            <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-              {unidade.endereco && (
-                <>
-                  <MapPin className="size-3 shrink-0" />
-                  <span className="truncate">{unidade.endereco}</span>
-                  <span>·</span>
-                </>
-              )}
-              {unidade.cnes && <span className="shrink-0">CNES {unidade.cnes} ·</span>}
-              <span className="shrink-0">
-                {n} {n === 1 ? "setor" : "setores"}
-              </span>
-            </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-medium">{unidade.nome}</span>
+          <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+            {unidade.endereco && (
+              <>
+                <MapPin className="size-3 shrink-0" />
+                <span className="truncate">{unidade.endereco}</span>
+              </>
+            )}
+            {unidade.cnes && <span className="shrink-0">{unidade.endereco && "· "}CNES {unidade.cnes}</span>}
           </span>
-        </button>
+        </span>
         {podeEditar && (
           <>
             <Button size="icon-sm" variant="ghost" aria-label={`Editar ${unidade.nome}`} onClick={onEditar}>
@@ -330,7 +199,7 @@ function CartaoUnidade({ unidade, inicialAberta, onEditar, podeEditar }: { unida
               aria-label={`Remover ${unidade.nome}`}
               disabled={pending}
               onClick={() =>
-                confirm(`Remover o estabelecimento "${unidade.nome}" e os seus ${n} setores?`) &&
+                confirm(`Remover o estabelecimento "${unidade.nome}"?`) &&
                 start(async () => {
                   const erro = await removerUnidade(unidade.id);
                   if (erro) alert(erro);
@@ -342,20 +211,6 @@ function CartaoUnidade({ unidade, inicialAberta, onEditar, podeEditar }: { unida
           </>
         )}
       </div>
-      {aberta && (
-        <div className="border-t px-4 pt-2 pb-3 sm:pl-10">
-          {n === 0 ? (
-            <p className="py-1.5 text-sm text-muted-foreground">Nenhum setor cadastrado.</p>
-          ) : (
-            <ul className="divide-y">
-              {unidade.setores.map((s) => (
-                <LinhaSetor key={s.id} setor={s} podeEditar={podeEditar} />
-              ))}
-            </ul>
-          )}
-          {podeEditar && <NovoSetor unidadeId={unidade.id} />}
-        </div>
-      )}
     </Card>
   );
 }
@@ -564,7 +419,7 @@ export function Unidades({
   temSaude = false,
 }: {
   clienteId: string;
-  unidades: UnidadeComSetores[];
+  unidades: Unidade[];
   buscaAtiva?: boolean;
   podeEditar?: boolean;
   temSaude?: boolean;
@@ -578,9 +433,9 @@ export function Unidades({
     <section className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold">Estabelecimentos e setores</h2>
+          <h2 className="text-lg font-semibold">Estabelecimentos</h2>
           <p className="text-sm text-muted-foreground">
-            O técnico escolhe o estabelecimento e o setor no check-in.{podeEditar && " Alterações aqui são salvas na hora."}
+            O técnico escolhe o estabelecimento no check-in.{podeEditar && " Alterações aqui são salvas na hora."}
           </p>
         </div>
         {podeEditar && (
@@ -615,8 +470,8 @@ export function Unidades({
           Nenhum estabelecimento cadastrado. É preciso ao menos um para o cliente aparecer no check-in.
         </Card>
       ) : (
-        unidades.map((u, i) => (
-          <CartaoUnidade key={u.id} unidade={u} inicialAberta={i === 0} onEditar={() => setDialogo(u.id)} podeEditar={podeEditar} />
+        unidades.map((u) => (
+          <CartaoUnidade key={u.id} unidade={u} onEditar={() => setDialogo(u.id)} podeEditar={podeEditar} />
         ))
       )}
 

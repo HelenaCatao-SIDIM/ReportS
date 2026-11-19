@@ -152,11 +152,7 @@ export function lerLinhas(dados: unknown[][]): LeituraPlanilha {
     const coluna = COLUNAS.find((x) => x.apelidos.includes(chaveCabecalho(nome)));
     if (coluna && !indices.has(coluna.chave)) indices.set(coluna.chave, i);
     else if (!coluna) {
-      avisos.push(
-        chaveCabecalho(nome) === "setor"
-          ? "A coluna “Setor” foi ignorada: o cronograma usa as equipes (coluna “Equipe”), não o setor."
-          : `A coluna “${nome}” foi ignorada: o cronograma não usa essa informação.`,
-      );
+      avisos.push(`A coluna “${nome}” foi ignorada: o cronograma não usa essa informação.`);
     }
   });
   const faltando = COLUNAS.filter((c) => c.obrigatoria && !indices.has(c.chave)).map((c) => c.rotulo);

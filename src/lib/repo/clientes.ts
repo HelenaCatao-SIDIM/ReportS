@@ -1,12 +1,12 @@
 import "server-only";
 import { idPlataforma, idTexto, plataforma, reports } from "@/lib/db";
 import { normalizar } from "@/lib/format";
-import type { Cliente, EstadoSistemaCliente, SistemaDoCliente, Setor, Unidade } from "@/lib/types";
+import type { Cliente, EstadoSistemaCliente, SistemaDoCliente, Unidade } from "@/lib/types";
 import { buscarSistema, listarSistemas, nomesDosSistemas } from "./sistemas";
 
 /*
  * Clientes e sistemas do cliente: tabelas `customers` e `clients` da plataforma (o cadastro comum com o SINC).
- * Estabelecimentos e setores: banco do ReportS, ligados ao cliente pelo id da plataforma.
+ * Estabelecimentos: banco do ReportS, ligados ao cliente pelo id da plataforma.
  *
  * O usuário de banco do ReportS só grava as colunas que são dele (ADR-035 do SINC). As inclusões na plataforma são
  * feitas em SQL direto porque o Prisma mandaria também as colunas com valor padrão (datas, situação do ClickUp), que
@@ -184,10 +184,6 @@ export async function adicionarSistemaAoCliente(clienteId: string, codigo: strin
 
 // ---------- Estabelecimentos ----------
 
-export interface UnidadeComSetores extends Unidade {
-  setores: Setor[];
-}
-
 type LinhaUnidade = Awaited<ReturnType<typeof reports.estabelecimento.findFirstOrThrow>>;
 
 const paraUnidade = (u: LinhaUnidade): Unidade => ({
@@ -201,13 +197,11 @@ const paraUnidade = (u: LinhaUnidade): Unidade => ({
   cnes: u.cnes,
 });
 
-const paraSetor = (s: { id: string; estabelecimentoId: string; nome: string }): Setor => ({ id: s.id, unidadeId: s.estabelecimentoId, nome: s.nome });
-
-export async function listarUnidades(clienteId: string): Promise<UnidadeComSetores[]> {
+export async function listarUnidades(clienteId: string): Promise<Unidade[]> {
   const chave = idPlataforma(clienteId);
   if (chave === null) return [];
-  const linhas = await reports.estabelecimento.findMany({ where: { clienteId: chave }, include: { setores: true } });
-  return linhas.map((u) => ({ ...paraUnidade(u), setores: u.setores.map(paraSetor).sort(porNome) })).sort(porNome);
+  const linhas = await reports.estabelecimento.findMany({ where: { clienteId: chave } });
+  return linhas.map(paraUnidade).sort(porNome);
 }
 
 export async function buscarUnidade(id: string): Promise<Unidade | null> {
@@ -249,7 +243,7 @@ export interface EstabelecimentoDoSaude {
 /**
  * Traz para o cliente os estabelecimentos escolhidos na busca do Saúde, pelo código do Saúde: o que é novo é criado (com o
  * raio padrão e a localização do CNES); o que já veio antes tem nome e CNES atualizados, o endereço só quando há um, e a
- * localização só quando ainda não tem (a ajustada à mão não muda). Raio e setores feitos no ReportS não mudam.
+ * localização só quando ainda não tem (a ajustada à mão não muda). O raio ajustado no ReportS não muda.
  */
 export async function importarEstabelecimentosDoSaude(
   clienteId: string,
@@ -280,10 +274,10 @@ export async function importarEstabelecimentosDoSaude(
   return { incluidos: itens.length - atualizados, atualizados };
 }
 
-/** Estabelecimento ou setor com visita registrada não pode ser removido: a visita aponta para ele. */
+/** Estabelecimento com visita registrada não pode ser removido: a visita aponta para ele. */
 export class EmUsoError extends Error {}
 
-/** Remove o estabelecimento e os seus setores, se nenhuma visita aponta para eles. */
+/** Remove o estabelecimento, se nenhuma visita aponta para ele. */
 export async function removerUnidade(id: string): Promise<void> {
   if (await reports.visita.count({ where: { estabelecimentoId: id } })) {
     throw new EmUsoError("Este estabelecimento tem visitas registradas e não pode ser removido.");
@@ -293,34 +287,4 @@ export async function removerUnidade(id: string): Promise<void> {
   }
   // Os itens já cancelados são só histórico do plano e saem junto.
   await reports.$transaction([reports.itemCronograma.deleteMany({ where: { estabelecimentoId: id } }), reports.estabelecimento.deleteMany({ where: { id } })]);
-}
-
-// ---------- Setores ----------
-
-export async function buscarSetor(id: string): Promise<Setor | null> {
-  const s = await reports.setor.findUnique({ where: { id } });
-  return s ? paraSetor(s) : null;
-}
-
-export async function setorDuplicado(unidadeId: string, nome: string, excetoId?: string) {
-  const n = normalizar(nome);
-  const setores = await reports.setor.findMany({ where: { estabelecimentoId: unidadeId }, select: { id: true, nome: true } });
-  return setores.some((s) => normalizar(s.nome) === n && s.id !== excetoId);
-}
-
-export async function criarSetor(unidadeId: string, nome: string): Promise<Setor> {
-  return paraSetor(await reports.setor.create({ data: { id: crypto.randomUUID(), estabelecimentoId: unidadeId, nome } }));
-}
-
-export async function renomearSetor(id: string, nome: string): Promise<void> {
-  await reports.setor.updateMany({ where: { id }, data: { nome } });
-}
-
-/** Setor com visita registrada não pode ser removido. */
-export async function removerSetor(id: string): Promise<void> {
-  if ((await reports.visita.count({ where: { setorId: id } })) || (await reports.visitaSetor.count({ where: { setorId: id } }))) {
-    throw new EmUsoError("Este setor tem visitas registradas e não pode ser removido.");
-  }
-  // O cronograma não usa mais setor: os itens antigos que apontavam para ele só perdem a referência (setor_id vira nulo).
-  await reports.setor.deleteMany({ where: { id } });
 }

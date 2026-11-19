@@ -41,7 +41,7 @@ export async function modeloPlanilha(): Promise<Buffer> {
     ["Prazo: uma data (por exemplo, 20/11/2026). Vale até o fim desse dia."],
     ["Horário: texto livre e opcional (ex.: 09:30 e 14h, Dia todo). Só para informação: não muda o cumprimento."],
     ["Observação: só a Administração vê; não vai para o relatório do cliente."],
-    ["Colunas que não estão na lista (como “Setor”) são ignoradas."],
+    ["Colunas que não estão na lista são ignoradas."],
   ];
   return writeExcelFile([
     { data: [cabecalho, exemplo1, exemplo2], sheet: "Cronograma", columns: [{ width: 28 }, { width: 12 }, { width: 24 }, { width: 22 }, { width: 22 }, { width: 14 }, { width: 16 }, { width: 44 }] },

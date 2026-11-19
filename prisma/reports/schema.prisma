@@ -26,26 +26,12 @@ model Estabelecimento {
   cnes        String   @default("")
   criadoEm    DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em")
-  setores     Setor[]
   visitas     Visita[]
   cronograma  ItemCronograma[]
 
   @@unique([clienteId, codigoSaude])
   @@index([clienteId])
   @@map("estabelecimentos")
-}
-
-model Setor {
-  id                String          @id
-  estabelecimentoId String          @map("estabelecimento_id")
-  nome              String
-  estabelecimento   Estabelecimento @relation(fields: [estabelecimentoId], references: [id], onDelete: Cascade)
-  visitas           Visita[]
-  visitasExtras     VisitaSetor[]
-  cronograma        ItemCronograma[]
-
-  @@index([estabelecimentoId])
-  @@map("setores")
 }
 
 /// Pessoa que aprova relatórios, em cadastro próprio (D-07). Sem login.
@@ -166,8 +152,6 @@ model Visita {
   clienteId                  BigInt           @map("cliente_id")
   contratoId                 String           @map("contrato_id")
   estabelecimentoId          String           @map("estabelecimento_id")
-  setorId                    String?          @map("setor_id")
-  setorOutro                 String?          @map("setor_outro")
   tipo                       String
   status                     String
   entrada                    DateTime
@@ -189,9 +173,7 @@ model Visita {
   relatorioId                String?          @map("relatorio_id")
   contrato                   Contrato         @relation(fields: [contratoId], references: [id])
   estabelecimento            Estabelecimento  @relation(fields: [estabelecimentoId], references: [id])
-  setor                      Setor?           @relation(fields: [setorId], references: [id])
   relatorio                  Relatorio?       @relation(fields: [relatorioId], references: [id])
-  setoresExtras              VisitaSetor[]
   temas                      VisitaTema[]
   equipes                    VisitaEquipe[]
   presencas                  Presenca[]
@@ -203,22 +185,6 @@ model Visita {
   @@index([relatorioId])
   @@index([entrada])
   @@map("visitas")
-}
-
-/// Setores acrescentados à visita depois do check-in (o técnico treinou mais gente do que previa). O setor do check-in fica na própria
-/// visita; estes vêm além dele. Um é de um setor cadastrado do estabelecimento (`setorId`) ou digitado (`setorOutro`).
-model VisitaSetor {
-  id         String  @id
-  visitaId   String  @map("visita_id")
-  setorId    String? @map("setor_id")
-  setorOutro String? @map("setor_outro")
-  ordem      Int
-  visita     Visita  @relation(fields: [visitaId], references: [id], onDelete: Cascade)
-  setor      Setor?  @relation(fields: [setorId], references: [id], onDelete: Restrict)
-
-  @@unique([visitaId, setorId])
-  @@index([setorId])
-  @@map("visita_setores")
 }
 
 model VisitaTema {
@@ -252,7 +218,6 @@ model Presenca {
   nome           String
   cboCodigo      String? @map("cbo_codigo")
   cboTitulo      String? @map("cbo_titulo")
-  setor          String  @default("")
   cpf            String?
   confirmacao    String
   assinatura     String?
@@ -369,15 +334,13 @@ model Email {
   @@map("emails")
 }
 
-/// Item do cronograma de implantação: um estabelecimento (ou um setor dele, a "equipe") que deve receber uma atividade
-/// (tipo de visita) até o prazo. A situação nunca é gravada: sai das visitas encerradas do contrato.
+/// Item do cronograma de implantação: um estabelecimento que deve receber uma atividade (tipo de visita) e as equipes
+/// que precisam ser treinadas, até o prazo. A situação nunca é gravada: sai das visitas encerradas do contrato.
 model ItemCronograma {
   id                String          @id
   clienteId         BigInt          @map("cliente_id")
   contratoId        String          @map("contrato_id")
   estabelecimentoId String          @map("estabelecimento_id")
-  /// Legado: o cronograma não usa mais setor (passou a usar equipes). Fica só como registro dos itens antigos.
-  setorId           String?         @map("setor_id")
   tipo              String
   prazo             DateTime        @db.Date
   /// Horário combinado, texto livre e opcional ("09:30 e 14h"). Só informativo.
@@ -388,7 +351,6 @@ model ItemCronograma {
   atualizadoEm      DateTime        @default(now()) @updatedAt @map("atualizado_em")
   contrato          Contrato        @relation(fields: [contratoId], references: [id])
   estabelecimento   Estabelecimento @relation(fields: [estabelecimentoId], references: [id])
-  setor             Setor?          @relation(fields: [setorId], references: [id], onDelete: SetNull)
   equipes           ItemCronogramaEquipe[]
 
   @@index([contratoId, prazo])
@@ -416,7 +378,7 @@ model Auditoria {
   em         DateTime
   autorId    BigInt   @map("autor_id")
   autorNome  String   @map("autor_nome")
-  /// Tipo da coisa alterada: cliente, estabelecimento, setor, contrato, aprovador, tema, equipe, participante, cronograma, relatorio, configuracao, visita.
+  /// Tipo da coisa alterada: cliente, estabelecimento, contrato, aprovador, tema, equipe, participante, cronograma, relatorio, configuracao, visita.
   entidade   String
   entidadeId String   @default("") @map("entidade_id")
   /// Nome legível da entidade no momento (ex.: nome do cliente), para a tela não precisar buscar.

@@ -17,10 +17,9 @@ export interface ParecidoNoCadastro {
   nome: string;
   estado: EstadoParticipante;
   cbo: Cbo | null;
-  setor: string;
 }
 
-const parecido = (p: Participante): ParecidoNoCadastro => ({ id: p.id, nome: p.nome, estado: p.estado, cbo: p.cbo, setor: p.setor });
+const parecido = (p: Participante): ParecidoNoCadastro => ({ id: p.id, nome: p.nome, estado: p.estado, cbo: p.cbo });
 
 export interface ParticipanteFormState {
   ok?: boolean;
@@ -29,13 +28,13 @@ export interface ParticipanteFormState {
   existente?: ParecidoNoCadastro;
   /** Nomes iguais ou parecidos: confirmar que é outra pessoa para cadastrar mesmo assim. */
   semelhantes?: ParecidoNoCadastro[];
-  valores?: { nome: string; cbo: Cbo | null; setor: string; cpf: string };
+  valores?: { nome: string; cbo: Cbo | null; cpf: string };
 }
 
 /**
  * Cria (participanteId null) um participante provisório ou edita um participante do sistema do cliente.
  * Antes de criar, procura quem já tem o mesmo CPF ou um nome igual ou parecido (RN-PL-34). O nome do confirmado
- * vem do ERP e não é editado aqui; CBO, setor e CPF são do ReportS (RN-PL-42).
+ * vem do ERP e não é editado aqui; CBO e CPF são do ReportS (RN-PL-42).
  */
 export async function salvarParticipante(
   sistemaDoClienteId: string,
@@ -54,11 +53,10 @@ export async function salvarParticipante(
 
   // O nome do confirmado vem do ERP: o que vier do formulário é ignorado.
   const nome = atual?.estado === "confirmado" ? atual.nome : String(fd.get("nome") ?? "").trim();
-  const setor = String(fd.get("setor") ?? "").trim();
   const cpf = soDigitos(String(fd.get("cpf") ?? ""));
   // O título vem da tabela, não do navegador.
   const cbo = await buscarCbo(String(fd.get("cbo") ?? ""));
-  const valores = { nome, cbo, setor, cpf };
+  const valores = { nome, cbo, cpf };
 
   const erros: NonNullable<ParticipanteFormState["erros"]> = {};
   if (nome.length < 3) erros.nome = "Informe o nome completo.";
@@ -84,7 +82,7 @@ export async function salvarParticipante(
     };
   }
 
-  const dados = { nome, cbo: cbo!, setor, cpf: exigeCpf ? cpf : null };
+  const dados = { nome, cbo: cbo!, cpf: exigeCpf ? cpf : null };
   const mascara = (c: string | null | undefined) => (c ? mascararCpf(c) : "");
   if (participanteId) {
     await atualizarParticipante(participanteId, dados);
@@ -93,7 +91,6 @@ export async function salvarParticipante(
       mudancas: mudancasDe([
         { campo: "Nome", antes: atual?.nome, depois: nome },
         { campo: "Ocupação (CBO)", antes: atual?.cbo?.titulo, depois: cbo!.titulo },
-        { campo: "Setor", antes: atual?.setor, depois: setor },
         { campo: "CPF", antes: mascara(atual?.cpf), depois: mascara(dados.cpf) },
       ]),
     });
@@ -104,7 +101,6 @@ export async function salvarParticipante(
       mudancas: mudancasDe([
         { campo: "Nome", antes: undefined, depois: nome },
         { campo: "Ocupação (CBO)", antes: undefined, depois: cbo!.titulo },
-        { campo: "Setor", antes: undefined, depois: setor },
         { campo: "CPF", antes: undefined, depois: mascara(dados.cpf) },
       ]),
     });

@@ -178,16 +178,13 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
 
   const hojeLocal = () => new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
   const somarDias = (data: string, n: number) => new Date(Date.parse(`${data}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
-  /** Treinamento aberto com as equipes do check-in; com `setorId`, simula uma visita antiga (do tempo do setor no check-in). */
-  const treinoNo = async (setorId: string | null, equipeIds: string[] = []) => {
-    const v = await visitas.abrirVisita({
+  /** Treinamento aberto com as equipes do check-in. */
+  const treinoNo = (equipeIds: string[] = []) =>
+    visitas.abrirVisita({
       tecnicoId: tecnico.id, clienteId, contratoId, unidadeId: estabelecimentoId, tipo: "treinamento",
       checkin: { latitude: -22.9, longitude: -47.06 }, meio: "celular", distanciaCheckinM: 10, raioCheckinM: 50,
       fotoAmbiente: { id: "f1", url: "/arquivos/f1" }, printTela: null, linkReuniao: null, equipeIds,
     });
-    if (setorId) await db.reports.visita.update({ where: { id: v.id }, data: { setorId } });
-    return v;
-  };
 
   test("cronograma: só a visita encerrada, do tipo e do estabelecimento do item, que treinou as equipes dele, cumpre", async () => {
     const t = await temas.criarTema({ nome: "Prontuário", sistema: "saude", modulo: "Atendimento" });
@@ -204,21 +201,20 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     assert.deepEqual(await situacao(), { "Equipe médica/treinamento": "no_prazo", "Equipe de enfermagem/treinamento": "atrasado", "todas/implantacao": "a_vencer" });
 
     // Em andamento não conta. As equipes vêm do check-in.
-    const v = await treinoNo(null, [medica.id]);
+    const v = await treinoNo([medica.id]);
     assert.deepEqual((await visitas.buscarVisita(v.id))?.equipeIds, [medica.id], "o check-in grava as equipes");
-    assert.equal((await visitas.buscarVisita(v.id))?.setorNome, "—", "visita nova não tem setor");
     assert.equal((await situacao())["Equipe médica/treinamento"], "no_prazo");
     // Encerrada conta, só para a equipe que ela treinou.
     await encerrar(v.id);
     assert.deepEqual(await situacao(), { "Equipe médica/treinamento": "cumprido", "Equipe de enfermagem/treinamento": "atrasado", "todas/implantacao": "a_vencer" });
 
     // Visita cancelada não conta.
-    const c = await treinoNo(null);
+    const c = await treinoNo();
     await visitas.definirEquipes(c.id, tecnico.id, [enfermagem.id]);
     await visitas.cancelarPelaAdministracao(c.id, tecnico, "Check-in feito por engano");
     assert.equal((await situacao())["Equipe de enfermagem/treinamento"], "atrasado");
     // Depois do prazo, cumpre com atraso.
-    const d = await treinoNo(null);
+    const d = await treinoNo();
     await visitas.definirEquipes(d.id, tecnico.id, [enfermagem.id]);
     await encerrar(d.id);
     assert.equal((await situacao())["Equipe de enfermagem/treinamento"], "cumprido_com_atraso");
@@ -258,43 +254,10 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     assert.equal(item?.situacao, "cumprido", "a visita retroativa cumpre o item do cronograma");
   });
 
-  test("setores acrescentados à visita: sem repetir e só até o check-out", async () => {
-    const recepcao = await db.reports.setor.create({ data: { id: crypto.randomUUID(), estabelecimentoId, nome: "Recepção" } });
-    const farmacia = await db.reports.setor.create({ data: { id: crypto.randomUUID(), estabelecimentoId, nome: "Farmácia" } });
-
-    const v = await treinoNo(recepcao.id);
-    assert.equal(await visitas.adicionarSetorExtra(v.id, tecnico.id, { setorId: recepcao.id }), "Este setor já está na visita.", "o do check-in não entra de novo");
-    assert.equal(await visitas.adicionarSetorExtra(v.id, tecnico.id, { setorId: farmacia.id }), null);
-    assert.equal(await visitas.adicionarSetorExtra(v.id, tecnico.id, { setorId: farmacia.id }), "Este setor já está na visita.", "nem o acrescentado duas vezes");
-    assert.equal(await visitas.adicionarSetorExtra(v.id, tecnico.id, { setorOutro: "Almoxarifado" }), null);
-    assert.equal(await visitas.adicionarSetorExtra(v.id, tecnico.id, { setorOutro: "  almoxarifado " }), "Este setor já está na visita.", "o digitado também não repete, sem diferenciar caixa");
-    assert.equal(await visitas.adicionarSetorExtra(v.id, tecnico.id, { setorOutro: "farmacia" }), "Este setor já está na visita.", "digitar o nome de um setor que já está na visita (cadastrado) também não repete");
-
-    const aberta = (await visitas.buscarVisita(v.id))!;
-    assert.deepEqual((aberta.setoresExtras ?? []).map((s) => s.nome), ["Farmácia", "Almoxarifado"], "na ordem em que foram acrescentados");
-
-    // Outro técnico não mexe; depois do check-out ninguém acrescenta.
-    await assert.rejects(visitas.adicionarSetorExtra(v.id, "999999999", { setorId: farmacia.id }), /não encontrada/);
-    await visitas.removerSetorExtra(v.id, tecnico.id, (aberta.setoresExtras ?? [])[1].id);
-    assert.deepEqual(((await visitas.buscarVisita(v.id))!.setoresExtras ?? []).map((s) => s.nome), ["Farmácia"], "o acrescentado pode ser retirado");
-    await encerrar(v.id);
-    await assert.rejects(visitas.adicionarSetorExtra(v.id, tecnico.id, { setorId: farmacia.id }), /encerrada/);
-
-    // O setor acrescentado conta como "com visita": não pode ser removido.
-    await assert.rejects(clientes.removerSetor(farmacia.id), /visitas registradas/);
-
-    // A administração move a visita para outro estabelecimento: os setores acrescentados (do anterior) saem, e fica no histórico.
-    const outra = await db.reports.estabelecimento.create({ data: { id: crypto.randomUUID(), clienteId: BigInt(clienteId), nome: "Anexo", raioMetros: 50 } });
-    const antes = (await visitas.buscarVisita(v.id))!;
-    const mudancas = await visitas.corrigirPelaAdministracao(v.id, { ...antes, unidadeId: outra.id, setorId: null, setorOutro: null, saida: antes.saida!, removerPresencas: [], removerFotos: [] }, tecnico, "estabelecimento errado");
-    assert.ok(mudancas.some((m) => m.campo === "Setores acrescentados" && /Farmácia/.test(m.antes)), "o histórico diz quais setores saíram");
-    assert.deepEqual((await visitas.buscarVisita(v.id))!.setoresExtras, []);
-  });
-
   test("a presença guarda como foi validada: login no Saúde, sem login (técnico) ou nada (login não exigido)", async () => {
     const v = await checkin();
     const pessoa = (id: string, nome: string, validacao?: "login_saude" | "sem_login" | null) => ({
-      participanteId: id, estado: "confirmado" as const, nome, cbo: null, setor: "", cpf: null, confirmacao: "nominal" as const, assinatura: null, validacao,
+      participanteId: id, estado: "confirmado" as const, nome, cbo: null, cpf: null, confirmacao: "nominal" as const, assinatura: null, validacao,
     });
     await visitas.adicionarPresenca(v.id, tecnico.id, pessoa("101", "Com login", "login_saude"));
     await visitas.adicionarPresenca(v.id, tecnico.id, pessoa("102", "Sem login", "sem_login"));
@@ -333,15 +296,9 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     await cronograma.definirItemCronogramaCancelado(item.id, false);
   });
 
-  test("cronograma: item ativo impede remover o estabelecimento; o setor antigo do item sai sem barrar; o cancelado sai junto", async () => {
-    const setor = await db.reports.setor.create({ data: { id: crypto.randomUUID(), estabelecimentoId, nome: "Protocolo" } });
+  test("cronograma: item ativo impede remover o estabelecimento; o cancelado sai junto", async () => {
     await cronograma.criarItemCronograma({ contratoId, unidadeId: estabelecimentoId, equipeIds: [], tipo: "treinamento", prazo: somarDias(hojeLocal(), 5), observacao: "" });
     const [item] = await cronograma.listarCronograma(hojeLocal(), { contratoId });
-    // Item antigo, de quando o cronograma usava setor.
-    await db.reports.itemCronograma.update({ where: { id: item.id }, data: { setorId: setor.id } });
-    await clientes.removerSetor(setor.id);
-    assert.equal(await db.reports.setor.count({ where: { id: setor.id } }), 0, "o cronograma não barra mais a remoção do setor");
-    assert.equal((await db.reports.itemCronograma.findUnique({ where: { id: item.id } }))?.setorId, null, "o item só perde a referência");
 
     await assert.rejects(clientes.removerUnidade(estabelecimentoId), /itens ativos no cronograma/);
     await cronograma.definirItemCronogramaCancelado(item.id, true);

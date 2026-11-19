@@ -53,15 +53,14 @@ test("a visita precisa ter treinado todas as equipes do item (pode ter treinado 
   assert.equal(calcularSituacao(item(), [visita({ unidadeId: "u2" })], "2026-11-25").situacao, "atrasado", "outro estabelecimento não cumpre");
 });
 
-test("mesmas equipes ignora ordem e repetição; o texto do item mostra equipes, ou o setor nas versões antigas", () => {
+test("mesmas equipes ignora ordem e repetição; o texto do item mostra as equipes", () => {
   assert.equal(mesmasEquipes(["a", "b"], ["b", "a", "a"]), true);
   assert.equal(mesmasEquipes(["a"], ["a", "b"]), false);
   assert.equal(mesmasEquipes([], []), true);
   assert.equal(equipesDoItem({ equipes: ["Equipe médica", "Coordenação"] }), "Equipe médica, Coordenação");
   assert.equal(equipesDoItem({ equipes: [] }), "Todas as equipes");
   assert.equal(equipesDoItem({ equipeNomes: ["Coordenação"] }), "Coordenação");
-  assert.equal(equipesDoItem({ setorNome: "Recepção" }), "Setor Recepção", "versão emitida antes das equipes");
-  assert.equal(equipesDoItem({ setorNome: null }), "Todas as equipes");
+  assert.equal(equipesDoItem({}), "Todas as equipes", "versão emitida antes das equipes");
 });
 
 test("itens iguais em dias diferentes: cada visita cumpre um só, o de prazo mais cedo", () => {

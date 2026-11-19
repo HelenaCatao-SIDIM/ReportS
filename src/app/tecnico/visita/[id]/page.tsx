@@ -7,7 +7,6 @@ import { getUsuarioAtual } from "@/lib/dal";
 import { buscarVisita, type VisitaDetalhada } from "@/lib/repo/visitas";
 import { listarTemas } from "@/lib/repo/temas";
 import { listarEquipes } from "@/lib/repo/equipes";
-import { listarUnidades } from "@/lib/repo/clientes";
 import { buscarContrato } from "@/lib/repo/contratos";
 import { formatarData, formatarDataHora, formatarHora } from "@/lib/datas";
 import { rotuloAtendidos, rotuloTipo } from "@/lib/visitas";
@@ -38,7 +37,6 @@ import { Card } from "@/components/ui/card";
 import { TemasVisita, type PorEquipe } from "./temas-visita";
 import { FotosExtras } from "./fotos-extras";
 import { ParticipantesVisita } from "./participantes-visita";
-import { SetoresVisita } from "./setores-visita";
 import { AnotacoesVisita } from "./anotacoes-visita";
 
 export default function VisitaTecnicoPage({ params, searchParams }: PageProps<"/tecnico/visita/[id]">) {
@@ -100,10 +98,9 @@ function Cabecalho({ v }: { v: VisitaDetalhada }) {
 }
 
 async function EmAndamento({ v }: { v: VisitaDetalhada }) {
-  const [todosTemas, contrato, unidades, equipes] = await Promise.all([
+  const [todosTemas, contrato, equipes] = await Promise.all([
     listarTemas(),
     buscarContrato(v.contratoId),
-    listarUnidades(v.clienteId),
     listarEquipes(),
   ]);
   // Só os temas do sistema do contrato da visita.
@@ -118,13 +115,6 @@ async function EmAndamento({ v }: { v: VisitaDetalhada }) {
   // Login só quando o contrato marca "login" (e o sistema tem login). Aí o técnico tem o atalho "registrar sem login" (token assinado, 30 min).
   const loginLigado = !!contrato && exigeLoginNaPresenca(contrato.nivel, v.tipo) && !!(await configLoginDoSistema(contrato.sistemaDoClienteId));
   const semLoginHref = loginLigado ? `/tecnico/visita/${v.id}/presenca?tecnico=${await assinarProva({ finalidade: "sem_login", visitaId: v.id }, 30)}` : null;
-  // Setores que ainda podem ser acrescentados: os do estabelecimento da visita que não estão nela.
-  const extras = v.setoresExtras ?? [];
-  const jaNaVisita = new Set([v.setorId, ...extras.map((s) => s.setorId)].filter((x): x is string => !!x));
-  const disponiveis = (unidades.find((u) => u.id === v.unidadeId)?.setores ?? [])
-    .filter((s) => !jaNaVisita.has(s.id))
-    .map((s) => ({ id: s.id, nome: s.nome }))
-    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
   return (
     <div className="space-y-4">
       {/* O check-in já foi feito: o rascunho dele cumpriu o papel. */}
@@ -144,8 +134,6 @@ async function EmAndamento({ v }: { v: VisitaDetalhada }) {
         ehTreinamento={v.tipo === "treinamento" || v.tipo === "treinamento_online"}
         semLoginHref={semLoginHref}
       />
-      {/* Setor é das visitas antigas: as novas usam as equipes (check-in e "Equipes treinadas"). */}
-      {(v.setorNome !== "—" || extras.length > 0) && <SetoresVisita visitaId={v.id} principal={v.setorNome} extras={extras} disponiveis={disponiveis} />}
       <div className="space-y-2 pb-2">
         <Button nativeButton={false} render={<Link href={`/tecnico/visita/${v.id}/checkout`} />} className="h-12 w-full text-base">
           <LogOut />
