@@ -69,4 +69,5 @@ Código, nomes, comentários e mensagens em **português**. Identificadores sem 
 
 - shadcn/ui sobre Base UI (`components.json`, estilo `base-nova`); componentes gerados em `src/components/ui/`.
 - Tailwind CSS 4, ícones `lucide-react`, `cn` de `src/lib/utils.ts`.
+- Marca: logo do ReportS em `public/reports/logo.png` (componente `LogoReports`, `src/components/shell/logo-reports.tsx`) e ícones do navegador em `src/app/favicon.ico`, `icon.png` e `apple-icon.png`. A logo da SIDIM (`public/sidim/logo.png`) é a da empresa e fica nos documentos ao cliente (PDF e página do aprovador).
 - Administração é pensada para computador; App do Técnico e página do aprovador, para celular.

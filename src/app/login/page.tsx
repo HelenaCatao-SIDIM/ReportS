@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { ClipboardCheck } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { sincUrl } from "@/lib/config";
+import { LogoReports } from "@/components/shell/logo-reports";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Entrar · ReportS" };
@@ -11,10 +11,9 @@ export default function LoginPage() {
     <main className="flex min-h-svh items-center justify-center bg-muted/40 px-4 py-10">
       <div className="w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center gap-2 text-center">
-          <div className="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <ClipboardCheck className="size-6" />
-          </div>
-          <h1 className="text-xl font-semibold">ReportS</h1>
+          <h1>
+            <LogoReports altura={44} />
+          </h1>
           <p className="text-sm text-muted-foreground">Registro de visitas e treinamentos</p>
         </div>
         <Card>
