@@ -2,11 +2,12 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ClipboardCheck, LayoutDashboard, LogOut, Smartphone } from "lucide-react";
+import { LayoutDashboard, LogOut, Smartphone } from "lucide-react";
 import { logout } from "@/app/actions/auth";
 import { getUsuarioAtual } from "@/lib/dal";
 import { acessoAdministracao, acessoTecnico } from "@/lib/permissoes";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LogoReports } from "@/components/shell/logo-reports";
 
 export const metadata: Metadata = { title: "Início · ReportS" };
 
@@ -15,10 +16,9 @@ export default function InicioPage() {
     <main className="flex min-h-svh items-center justify-center bg-muted/40 px-4 py-10">
       <div className="w-full max-w-md space-y-6">
         <div className="flex flex-col items-center gap-2 text-center">
-          <div className="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <ClipboardCheck className="size-6" />
-          </div>
-          <h1 className="text-xl font-semibold">ReportS</h1>
+          <h1>
+            <LogoReports altura={44} />
+          </h1>
         </div>
         <Suspense fallback={<div className="h-40 animate-pulse rounded-xl bg-muted" />}>
           <Conteudo />

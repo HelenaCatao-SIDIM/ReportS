@@ -9,7 +9,6 @@ import {
   BookOpen,
   Building2,
   CalendarClock,
-  ClipboardCheck,
   FileText,
   LayoutDashboard,
   Mail,
@@ -23,6 +22,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { PERMISSOES_DA_TELA, temAlguma } from "@/lib/permissoes";
+import { LogoReports } from "@/components/shell/logo-reports";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -62,14 +62,9 @@ const GRUPOS: { titulo?: string; itens: NavItem[] }[] = [
 
 function Marca() {
   return (
-    <div className="flex items-center gap-2 px-2">
-      <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-        <ClipboardCheck className="size-4" />
-      </div>
-      <div className="leading-tight">
-        <div className="text-sm font-semibold">ReportS</div>
-        <div className="text-xs text-muted-foreground">Administração</div>
-      </div>
+    <div className="px-2 leading-tight">
+      <LogoReports altura={28} />
+      <div className="mt-1 text-xs text-muted-foreground">Administração</div>
     </div>
   );
 }
