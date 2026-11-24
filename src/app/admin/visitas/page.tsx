@@ -20,6 +20,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AcoesAndamento } from "./acoes-andamento";
+import { RelatorioDeVisitas } from "./relatorio-visitas";
 
 const TITULO = "Visitas";
 const DESCRICAO = "Acompanhe as visitas em andamento, encerre as esquecidas, corrija as encerradas e lance as que já aconteceram.";
@@ -167,10 +168,23 @@ async function Encerradas({ sp }: { sp: Record<string, string | string[] | undef
     listarComPermissao(PERMISSOES.tecnico),
   ]);
 
+  const paraRelatorio = visitas
+    .filter((v) => v.status === "encerrada")
+    .map((v) => ({
+      id: v.id,
+      data: formatarData(v.entrada),
+      clienteNome: v.clienteNome,
+      sistemaNome: v.sistemaNome,
+      unidadeNome: v.unidadeNome,
+      tipo: rotuloTipo(v.tipo),
+      horario: v.saida ? `${formatarHora(v.entrada)} – ${formatarHora(v.saida)}` : formatarHora(v.entrada),
+    }));
+
   return (
     <>
-      <form className="mb-4 flex flex-wrap items-end gap-2">
-        <input type="hidden" name="aba" value="encerradas" />
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+        <form className="flex flex-wrap items-end gap-2">
+          <input type="hidden" name="aba" value="encerradas" />
         <select name="cliente" defaultValue={f.cliente} aria-label="Cliente" className={cn(selectClass, "w-auto bg-background")}>
           <option value="">Todos os clientes</option>
           {clientes.map((c) => (
@@ -199,10 +213,12 @@ async function Encerradas({ sp }: { sp: Record<string, string | string[] | undef
           <input type="checkbox" name="canceladas" value="1" defaultChecked={f.canceladas} className="size-4 accent-primary" />
           Incluir canceladas
         </label>
-        <Button type="submit" variant="outline" className="h-9">
-          Filtrar
-        </Button>
-      </form>
+          <Button type="submit" variant="outline" className="h-9">
+            Filtrar
+          </Button>
+        </form>
+        <RelatorioDeVisitas visitas={paraRelatorio} />
+      </div>
 
       <Card className="py-0">
         <div className="overflow-x-auto">

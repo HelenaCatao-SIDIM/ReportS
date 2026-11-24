@@ -90,15 +90,21 @@ function AssinaturaPdf({ marca }: { marca?: MarcaPdf }) {
   );
 }
 
-function Rodape({ conteudo, versao }: { conteudo: ConteudoCongelado; versao: number }) {
+/** Rodapé fixo (repete em toda página): um texto à esquerda e a numeração à direita. */
+function RodapeFixo({ texto }: { texto: string }) {
   return (
     <View style={s.rodape} fixed>
-      <Text>
-        {conteudo.cliente.nome} · {conteudo.sistema.nome} · {formatarDataCurta(conteudo.de)} a {formatarDataCurta(conteudo.ate)} · v{versao}
-      </Text>
+      <Text>{texto}</Text>
       <Text render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`} />
     </View>
   );
+}
+
+const textoRodape = (conteudo: ConteudoCongelado, versao: number) =>
+  `${conteudo.cliente.nome} · ${conteudo.sistema.nome} · ${formatarDataCurta(conteudo.de)} a ${formatarDataCurta(conteudo.ate)} · v${versao}`;
+
+function Rodape({ conteudo, versao }: { conteudo: ConteudoCongelado; versao: number }) {
+  return <RodapeFixo texto={textoRodape(conteudo, versao)} />;
 }
 
 function Texto({ rotulo, valor }: { rotulo: string; valor: string }) {
@@ -110,7 +116,7 @@ function Texto({ rotulo, valor }: { rotulo: string; valor: string }) {
   );
 }
 
-function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao, marca }: { v: VisitaDetalhada; outroPeriodo: boolean; imagens: ImagensPdf; conteudo: ConteudoCongelado; versao: number; marca?: MarcaPdf }) {
+function PaginaVisita({ v, outroPeriodo, clienteNome, imagens, rodapeTexto, marca }: { v: VisitaDetalhada; outroPeriodo: boolean; clienteNome?: string; imagens: ImagensPdf; rodapeTexto: string; marca?: MarcaPdf }) {
   const fotos = [v.fotoAmbiente, v.printTela, ...v.fotosExtras].filter((f): f is NonNullable<typeof f> => !!f && imagens.has(f.url));
   const temas = [...v.temas.map((t) => `${t.nome} (${t.sistemaNome} / ${t.modulo})`), ...(v.temaAdicional ? [`${v.temaAdicional} (adicional)`] : [])];
 
@@ -121,7 +127,7 @@ function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao, marca }: { v
         {formatarData(v.entrada)} · {rotuloTipo(v.tipo)}
       </Text>
       <Text style={[s.subtitulo, { marginBottom: 12 }]}>
-        {v.unidadeNome} · {rotuloAtendidos(v)}
+        {clienteNome ? `${clienteNome} · ` : ""}{v.unidadeNome} · {rotuloAtendidos(v)}
         {outroPeriodo ? "   (visita de período anterior)" : ""}
       </Text>
 
@@ -191,7 +197,7 @@ function PaginaVisita({ v, outroPeriodo, imagens, conteudo, versao, marca }: { v
       ) : (
         <Text style={s.vazio}>Nenhuma foto.</Text>
       )}
-      <Rodape conteudo={conteudo} versao={versao} />
+      <RodapeFixo texto={rodapeTexto} />
     </Page>
   );
 }
@@ -436,7 +442,104 @@ export function RelatorioPdf({
       {c.relatorioAtendimentos === "analitico" && c.suporte?.situacao === "ok" && <PaginasAtendimentosPdf r={c.suporte} conteudo={c} versao={versao} marca={marca} />}
 
       {c.visitas.map((v) => (
-        <PaginaVisita key={v.id} v={v} outroPeriodo={c.deOutroPeriodo.includes(v.id)} imagens={imagens} conteudo={c} versao={versao} marca={marca} />
+        <PaginaVisita key={v.id} v={v} outroPeriodo={c.deOutroPeriodo.includes(v.id)} imagens={imagens} rodapeTexto={textoRodape(c, versao)} marca={marca} />
+      ))}
+    </Document>
+  );
+}
+
+const minutosDaVisita = (v: VisitaDetalhada) => (v.saida ? Math.round((new Date(v.saida).getTime() - new Date(v.entrada).getTime()) / 60000) : 0);
+
+/**
+ * Relatório avulso de visitas: PDF só com as visitas escolhidas a dedo, sem atendimentos do suporte nem cronograma e sem
+ * versão/aprovação. Gerado pela Administração (tela de Visitas) e pode misturar clientes — por isso a capa é genérica e cada
+ * página de visita mostra de qual cliente é. As visitas vêm ordenadas por data (da mais antiga à mais recente).
+ */
+export function RelatorioVisitasPdf({
+  visitas,
+  geradoEm,
+  autorNome,
+  imagens,
+  marca,
+}: {
+  visitas: VisitaDetalhada[];
+  geradoEm: string;
+  autorNome: string;
+  imagens: ImagensPdf;
+  marca?: MarcaPdf;
+}) {
+  const presenciais = visitas.filter((v) => ehPresencial(v.tipo)).reduce((soma, v) => soma + minutosDaVisita(v), 0);
+  const online = visitas.filter((v) => !ehPresencial(v.tipo)).reduce((soma, v) => soma + minutosDaVisita(v), 0);
+  const clientes = [...new Set(visitas.map((v) => v.clienteNome))];
+  const tecnicos = [...new Set(visitas.map((v) => v.tecnicoNome))];
+  const de = visitas[0]?.entrada;
+  const ate = visitas[visitas.length - 1]?.entrada;
+  const periodo = de && ate ? `${formatarDataCurta(de)} a ${formatarDataCurta(ate)}` : "—";
+  const total = `${visitas.length} ${visitas.length === 1 ? "visita" : "visitas"}`;
+  const rodape = `Relatório de visitas · ${total} · gerado em ${formatarDataHora(geradoEm)}`;
+
+  return (
+    <Document title={`Relatório de visitas - ${periodo}`} author="SIDIM" language="pt-BR">
+      <Page size="A4" style={s.pagina}>
+        <CabecalhoPdf marca={marca} />
+        <Text style={s.titulo}>Relatório de visitas</Text>
+        <Text style={s.subtitulo}>
+          {periodo} · {total}
+        </Text>
+
+        <View style={s.caixa}>
+          <View style={s.grade}>
+            <Campo rotulo="Período das visitas" valor={periodo} />
+            <Campo rotulo="Visitas" valor={String(visitas.length)} />
+            <Campo rotulo="Gerado em" valor={formatarDataHora(geradoEm)} />
+            <Campo rotulo={clientes.length === 1 ? "Cliente" : "Clientes"} valor={clientes.length === 1 ? clientes[0] : `${clientes.length} clientes`} />
+            <Campo rotulo={tecnicos.length === 1 ? "Técnico" : "Técnicos"} valor={tecnicos.length === 1 ? tecnicos[0] : `${tecnicos.length} técnicos`} />
+            <Campo rotulo="Gerado por" valor={autorNome} />
+          </View>
+        </View>
+
+        {(presenciais > 0 || online > 0) && (
+          <View style={[s.caixa, { flexDirection: "row" }]}>
+            <View style={{ width: "50%" }}>
+              <Text style={s.rotulo}>Total de horas presenciais</Text>
+              <Text style={s.destaque}>{formatarMinutos(presenciais)}</Text>
+            </View>
+            {online > 0 && (
+              <View style={{ width: "50%" }}>
+                <Text style={s.rotulo}>Treinamento online</Text>
+                <Text style={[s.destaque, { fontSize: 14 }]}>{formatarMinutos(online)}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        <Text style={s.secao}>Visitas</Text>
+        <View style={s.tabela}>
+          <View style={[s.linha, s.cabecalho]}>
+            <Text style={{ width: "12%" }}>Data</Text>
+            <Text style={{ width: "26%" }}>Cliente</Text>
+            <Text style={{ width: "20%" }}>Tipo</Text>
+            <Text style={{ width: "24%" }}>Estabelecimento</Text>
+            <Text style={{ width: "18%" }}>Horário</Text>
+          </View>
+          {visitas.map((v) => (
+            <View key={v.id} style={s.linha} wrap={false}>
+              <Text style={{ width: "12%" }}>{formatarData(v.entrada)}</Text>
+              <Text style={{ width: "26%" }}>{v.clienteNome}</Text>
+              <Text style={{ width: "20%" }}>{rotuloTipo(v.tipo)}</Text>
+              <Text style={{ width: "24%" }}>{v.unidadeNome}</Text>
+              <Text style={{ width: "18%" }}>
+                {formatarHora(v.entrada)}–{v.saida ? formatarHora(v.saida) : "—"}
+              </Text>
+            </View>
+          ))}
+        </View>
+        <Text style={s.vazio}>Os CPFs dos participantes aparecem mascarados neste documento.</Text>
+        <RodapeFixo texto={rodape} />
+      </Page>
+
+      {visitas.map((v) => (
+        <PaginaVisita key={v.id} v={v} outroPeriodo={false} clienteNome={v.clienteNome} imagens={imagens} rodapeTexto={rodape} marca={marca} />
       ))}
     </Document>
   );
