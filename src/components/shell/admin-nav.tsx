@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useState } from "react";
 import {
+  Activity,
   BadgeCheck,
   BookOpen,
   Building2,
@@ -51,6 +52,7 @@ const GRUPOS: { titulo?: string; itens: NavItem[] }[] = [
       { href: "/admin/cronograma", label: "Cronograma", icon: CalendarClock },
       { href: "/admin/visitas", label: "Visitas", icon: Timer },
       { href: "/admin/auditoria", label: "Auditoria", icon: ScrollText },
+      { href: "/admin/requisicoes", label: "Logs de requisição", icon: Activity },
       { href: "/admin/relatorios", label: "Relatórios", icon: FileText },
       { href: "/admin/emails", label: "Caixa de saída (teste)", icon: Mail },
     ],

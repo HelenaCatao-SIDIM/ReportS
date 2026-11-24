@@ -99,6 +99,40 @@ export async function fichaDoCnes(cnes: string, municipio: string, agora = Date.
   }
 }
 
+export interface EstabelecimentoCnes {
+  /** CNES de 7 dígitos. */
+  cnes: string;
+  /** Nome fantasia no CNES. */
+  nome: string;
+}
+
+/**
+ * A rede própria da prefeitura de um município, pelo código IBGE de 6 dígitos: estabelecimentos de gestão municipal
+ * (`gestao=M`) e natureza pública (`natureza=1`). Lista só a identificação (CNES e nome) — o endereço e as coordenadas
+ * de cada um vêm da ficha (`fichaDoCnes`/`fichasDoCnes`), buscada só dos escolhidos. Devolve [] se o código não bate
+ * ou se o CNES não respondeu. Itens sem CNES ou sem nome ficam de fora.
+ */
+export async function listarEstabelecimentosMunicipais(municipioIbge: string): Promise<EstabelecimentoCnes[]> {
+  const cod = municipioIbge.replace(/\D/g, "");
+  if (cod.length !== 6) return [];
+  try {
+    const lista = await json(`${BASE}?gestao=M&natureza=1&municipio=${cod}`);
+    if (!Array.isArray(lista)) return [];
+    const vistos = new Set<string>();
+    return lista.flatMap((item): EstabelecimentoCnes[] => {
+      if (!item || typeof item !== "object") return [];
+      const o = item as Record<string, unknown>;
+      const cnes = texto(o.cnes).replace(/\D/g, "");
+      const nome = texto(o.noFantasia);
+      if (cnes.length !== 7 || !nome || vistos.has(cnes)) return [];
+      vistos.add(cnes);
+      return [{ cnes, nome }];
+    });
+  } catch {
+    return [];
+  }
+}
+
 /** Fichas de vários CNES, poucas por vez (o DataSUS é lento e não deve ser sobrecarregado). Chave: "município|cnes". */
 export async function fichasDoCnes(pedidos: { cnes: string; municipio: string }[]): Promise<Map<string, FichaCnes | null>> {
   const unicos = [...new Map(pedidos.map((p) => [`${p.municipio}|${p.cnes}`, p])).values()];

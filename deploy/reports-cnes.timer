@@ -1,0 +1,11 @@
+# /etc/systemd/system/reports-cnes.timer — uma vez por semana.
+[Unit]
+Description=ReportS: estabelecimentos das prefeituras pelo CNES, uma vez por semana
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=1w
+Persistent=true
+
+[Install]
+WantedBy=timers.target

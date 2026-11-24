@@ -274,6 +274,63 @@ export async function importarEstabelecimentosDoSaude(
   return { incluidos: itens.length - atualizados, atualizados };
 }
 
+/** CNES que já estão no cliente (para a busca do CNES marcar o que é "Já importado"). */
+export async function cnesDoCliente(clienteId: string): Promise<string[]> {
+  const chave = idPlataforma(clienteId);
+  if (chave === null) return [];
+  const linhas = await reports.estabelecimento.findMany({ where: { clienteId: chave, cnes: { not: "" } }, select: { cnes: true } });
+  return linhas.map((l) => l.cnes);
+}
+
+export interface EstabelecimentoDoCnes {
+  /** CNES de 7 dígitos (a chave de não-duplicar). */
+  cnes: string;
+  nome: string;
+  endereco: string;
+  /** Da ficha do CNES; nulas quando não há. */
+  latitude: number | null;
+  longitude: number | null;
+}
+
+/**
+ * Traz para o cliente a rede da prefeitura vinda do CNES, casando pelo **CNES**: quem já existe (do Saúde ou de um CNES
+ * anterior) com o mesmo CNES é atualizado, não duplicado. O novo entra com o raio padrão e a localização da ficha; o que
+ * já existe tem nome e CNES atualizados, o endereço só quando há um, e a localização só quando ainda não tem (a ajustada
+ * à mão não muda).
+ */
+export async function importarEstabelecimentosDoCnes(
+  clienteId: string,
+  itens: EstabelecimentoDoCnes[],
+  raioPadrao: number,
+): Promise<{ incluidos: number; atualizados: number }> {
+  const chave = idPlataforma(clienteId);
+  if (chave === null) throw new Error("Cliente não encontrado");
+  const existentes = await reports.estabelecimento.findMany({
+    where: { clienteId: chave, cnes: { in: itens.map((i) => i.cnes) } },
+    select: { id: true, cnes: true, latitude: true, longitude: true },
+  });
+  const porCnes = new Map(existentes.map((e) => [e.cnes, e]));
+  let atualizados = 0;
+  await reports.$transaction(
+    itens.map((i) => {
+      const atual = porCnes.get(i.cnes);
+      const local = i.latitude !== null && i.longitude !== null ? { latitude: i.latitude, longitude: i.longitude } : {};
+      if (atual) {
+        atualizados++;
+        const temLocal = atual.latitude !== null && atual.longitude !== null;
+        return reports.estabelecimento.update({
+          where: { id: atual.id },
+          data: { nome: i.nome, cnes: i.cnes, ...(i.endereco ? { endereco: i.endereco } : {}), ...(temLocal ? {} : local) },
+        });
+      }
+      return reports.estabelecimento.create({
+        data: { id: crypto.randomUUID(), clienteId: chave, nome: i.nome, cnes: i.cnes, endereco: i.endereco, raioMetros: raioPadrao, ...local },
+      });
+    }),
+  );
+  return { incluidos: itens.length - atualizados, atualizados };
+}
+
 /** Estabelecimento com visita registrada não pode ser removido: a visita aponta para ele. */
 export class EmUsoError extends Error {}
 

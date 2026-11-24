@@ -401,3 +401,19 @@ model Configuracao {
 
   @@map("configuracoes")
 }
+
+/// Log de requisições que passam pelo proxy (o que entra e o desfecho). Sem query string (pode ter token); o caminho do
+/// aprovador entra mascarado. O usuário sai do cookie de sessão (só o id); o nome é resolvido na tela.
+model Requisicao {
+  id        String   @id
+  em        DateTime @default(now())
+  metodo    String
+  caminho   String
+  usuarioId BigInt?  @map("usuario_id")
+  ip        String   @default("")
+  /// "ok" (passou), "login" (mandou pro login) ou "inicio" (mandou pro início).
+  desfecho  String
+
+  @@index([em])
+  @@map("requisicoes")
+}
