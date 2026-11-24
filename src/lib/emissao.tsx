@@ -4,16 +4,16 @@ import { enviarEmail } from "@/lib/email";
 import { buscarResumoSuporte } from "@/lib/suporte";
 import { buscarSistema } from "@/lib/repo/sistemas";
 import { congelarCronograma } from "@/lib/repo/cronograma";
-import { dataLocal } from "@/lib/datas";
+import { dataLocal, formatarData } from "@/lib/datas";
 import { formatarDataCurta } from "@/lib/visitas";
 import { conteudoParaEmitir, podeAtualizarRelatorio, podeEnviarRelatorio } from "@/lib/regras-relatorio";
 import { nomeDoArquivoPdf, nomeDoRelatorio } from "@/lib/nome-pdf";
-import { RelatorioPdf, type ImagensPdf } from "@/lib/pdf/relatorio-pdf";
+import { RelatorioPdf, RelatorioVisitasPdf, type ImagensPdf } from "@/lib/pdf/relatorio-pdf";
 import { carregarMarcaPdf } from "@/lib/pdf/marca";
 import { lerImagemPorUrl, salvarArquivo } from "@/lib/repo/arquivos";
 import { buscarRelatorio, congelar, montarConteudo, registrarEmissao, registrarEnvio, type ConteudoRelatorio } from "@/lib/repo/relatorios";
 import { preencherCepsPendentes } from "@/lib/cep-visitas";
-import type { ConteudoCongelado, ResumoSuporte } from "@/lib/types";
+import type { ConteudoCongelado, ResumoSuporte, VisitaDetalhada } from "@/lib/types";
 
 /** Acima disto, o e-mail vai sem anexo (só com o botão "Ver relatório"); o download continua disponível. */
 export const LIMITE_ANEXO = 8 * 1024 * 1024;
@@ -29,9 +29,9 @@ function formato(b: Buffer): "png" | "jpg" | null {
   return null; // outros formatos (ex.: webp) não entram no PDF
 }
 
-async function carregarImagens(c: ConteudoCongelado): Promise<ImagensPdf> {
+async function carregarImagensDeVisitas(visitas: VisitaDetalhada[]): Promise<ImagensPdf> {
   const urls = new Set<string>();
-  for (const v of c.visitas) {
+  for (const v of visitas) {
     for (const f of [v.fotoAmbiente, v.printTela, ...v.fotosExtras]) if (f) urls.add(f.url);
     for (const p of v.presencas) if (p.assinatura) urls.add(p.assinatura);
   }
@@ -45,6 +45,8 @@ async function carregarImagens(c: ConteudoCongelado): Promise<ImagensPdf> {
   );
   return mapa;
 }
+
+const carregarImagens = (c: ConteudoCongelado): Promise<ImagensPdf> => carregarImagensDeVisitas(c.visitas);
 
 /** Chamados de suporte do período, do sistema do contrato (o "Nome no Fortics" do sistema vai como filtro). */
 async function buscarSuporte(c: ConteudoRelatorio, atualizar: boolean): Promise<ResumoSuporte> {
@@ -103,6 +105,21 @@ export async function gerarPrevia(id: string): Promise<{ pdf: Buffer; nome: stri
     <RelatorioPdf conteudo={conteudo} versao={versao} emitidoEm={agora.toISOString()} imagens={await carregarImagens(conteudo)} marca={await carregarMarcaPdf()} previa />,
   );
   return { pdf, nome: nomeDoArquivoPdf({ tipo: conteudo.relatorioAtendimentos, cliente: conteudo.cliente.nome, sistema: conteudo.sistema.nome, de: conteudo.de, ate: conteudo.ate, versao, previa: true }) };
+}
+
+/**
+ * Relatório avulso (Administração, tela de Visitas): PDF só com as visitas escolhidas, sem atendimentos do suporte nem
+ * cronograma, sem registrar versão nem salvar nada. As visitas já vêm validadas e ordenadas por quem chama; devolve o PDF e o
+ * nome do arquivo (ou null se a lista veio vazia).
+ */
+export async function gerarRelatorioDeVisitas(visitas: VisitaDetalhada[], autorNome: string): Promise<{ pdf: Buffer; nome: string } | null> {
+  if (!visitas.length) return null;
+  const geradoEm = new Date().toISOString();
+  const pdf = await renderToBuffer(
+    <RelatorioVisitasPdf visitas={visitas} geradoEm={geradoEm} autorNome={autorNome} imagens={await carregarImagensDeVisitas(visitas)} marca={await carregarMarcaPdf()} />,
+  );
+  const periodo = `${formatarData(visitas[0].entrada)} a ${formatarData(visitas[visitas.length - 1].entrada)}`.replace(/\//g, "-");
+  return { pdf, nome: `Relatório de visitas - ${periodo}.pdf` };
 }
 
 /** Envia por e-mail a última versão emitida aos aprovadores ativos do contrato (com o PDF e o botão "Ver relatório"). Pode reenviar. */

@@ -239,6 +239,14 @@ Administração → Visitas → **Lançar visita retroativa** registra uma visit
 - Fica marcada: selo **"Lançamento retroativo"** nas telas da Administração e "Registrado por: **Administração (lançamento retroativo)**" no detalhe da visita e no PDF do relatório. O **motivo** é obrigatório e fica no histórico, com quem lançou.
 - Depois de lançada, corrige-se como qualquer visita encerrada.
 
+### Relatório avulso de visitas (pela tela de Visitas)
+
+- Na aba **Encerradas**, o botão **"Gerar relatório de visitas"** monta um PDF **só com as visitas escolhidas**, marcadas na lista (checkbox; dá para "Selecionar todas"). Trabalha sobre as visitas encerradas que a tela está mostrando (respeita os filtros aplicados).
+- É um relatório **avulso**: sai **sem os atendimentos do suporte e sem o cronograma**, e **pode misturar clientes** (a capa é genérica — período, nº de visitas, clientes, técnicos e quem gerou — e cada página de visita mostra de qual cliente é). O PDF é **baixado na hora**; **nada é salvo** (não vira rascunho, não gera versão, não é enviado) e **não mexe** no `relatorioId` da visita nem no relatório formal do contrato.
+- Soma as **horas presenciais** e **online** das visitas escolhidas, lista as visitas na capa e traz uma página por visita (igual ao relatório do contrato). Os **CPFs** saem mascarados.
+- Só a Administração com `reports.visitas.gerenciar`. O teto é de 300 visitas por relatório.
+- Onde: `src/app/admin/visitas/relatorio-visitas.tsx` (botão/diálogo), `src/app/relatorio-visitas/route.ts` (gera e baixa), `gerarRelatorioDeVisitas` em `src/lib/emissao.tsx` e `RelatorioVisitasPdf` em `src/lib/pdf/relatorio-pdf.tsx`.
+
 ### Histórico de alterações
 
 Toda ação da Administração numa visita (encerramento, cancelamento, correção ou lançamento retroativo) fica registrada com autor, data e hora, motivo e cada campo alterado (antes → depois).
