@@ -1,15 +1,17 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { Check, CloudDownload, ExternalLink, Loader2, MapPin, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import type { Unidade } from "@/lib/types";
 import { RAIO_PADRAO_METROS } from "@/lib/distancia";
 import { removerUnidade, salvarUnidade, type UnidadeFormState } from "../actions";
 import { buscarEstabelecimentosSaude, importarEstabelecimentosSaude, type BuscaSaudeState, type ResultadoImportacao } from "../saude-actions";
+import { buscarEstabelecimentosCnes, importarEstabelecimentosCnes, municipioDoClienteCnes, municipiosDoEstado, type BuscaCnesState, type ResultadoImportacaoCnes } from "../cnes-actions";
 import type { EstabelecimentoSaude } from "@/lib/saude-estabelecimentos";
+import type { EstabelecimentoCnes } from "@/lib/cnes";
 import { normalizar } from "@/lib/format";
 import { buscarCoordenadas, type RespostaBusca } from "../geo-actions";
-import { Campo } from "@/components/form/campo";
+import { Campo, selectClass } from "@/components/form/campo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -405,6 +407,250 @@ function BuscaSaude({ clienteId }: { clienteId: string }) {
   );
 }
 
+// ---------- Busca no CNES (rede da prefeitura) ----------
+
+/** As 27 UFs, em ordem de nome (dado estático; a lista de municípios vem do servidor ao escolher o estado). */
+const ESTADOS_UF: { uf: string; nome: string }[] = [
+  { uf: "AC", nome: "Acre" }, { uf: "AL", nome: "Alagoas" }, { uf: "AP", nome: "Amapá" }, { uf: "AM", nome: "Amazonas" },
+  { uf: "BA", nome: "Bahia" }, { uf: "CE", nome: "Ceará" }, { uf: "DF", nome: "Distrito Federal" }, { uf: "ES", nome: "Espírito Santo" },
+  { uf: "GO", nome: "Goiás" }, { uf: "MA", nome: "Maranhão" }, { uf: "MT", nome: "Mato Grosso" }, { uf: "MS", nome: "Mato Grosso do Sul" },
+  { uf: "MG", nome: "Minas Gerais" }, { uf: "PA", nome: "Pará" }, { uf: "PB", nome: "Paraíba" }, { uf: "PR", nome: "Paraná" },
+  { uf: "PE", nome: "Pernambuco" }, { uf: "PI", nome: "Piauí" }, { uf: "RJ", nome: "Rio de Janeiro" }, { uf: "RN", nome: "Rio Grande do Norte" },
+  { uf: "RS", nome: "Rio Grande do Sul" }, { uf: "RO", nome: "Rondônia" }, { uf: "RR", nome: "Roraima" }, { uf: "SC", nome: "Santa Catarina" },
+  { uf: "SP", nome: "São Paulo" }, { uf: "SE", nome: "Sergipe" }, { uf: "TO", nome: "Tocantins" },
+];
+
+/** A lista que veio do CNES: marcar o que trazer e importar. Endereço e localização vêm na importação (da ficha do CNES). */
+function ListaCnes({ clienteId, municipioIbge, municipioNome, itens, jaImportados }: { clienteId: string; municipioIbge: string; municipioNome: string; itens: EstabelecimentoCnes[]; jaImportados: string[] }) {
+  const importados = new Set(jaImportados);
+  const [busca, setBusca] = useState("");
+  const [marcados, setMarcados] = useState(() => new Set(itens.map((i) => i.cnes)));
+  const [resultado, setResultado] = useState<ResultadoImportacaoCnes | null>(null);
+  const [pending, start] = useTransition();
+
+  const termo = normalizar(busca);
+  const visiveis = termo ? itens.filter((i) => [i.nome, i.cnes].some((c) => normalizar(c).includes(termo))) : itens;
+  const escolhidos = itens.filter((i) => marcados.has(i.cnes));
+  const novos = itens.filter((i) => !importados.has(i.cnes)).length;
+  const todosMarcados = visiveis.length > 0 && visiveis.every((i) => marcados.has(i.cnes));
+
+  const alternar = (cnes: string) =>
+    setMarcados((m) => {
+      const n = new Set(m);
+      if (n.has(cnes)) n.delete(cnes);
+      else n.add(cnes);
+      return n;
+    });
+  const marcarVisiveis = (sim: boolean) =>
+    setMarcados((m) => {
+      const n = new Set(m);
+      for (const i of visiveis) {
+        if (sim) n.add(i.cnes);
+        else n.delete(i.cnes);
+      }
+      return n;
+    });
+  const importar = () =>
+    start(async () => {
+      setResultado(await importarEstabelecimentosCnes(clienteId, municipioIbge, escolhidos.map((i) => ({ cnes: i.cnes, nome: i.nome }))).catch((): ResultadoImportacaoCnes => ({ ok: false, erro: "Não foi possível importar. Tente de novo." })));
+    });
+
+  if (resultado?.ok) {
+    return (
+      <div className="grid gap-2 text-sm">
+        <p className="flex items-center gap-2 font-medium text-emerald-800">
+          <Check className="size-4" />
+          Importação concluída: {resultado.incluidos} {resultado.incluidos === 1 ? "incluído" : "incluídos"} e {resultado.atualizados} {resultado.atualizados === 1 ? "atualizado" : "atualizados"}.
+        </p>
+        <p className="text-muted-foreground">Os estabelecimentos já aparecem na lista do cliente, com endereço e localização do CNES. Ajuste o raio de cada um quando precisar.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-3">
+      <p className="text-sm">
+        <span className="font-medium">{itens.length} na rede municipal de {municipioNome || municipioIbge}</span> (gestão municipal) · {novos} novos · {itens.length - novos} já importados
+      </p>
+      <div className="relative">
+        <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input aria-label="Buscar estabelecimento" placeholder="Buscar por nome ou CNES" value={busca} onChange={(ev) => setBusca(ev.target.value)} className="h-9 pl-8" />
+      </div>
+      <div className="max-h-[55vh] overflow-auto rounded-md border">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 bg-muted text-left text-xs text-muted-foreground">
+            <tr>
+              <th className="w-10 px-3 py-2">
+                <input type="checkbox" aria-label="Marcar todos" className="size-4 accent-primary" checked={todosMarcados} onChange={(ev) => marcarVisiveis(ev.target.checked)} />
+              </th>
+              <th className="px-3 py-2 font-medium">Nome</th>
+              <th className="px-3 py-2 font-medium">CNES</th>
+              <th className="px-3 py-2 font-medium">Situação</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {visiveis.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">
+                  Nenhum estabelecimento encontrado.
+                </td>
+              </tr>
+            )}
+            {visiveis.map((i) => (
+              <tr key={i.cnes} className="cursor-pointer hover:bg-muted/50" onClick={() => alternar(i.cnes)}>
+                <td className="px-3 py-1.5">
+                  <input type="checkbox" aria-label={`Importar ${i.nome}`} className="size-4 accent-primary" checked={marcados.has(i.cnes)} onChange={() => alternar(i.cnes)} onClick={(ev) => ev.stopPropagation()} />
+                </td>
+                <td className="px-3 py-1.5">{i.nome}</td>
+                <td className="px-3 py-1.5 tabular-nums">{i.cnes}</td>
+                <td className="px-3 py-1.5 text-xs">
+                  {importados.has(i.cnes) ? <span className="text-muted-foreground">Já importado</span> : <span className="text-emerald-700">Novo</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {resultado && !resultado.ok && (
+        <p role="alert" className="text-sm text-destructive">
+          {resultado.erro}
+        </p>
+      )}
+      <DialogFooter>
+        <Button onClick={importar} disabled={pending || escolhidos.length === 0}>
+          {pending ? <Loader2 className="animate-spin" /> : <CloudDownload />}
+          Importar {escolhidos.length} {escolhidos.length === 1 ? "selecionado" : "selecionados"}
+        </Button>
+      </DialogFooter>
+      {pending && <p className="text-xs text-muted-foreground">Buscando endereço e localização de cada um no CNES — pode levar alguns segundos.</p>}
+    </div>
+  );
+}
+
+/** Escolhe Estado → Município e busca no CNES a rede de gestão municipal (natureza pública) daquela cidade. */
+function BuscaCnes({ clienteId }: { clienteId: string }) {
+  const [uf, setUf] = useState("");
+  const [municipios, setMunicipios] = useState<{ codigo: string; nome: string }[]>([]);
+  const [municipio, setMunicipio] = useState("");
+  const [carregandoMun, carregarMun] = useTransition();
+  const [resultado, setResultado] = useState<BuscaCnesState | null>(null);
+  const [buscando, iniciarBusca] = useTransition();
+  // Autodetecção pelo nome do cliente: `detectando` enquanto procura; `sugerido` o município achado; `manual` quando o admin escolhe à mão.
+  const [sugerido, setSugerido] = useState<{ codigo: string; nome: string; uf: string } | null>(null);
+  const [detectando, setDetectando] = useState(true);
+  const [manual, setManual] = useState(false);
+  const detectou = useRef(false);
+
+  const rodarBusca = (codigo: string) =>
+    iniciarBusca(async () => setResultado(await buscarEstabelecimentosCnes(clienteId, codigo).catch((): BuscaCnesState => ({ ok: false, erro: "Não foi possível buscar agora. Tente de novo." }))));
+
+  // Ao abrir: deduz o município pelo nome do cliente e já busca. Sem dedução, cai no seletor.
+  useEffect(() => {
+    if (detectou.current) return;
+    detectou.current = true;
+    municipioDoClienteCnes(clienteId)
+      .then((m) => {
+        setDetectando(false);
+        if (!m) return;
+        setSugerido(m);
+        iniciarBusca(async () => setResultado(await buscarEstabelecimentosCnes(clienteId, m.codigo).catch((): BuscaCnesState => ({ ok: false, erro: "Não foi possível buscar agora. Tente de novo." }))));
+      })
+      .catch(() => setDetectando(false));
+  }, [clienteId]);
+
+  function escolherUf(novo: string) {
+    setUf(novo);
+    setMunicipio("");
+    setMunicipios([]);
+    setResultado(null);
+    if (novo) carregarMun(async () => setMunicipios(await municipiosDoEstado(novo).catch(() => [])));
+  }
+
+  if (resultado?.ok) {
+    return <ListaCnes clienteId={clienteId} municipioIbge={resultado.municipioIbge} municipioNome={resultado.municipioNome} itens={resultado.itens} jaImportados={resultado.jaImportados} />;
+  }
+
+  if (detectando) {
+    return (
+      <p className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+        <Loader2 className="size-4 animate-spin" />
+        Identificando o município do cliente…
+      </p>
+    );
+  }
+
+  // Deduziu pelo nome e o admin não pediu para trocar: mostra o município e o andamento da busca.
+  if (sugerido && !manual) {
+    return (
+      <div className="grid gap-3">
+        <p className="text-sm">
+          Município do cliente: <span className="font-medium">{sugerido.nome} ({sugerido.uf})</span>.{" "}
+          <button type="button" onClick={() => { setManual(true); setResultado(null); escolherUf(sugerido.uf); }} className="text-primary underline">
+            Trocar município
+          </button>
+        </p>
+        {buscando && (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+            Buscando a rede de {sugerido.nome} no CNES…
+          </p>
+        )}
+        {resultado && !resultado.ok && (
+          <div className="grid gap-2">
+            <p role="alert" className="text-sm text-destructive">{resultado.erro}</p>
+            <div>
+              <Button variant="outline" size="sm" onClick={() => rodarBusca(sugerido.codigo)} disabled={buscando}>
+                Tentar de novo
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Seletor manual: sem dedução, ou o admin pediu para trocar.
+  return (
+    <div className="grid gap-4">
+      {!manual && <p className="text-sm text-muted-foreground">Não deu para identificar o município pelo nome do cliente. Escolha abaixo.</p>}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Campo id="c-uf" label="Estado">
+          <select id="c-uf" value={uf} onChange={(ev) => escolherUf(ev.target.value)} className={selectClass}>
+            <option value="">Escolha o estado</option>
+            {ESTADOS_UF.map((e) => (
+              <option key={e.uf} value={e.uf}>
+                {e.nome}
+              </option>
+            ))}
+          </select>
+        </Campo>
+        <Campo id="c-mun" label="Município" dica={carregandoMun ? "Carregando municípios…" : undefined}>
+          <select id="c-mun" value={municipio} disabled={!municipios.length} onChange={(ev) => setMunicipio(ev.target.value)} className={selectClass}>
+            <option value="">{uf ? (carregandoMun ? "Carregando…" : "Escolha o município") : "Escolha o estado primeiro"}</option>
+            {municipios.map((m) => (
+              <option key={m.codigo} value={m.codigo}>
+                {m.nome}
+              </option>
+            ))}
+          </select>
+        </Campo>
+      </div>
+      <p className="-mt-1 text-xs text-muted-foreground">Traz a rede própria da prefeitura (gestão municipal e natureza pública) daquele município, direto do CNES.</p>
+      {resultado && !resultado.ok && (
+        <p role="alert" className="text-sm text-destructive">
+          {resultado.erro}
+        </p>
+      )}
+      <DialogFooter>
+        <Button onClick={() => municipio && rodarBusca(municipio)} disabled={!municipio || buscando}>
+          {buscando ? <Loader2 className="animate-spin" /> : <CloudDownload />}
+          Buscar
+        </Button>
+      </DialogFooter>
+    </div>
+  );
+}
+
 // ---------- Seção ----------
 
 /**
@@ -427,6 +673,7 @@ export function Unidades({
   // null = fechado; "nova" = criando; id = editando
   const [dialogo, setDialogo] = useState<string | null>(null);
   const [buscandoSaude, setBuscandoSaude] = useState(false);
+  const [buscandoCnes, setBuscandoCnes] = useState(false);
   const editando = unidades.find((u) => u.id === dialogo);
 
   return (
@@ -446,6 +693,10 @@ export function Unidades({
                 Buscar do Saúde
               </Button>
             )}
+            <Button variant="outline" onClick={() => setBuscandoCnes(true)}>
+              <CloudDownload />
+              Buscar do CNES
+            </Button>
             <Button variant="outline" onClick={() => setDialogo("nova")}>
               <Plus />
               Novo estabelecimento
@@ -462,6 +713,16 @@ export function Unidades({
           </DialogHeader>
           {/* Remonta a cada abertura: começa de novo, sem a lista nem o usuário da vez anterior */}
           {buscandoSaude && <BuscaSaude clienteId={clienteId} />}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={buscandoCnes} onOpenChange={setBuscandoCnes}>
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Buscar estabelecimentos do CNES</DialogTitle>
+            <DialogDescription>Escolha o estado e o município para trazer a rede própria da prefeitura (gestão municipal), direto do CNES.</DialogDescription>
+          </DialogHeader>
+          {buscandoCnes && <BuscaCnes clienteId={clienteId} />}
         </DialogContent>
       </Dialog>
 

@@ -247,6 +247,7 @@ nesse endereço — use um treinamento online para testar sem GPS.
 | `npm run permissoes:registrar` | Grava o catálogo `reports.*` na plataforma: inclui, atualiza e inativa o que saiu do código (roda no deploy) |
 | `npm run cbo:importar -- "CBO2002 - Ocupacao.csv"` | Importa a tabela CBO oficial (arquivo do site da CBO, mtecbo.gov.br): inclui e atualiza, nunca apaga |
 | `npm run ceps:preencher` | Converte em CEP as coordenadas que ficaram pendentes (timer `reports-ceps` no servidor) |
+| `npm run cnes:importar` | Importa do CNES os estabelecimentos das prefeituras ainda sem nenhum, deduzindo o município pelo nome do cliente (timer `reports-cnes` no servidor; é o que faz cliente novo do SINC "puxar sozinho") |
 | `npm run db:ambiente-teste` | Cria um banco `plataforma` de teste, com dados de exemplo, **só** em PostgreSQL local e vazio (para quem não tem o SINC) |
 | `npm run db:exemplo` | Dados de exemplo, só em desenvolvimento e com o banco `reports` vazio |
 | `npm test` | Testes (abaixo) |
@@ -297,8 +298,9 @@ Primeira instalação (uma vez, no servidor):
    Confira o nome do banco plataforma de produção no `config/database.yml` do SINC.
 
 4. Pasta dos arquivos: `sudo mkdir -p /var/lib/reports/arquivos && sudo chown reports: /var/lib/reports/arquivos && sudo chmod 700 /var/lib/reports/arquivos`.
-5. Serviços e nginx: copie `deploy/reports-web.service`, `deploy/reports-ceps.service` e `deploy/reports-ceps.timer` para
-   `/etc/systemd/system/`, `sudo systemctl daemon-reload && sudo systemctl enable reports-web reports-ceps.timer`; copie
+5. Serviços e nginx: copie `deploy/reports-web.service`, `deploy/reports-ceps.service`, `deploy/reports-ceps.timer`,
+   `deploy/reports-cnes.service` e `deploy/reports-cnes.timer` para `/etc/systemd/system/`,
+   `sudo systemctl daemon-reload && sudo systemctl enable reports-web reports-ceps.timer reports-cnes.timer`; copie
    `deploy/nginx-reports.conf` para `/etc/nginx/sites-available/reports`, ligue o site e rode `sudo certbot --nginx -d reports.sidim.com.br`.
    O nginx precisa mandar o `X-Real-IP` (o modelo já manda): o limite de tentativas de login depende dele.
    O `bin/deploy` reinicia o serviço com sudo: dê ao usuário `reports` só isso, em `/etc/sudoers.d/reports-deploy` (confira com `visudo -cf`):

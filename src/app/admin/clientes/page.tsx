@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AtualizarEstabelecimentos } from "./atualizar-estabelecimentos";
 
 export default function ClientesPage({ searchParams }: PageProps<"/admin/clientes">) {
   return (
@@ -45,14 +46,18 @@ async function BotaoNovoCliente() {
 async function ListaClientes({ searchParams }: Pick<PageProps<"/admin/clientes">, "searchParams">) {
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q : "";
-  const [clientes, contratos] = await Promise.all([listarClientes(q), listarContratos()]);
+  const [clientes, contratos, usuario] = await Promise.all([listarClientes(q), listarContratos(), getUsuarioAtual()]);
+  const podeCadastrar = !!usuario?.permissoes.includes(PERMISSOES.clientesCadastrar);
 
   return (
     <>
-      <form className="relative mb-4 w-full sm:max-w-xs">
-        <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input name="q" defaultValue={q} placeholder="Buscar por nome ou CNPJ" className="h-9 bg-background pl-8" />
-      </form>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <form className="relative w-full sm:max-w-xs">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input name="q" defaultValue={q} placeholder="Buscar por nome ou CNPJ" className="h-9 bg-background pl-8" />
+        </form>
+        {podeCadastrar && <AtualizarEstabelecimentos clientes={clientes.map((c) => ({ id: c.id, nome: c.nome, totalUnidades: c.totalUnidades }))} />}
+      </div>
 
       <Card className="py-0">
         <div className="overflow-x-auto">
