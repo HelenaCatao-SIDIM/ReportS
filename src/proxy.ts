@@ -1,5 +1,6 @@
 import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 import { decrypt, SESSION_COOKIE } from "@/lib/session";
+import { ipDoPedido } from "@/lib/ip-do-pedido";
 import { registrarRequisicao } from "@/lib/repo/requisicoes";
 import type { DesfechoRequisicao } from "@/lib/types";
 
@@ -9,13 +10,6 @@ const AREAS = ["/admin", "/tecnico", "/inicio"];
 
 /** Guarda só o caminho, sem a query string (pode ter token), e mascara o token do aprovador, que vai no próprio caminho. */
 const caminhoSeguro = (pathname: string) => pathname.replace(/^\/aprovacao\/[^/]+/, "/aprovacao/[token]");
-
-/** IP de quem fez, pelo cabeçalho do nginx (o primeiro da lista é o cliente). */
-function ipDoPedido(req: NextRequest): string {
-  const encadeado = req.headers.get("x-forwarded-for");
-  if (encadeado) return encadeado.split(",")[0]?.trim() ?? "";
-  return req.headers.get("x-real-ip") ?? "";
-}
 
 export default async function proxy(req: NextRequest, event: NextFetchEvent) {
   const path = req.nextUrl.pathname;
@@ -38,7 +32,7 @@ export default async function proxy(req: NextRequest, event: NextFetchEvent) {
       metodo: req.method,
       caminho: caminhoSeguro(path),
       usuarioId: typeof sessao?.userId === "string" ? sessao.userId : null,
-      ip: ipDoPedido(req),
+      ip: ipDoPedido(req.headers),
       desfecho,
     }),
   );

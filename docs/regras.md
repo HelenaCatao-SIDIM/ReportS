@@ -266,8 +266,9 @@ Como funciona:
 - Filtra por **método**, **desfecho**, **caminho** (busca) e **período**. Mostra as **500 mais recentes** (`LIMITE_REQUISICOES`); guarda **30 dias** e a limpeza roda sozinha (esporádica, junto com a gravação).
 - **Como funciona:** o `src/proxy.ts` roda em Node **antes de toda requisição** (menos API, estáticos e imagens, pelo `matcher`) e grava em **segundo plano** (`event.waitUntil`): não atrasa a resposta, e se a gravação falhar a requisição **não** é derrubada (a falha vai para o log do servidor).
 - **Dado sensível fora do log:** não guarda a **query string** (pode ter token, como o `?tecnico=…`); o caminho do **aprovador** entra mascarado (`/aprovacao/[token]`). Guarda só o **id** do usuário (do cookie de sessão); o nome é resolvido na tela.
+- **IP:** vem só do `X-Real-IP`, que o nginx grava com o endereço da conexão e que sobrescreve o que o navegador mandar (`src/lib/ip-do-pedido.ts`). O `X-Forwarded-For` não é usado: o nginx só acrescenta ao que já veio, então o primeiro item pode ser escrito por quem faz o pedido. Sem o `X-Real-IP` (sem nginx, em desenvolvimento) o IP fica vazio. Linhas gravadas **antes** desta correção (até 24/11/2026) podem ter IP forjado; saem sozinhas em 30 dias.
 - **Limite do "sai":** o proxy registra só o **próprio desfecho** (deixou passar ou redirecionou). O status final da página renderizada depois **não** entra. E, como o proxy roda em toda requisição, entram também as de pré-carregamento dos links (é bastante linha — por isso os 30 dias e o teto de 500 na tela).
-- Onde: `src/proxy.ts`, `src/lib/repo/requisicoes.ts`, `src/app/admin/requisicoes/`.
+- Onde: `src/proxy.ts`, `src/lib/ip-do-pedido.ts`, `src/lib/repo/requisicoes.ts`, `src/app/admin/requisicoes/`.
 
 ## Relatórios (`reports.relatorios.gerenciar`)
 
