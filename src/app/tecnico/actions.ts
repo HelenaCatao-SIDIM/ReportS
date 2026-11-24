@@ -4,15 +4,18 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { exigirPermissaoAcao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
-import { distanciaMetros } from "@/lib/distancia";
+import { distanciaMetros, RAIO_PADRAO_METROS } from "@/lib/distancia";
 import { ehMeio } from "@/lib/meio";
 import { ehPresencial, TIPOS_VISITA } from "@/lib/visitas";
 import { equipesDaVisita, rotaDaVisita, sugereTemasPorEquipe } from "@/lib/regras-visita";
-import { buscarCliente, buscarUnidade } from "@/lib/repo/clientes";
+import { buscarCliente, buscarUnidade, criarUnidade } from "@/lib/repo/clientes";
 import { listarEquipes } from "@/lib/repo/equipes";
-import { buscarContrato } from "@/lib/repo/contratos";
+import { buscarContrato, listarParaCheckin } from "@/lib/repo/contratos";
 import { salvarImagem } from "@/lib/repo/arquivos";
 import { abrirVisita, visitaAbertaDoTecnico } from "@/lib/repo/visitas";
+import { registrarAuditoria, mudancasDe } from "@/lib/repo/auditoria";
+import { resolverCep } from "@/lib/cep";
+import { textoEndereco } from "@/lib/format";
 import type { MeioRegistro, TipoVisita } from "@/lib/types";
 import { lerLocal } from "@/lib/ler-local";
 import { converterDepois } from "@/lib/cep-visitas";
@@ -104,4 +107,64 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
   revalidatePath("/admin/visitas", "layout");
   // Treinamento e implantação abrem pela tela de presença (os participantes assinam enquanto o técnico apresenta); os outros tipos, direto na visita.
   redirect(rotaDaVisita(v));
+}
+
+export type NovoEstabelecimentoState =
+  | { ok: true; unidade: { id: string; nome: string; endereco: string } }
+  | { ok: false; erro: string };
+
+/**
+ * Cadastro rápido de um estabelecimento pelo técnico, no próprio check-in, quando o lugar não está na lista. O técnico só
+ * digita o nome; a localização vem do GPS do aparelho (ele está no local) e vira a coordenada do estabelecimento — é o
+ * ponto mais exato que o sistema terá, e o mesmo sinal que valida o check-in. O endereço é preenchido pelo reverso da
+ * coordenada (melhor esforço) e fica editável depois, na Administração. Raio no padrão; sem CNES/código do Saúde. A
+ * criação fica registrada na auditoria (origem "App do técnico, no local") para a Administração conferir.
+ */
+export async function criarEstabelecimentoNoLocal(input: {
+  clienteId: string;
+  nome: string;
+  latitude: number;
+  longitude: number;
+}): Promise<NovoEstabelecimentoState> {
+  const tecnico = await exigirPermissaoAcao(PERMISSOES.tecnico);
+  const nome = String(input?.nome ?? "").replace(/\s+/g, " ").trim().slice(0, 200);
+  const clienteId = String(input?.clienteId ?? "");
+  const lat = Number(input?.latitude);
+  const lng = Number(input?.longitude);
+
+  if (nome.length < 2) return { ok: false, erro: "Informe o nome do estabelecimento." };
+  if (!(Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && (lat !== 0 || lng !== 0))) {
+    return { ok: false, erro: "Toque em “Usar minha localização” para marcar o ponto — é preciso estar no local." };
+  }
+
+  // Só clientes em que o técnico pode fazer check-in (ativos e com contrato).
+  const permitidos = await listarParaCheckin();
+  if (!permitidos.some((c) => c.id === clienteId)) return { ok: false, erro: "Cliente indisponível. Atualize a página e tente de novo." };
+
+  // Endereço a partir da coordenada (reverso); melhor esforço: se falhar, fica vazio e a Administração completa depois.
+  let endereco = "";
+  try {
+    const r = await resolverCep(lat, lng);
+    if (r.status === "ok" || r.status === "sem_cep") endereco = textoEndereco(r);
+  } catch {
+    // sem endereço: não impede o cadastro
+  }
+
+  const u = await criarUnidade(clienteId, { nome, endereco, latitude: lat, longitude: lng, raioMetros: RAIO_PADRAO_METROS });
+  await registrarAuditoria({
+    autor: tecnico,
+    entidade: "estabelecimento",
+    entidadeId: u.id,
+    rotulo: nome,
+    acao: "criar",
+    mudancas: mudancasDe([
+      { campo: "Nome", antes: undefined, depois: nome },
+      { campo: "Endereço", antes: undefined, depois: endereco },
+      { campo: "Latitude", antes: undefined, depois: lat },
+      { campo: "Longitude", antes: undefined, depois: lng },
+      { campo: "Origem", antes: undefined, depois: "App do técnico, no local" },
+    ]),
+  });
+  revalidatePath("/tecnico", "layout");
+  return { ok: true, unidade: { id: u.id, nome: u.nome, endereco: u.endereco } };
 }

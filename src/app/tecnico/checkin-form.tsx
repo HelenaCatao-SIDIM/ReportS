@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { AlertCircle, Check, Clock, Loader2, LocateFixed, MapPin, Monitor } from "lucide-react";
+import { AlertCircle, Check, Clock, Loader2, LocateFixed, MapPin, Monitor, Plus, X } from "lucide-react";
 import type { ClienteCheckin } from "@/lib/repo/contratos";
 import type { MeioRegistro, TipoVisita } from "@/lib/types";
 import { detectarMeio } from "@/lib/meio";
@@ -9,7 +9,7 @@ import { chaveRascunhoCheckin, sugereTemasPorEquipe } from "@/lib/regras-visita"
 import type { PendenciaCronograma } from "@/lib/cronograma";
 import { ehPresencial, TIPOS_VISITA } from "@/lib/visitas";
 import { cn } from "@/lib/utils";
-import { fazerCheckin, type CheckinState } from "./actions";
+import { fazerCheckin, criarEstabelecimentoNoLocal, type CheckinState } from "./actions";
 import { useAcao } from "@/components/form/use-acao";
 import { selectClass } from "@/components/form/campo";
 import { PendenciasCronograma } from "@/components/cronograma/pendencias-cronograma";
@@ -99,6 +99,14 @@ export function CheckinForm({
   const meio = useSyncExternalStore(semAssinatura, meioNoNavegador, meioNoServidor);
   const restaurado = useRef(false);
 
+  // Cadastro de estabelecimento que não está na lista: nome + GPS do local (o técnico está ali).
+  const { estado: gpsNovo, capturar: capturarNovo } = useGps();
+  const [novasUnidades, setNovasUnidades] = useState<{ id: string; nome: string; endereco: string; clienteId: string }[]>([]);
+  const [cadastrando, setCadastrando] = useState(false);
+  const [nomeNovo, setNomeNovo] = useState("");
+  const [erroNovo, setErroNovo] = useState<string | null>(null);
+  const [salvandoNovo, setSalvandoNovo] = useState(false);
+
   // Ao reabrir a tela (aba fechada, celular travado), devolve o que já tinha sido escolhido.
   useEffect(() => {
     if (restaurado.current) return;
@@ -134,7 +142,9 @@ export function CheckinForm({
   const p = previa.fase === "pronto" ? previa.previa : null;
 
   const cliente = clientes.find((c) => c.id === clienteId);
-  const unidade = cliente?.unidades.find((u) => u.id === unidadeId);
+  // Estabelecimentos do cliente + os que o técnico acabou de cadastrar no local.
+  const unidadesDoCliente = cliente ? [...cliente.unidades, ...novasUnidades.filter((u) => u.clienteId === clienteId)] : [];
+  const unidade = unidadesDoCliente.find((u) => u.id === unidadeId);
   const presencial = tipo ? ehPresencial(tipo) : null;
 
   const contrato = cliente?.contratos.find((k) => k.id === contratoId);
@@ -179,6 +189,34 @@ export function CheckinForm({
     if (anterior) setEquipeIds((atuais) => atuais.filter((id) => !anterior.equipeIds.includes(id)));
     const deHoje = previstasDe(cId, uId).filter((i) => i.diasParaPrazo === 0);
     if (deHoje.length === 1 && (!tipo || anterior)) escolherPrevista(deHoje[0]);
+  }
+
+  /** Cadastra, no local, o estabelecimento que não está na lista e já o deixa escolhido. */
+  async function cadastrarEstab() {
+    setErroNovo(null);
+    const nome = nomeNovo.trim();
+    if (nome.length < 2) {
+      setErroNovo("Digite o nome do estabelecimento.");
+      return;
+    }
+    if (gpsNovo.fase !== "ok") {
+      setErroNovo("Toque em “Usar minha localização” para marcar o ponto.");
+      return;
+    }
+    setSalvandoNovo(true);
+    const r = await criarEstabelecimentoNoLocal({ clienteId, nome, latitude: gpsNovo.latitude, longitude: gpsNovo.longitude }).catch(
+      () => ({ ok: false, erro: "Não foi possível cadastrar. Tente de novo." }) as const,
+    );
+    setSalvandoNovo(false);
+    if (!r.ok) {
+      setErroNovo(r.erro);
+      return;
+    }
+    setNovasUnidades((atuais) => [...atuais, { ...r.unidade, clienteId }]);
+    setUnidadeId(r.unidade.id);
+    aoMudarLocal(contratoId, r.unidade.id);
+    setCadastrando(false);
+    setNomeNovo("");
   }
 
   if (!clientes.length) {
@@ -263,7 +301,7 @@ export function CheckinForm({
             className={select}
           >
             <option value="">{cliente ? "Escolha o estabelecimento" : "Escolha o cliente primeiro"}</option>
-            {cliente?.unidades.map((u) => (
+            {unidadesDoCliente.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.nome}
               </option>
@@ -274,6 +312,88 @@ export function CheckinForm({
               <MapPin className="size-3" />
               {unidade.endereco}
             </p>
+          )}
+
+          {cliente && !cadastrando && (
+            <button
+              type="button"
+              onClick={() => {
+                setCadastrando(true);
+                setErroNovo(null);
+                if (gpsNovo.fase === "parado") capturarNovo();
+              }}
+              className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+            >
+              <Plus className="size-3.5" />
+              Não está na lista? Cadastrar no local
+            </button>
+          )}
+          {cliente && cadastrando && (
+            <div className="mt-2 space-y-2 rounded-lg border border-dashed p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Novo estabelecimento</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCadastrando(false);
+                    setErroNovo(null);
+                  }}
+                  className="text-muted-foreground hover:text-foreground"
+                  aria-label="Cancelar"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">Cadastre estando no local: a localização do aparelho vira o ponto do estabelecimento.</p>
+              <Input
+                value={nomeNovo}
+                onChange={(ev) => setNomeNovo(ev.target.value)}
+                onKeyDown={(ev) => {
+                  if (ev.key === "Enter") {
+                    ev.preventDefault();
+                    cadastrarEstab();
+                  }
+                }}
+                placeholder="Nome do estabelecimento"
+                className="h-11 text-base"
+                aria-invalid={!!erroNovo}
+              />
+              <div className="flex items-center gap-2 rounded-md border p-2">
+                <div
+                  className={cn(
+                    "flex size-8 shrink-0 items-center justify-center rounded-full",
+                    gpsNovo.fase === "ok" ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {gpsNovo.fase === "buscando" ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : gpsNovo.fase === "ok" ? (
+                    <Check className="size-4" />
+                  ) : (
+                    <LocateFixed className="size-4" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1 text-sm">
+                  {gpsNovo.fase === "ok" ? (
+                    <span className="text-xs text-emerald-700">Localização marcada (aprox. {Math.round(gpsNovo.precisao)} m)</span>
+                  ) : gpsNovo.fase === "buscando" ? (
+                    <span className="text-xs text-muted-foreground">Obtendo a localização…</span>
+                  ) : gpsNovo.fase === "erro" ? (
+                    <span className="text-xs text-destructive">{gpsNovo.mensagem}</span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Toque para marcar onde você está.</span>
+                  )}
+                </div>
+                <Button type="button" size="sm" variant="outline" onClick={capturarNovo} disabled={gpsNovo.fase === "buscando"}>
+                  {gpsNovo.fase === "ok" ? "Atualizar" : "Usar minha localização"}
+                </Button>
+              </div>
+              {erroNovo && <p className="text-xs text-destructive">{erroNovo}</p>}
+              <Button type="button" onClick={cadastrarEstab} disabled={salvandoNovo} className="h-10 w-full">
+                {salvandoNovo ? <Loader2 className="animate-spin" /> : <Plus />}
+                Cadastrar e escolher
+              </Button>
+            </div>
           )}
           {contratoId && unidade && <PendenciasCronograma itens={previstasDe(contratoId, unidade.id)} escolhidoId={previstaId} onEscolher={escolherPrevista} />}
           <Erro msg={e.unidade} />
