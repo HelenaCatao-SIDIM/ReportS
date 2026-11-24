@@ -28,6 +28,7 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
   let temas: typeof import("@/lib/repo/temas");
   let configuracoes: typeof import("@/lib/repo/configuracoes");
   let auditoria: typeof import("@/lib/repo/auditoria");
+  let requisicoes: typeof import("@/lib/repo/requisicoes");
   let tecnico: { id: string; nome: string; email: string; ativo: boolean; telefone: null; papelIds: string[] };
   let sistemaDoClienteId: string;
   let clienteId: string;
@@ -50,6 +51,7 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     temas = await import("@/lib/repo/temas");
     configuracoes = await import("@/lib/repo/configuracoes");
     auditoria = await import("@/lib/repo/auditoria");
+    requisicoes = await import("@/lib/repo/requisicoes");
 
     const sdc = await db.plataforma.clients.findFirst({ where: { customer_id: { not: null }, estado: { in: ["em_implantacao", "vinculado"] } } });
     const usuario = await db.plataforma.users.findFirst({ where: { active: true } });
@@ -88,6 +90,49 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     assert.deepEqual(c?.aprovadores.map((a) => a.nome), ["José", "Marta"]);
     assert.equal(c?.aprovadores[1].email, "marta@cliente.example");
     assert.equal(c?.sistemaDoClienteId, sistemaDoClienteId);
+  });
+
+  test("logs de requisição: grava com o usuário, filtra por método/desfecho/caminho e apaga os antigos", async () => {
+    await requisicoes.registrarRequisicao({ metodo: "GET", caminho: "/admin/visitas", usuarioId: tecnico.id, ip: "1.2.3.4", desfecho: "ok" });
+    await requisicoes.registrarRequisicao({ metodo: "POST", caminho: "/admin/clientes", usuarioId: null, ip: "", desfecho: "login" });
+    await requisicoes.registrarRequisicao({ metodo: "GET", caminho: "/login", usuarioId: tecnico.id, ip: "1.2.3.4", desfecho: "inicio" });
+
+    const todas = await requisicoes.listarRequisicoes();
+    assert.equal(todas.length, 3);
+    assert.equal(todas.find((r) => r.caminho === "/admin/clientes")!.usuarioNome, "—", "sem usuário logado: traço");
+    assert.equal(todas.find((r) => r.caminho === "/admin/visitas")!.usuarioNome, tecnico.nome, "o nome do usuário é resolvido");
+
+    assert.deepEqual((await requisicoes.listarRequisicoes({ metodo: "GET" })).map((r) => r.caminho).sort(), ["/admin/visitas", "/login"]);
+    assert.deepEqual((await requisicoes.listarRequisicoes({ desfecho: "login" })).map((r) => r.caminho), ["/admin/clientes"]);
+    assert.deepEqual((await requisicoes.listarRequisicoes({ texto: "VISITAS" })).map((r) => r.caminho), ["/admin/visitas"], "busca no caminho sem diferenciar caixa");
+
+    // Faxina por idade: empurra uma linha para 40 dias atrás; só ela sai.
+    await db.reports.requisicao.update({ where: { id: todas[0].id }, data: { em: new Date(Date.now() - 40 * 86_400_000) } });
+    await requisicoes.apagarAntigas();
+    assert.equal((await requisicoes.listarRequisicoes()).length, 2, "a de 40 dias saiu; as recentes ficam");
+  });
+
+  test("importação do CNES: cria por CNES e junta (não duplica) quem já tem o mesmo CNES", async () => {
+    // Já existe um estabelecimento com CNES "1234567" (como se tivesse vindo do Saúde), com localização ajustada.
+    await db.reports.estabelecimento.create({ data: { id: crypto.randomUUID(), clienteId: BigInt(clienteId), nome: "UBS Velha", cnes: "1234567", raioMetros: 50, latitude: -20, longitude: -44 } });
+
+    const r1 = await clientes.importarEstabelecimentosDoCnes(clienteId, [
+      { cnes: "1234567", nome: "UBS Central", endereco: "Rua A, 10", latitude: -21, longitude: -45 },
+      { cnes: "7654321", nome: "UBS Nova", endereco: "Rua B, 20", latitude: -22, longitude: -46 },
+    ], 50);
+    assert.deepEqual(r1, { incluidos: 1, atualizados: 1 }, "um novo; o do mesmo CNES é atualizado, não duplicado");
+
+    const porCnes = new Map((await clientes.listarUnidades(clienteId)).map((u) => [u.cnes, u]));
+    assert.equal(porCnes.get("1234567")!.nome, "UBS Central", "atualizou o nome do que já existia");
+    assert.deepEqual([porCnes.get("1234567")!.latitude, porCnes.get("1234567")!.longitude], [-20, -44], "não mexe na localização ajustada à mão");
+    assert.equal(porCnes.get("7654321")!.nome, "UBS Nova");
+    assert.deepEqual([porCnes.get("7654321")!.latitude, porCnes.get("7654321")!.longitude], [-22, -46], "o novo entra com a localização do CNES");
+    assert.deepEqual((await clientes.cnesDoCliente(clienteId)).sort(), ["1234567", "7654321"], "os dois CNES (a Sede, sem CNES, fica de fora)");
+
+    // Reimportar o mesmo CNES não duplica.
+    const r2 = await clientes.importarEstabelecimentosDoCnes(clienteId, [{ cnes: "1234567", nome: "UBS Central", endereco: "", latitude: null, longitude: null }], 50);
+    assert.deepEqual(r2, { incluidos: 0, atualizados: 1 });
+    assert.equal((await clientes.listarUnidades(clienteId)).length, 3, "Sede + 2 do CNES; não duplicou");
   });
 
   test("uma visita em andamento por técnico, também quando o banco é chamado direto", async () => {

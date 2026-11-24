@@ -273,6 +273,21 @@ export interface RegistroAuditoria {
   mudancas: MudancaCampo[];
 }
 
+/** O que o proxy fez com a requisição: passou, mandou pro login, ou mandou pro início. */
+export type DesfechoRequisicao = "ok" | "login" | "inicio";
+
+/** Uma linha do log de requisições (o usuário já vem com o nome resolvido; "—" quando não estava logado). */
+export interface RegistroRequisicao {
+  id: string;
+  /** Quando entrou (ISO, UTC). */
+  em: string;
+  metodo: string;
+  caminho: string;
+  usuarioNome: string;
+  ip: string;
+  desfecho: DesfechoRequisicao;
+}
+
 /** Registro de alteração da visita: quem, quando, o que mudou e por quê. */
 export interface AlteracaoVisita {
   id: string;
