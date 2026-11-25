@@ -5,7 +5,7 @@ import { exigirPermissaoAcao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
 import { listarEquipes } from "@/lib/repo/equipes";
 import { listarTemas } from "@/lib/repo/temas";
-import { equipesDaVisita, sugereTemasPorEquipe } from "@/lib/regras-visita";
+import { ehMembroDaVisita, equipesDaVisita, sugereTemasPorEquipe } from "@/lib/regras-visita";
 import { salvarImagem } from "@/lib/repo/arquivos";
 import {
   adicionarFotoExtra,
@@ -23,7 +23,7 @@ type Resultado = string | null;
 async function visitaAberta(visitaId: string) {
   const tecnico = await exigirPermissaoAcao(PERMISSOES.tecnico);
   const v = await buscarVisita(visitaId);
-  if (!v || v.tecnicoId !== tecnico.id) throw new Error("Visita não encontrada");
+  if (!v || !ehMembroDaVisita(v, tecnico.id)) throw new Error("Visita não encontrada");
   if (v.status !== "em_andamento") return { tecnico, v, erro: "Esta visita já foi encerrada." };
   return { tecnico, v, erro: null };
 }

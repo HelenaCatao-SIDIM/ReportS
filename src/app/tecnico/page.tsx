@@ -1,11 +1,13 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { ArrowRight, Timer } from "lucide-react";
+import { ArrowRight, Timer, Users } from "lucide-react";
 import { getUsuarioAtual } from "@/lib/dal";
+import { PERMISSOES } from "@/lib/permissoes";
 import { listarParaCheckin } from "@/lib/repo/contratos";
 import { listarPendentesDosContratos } from "@/lib/repo/cronograma";
+import { listarComPermissao } from "@/lib/repo/usuarios";
 import { horaDoServidor } from "@/lib/agora";
-import { visitaAbertaDoTecnico } from "@/lib/repo/visitas";
+import { convitesPendentes, visitaAbertaDoTecnico } from "@/lib/repo/visitas";
 import { dataLocal, formatarDataHora } from "@/lib/datas";
 import { rotuloAtendidos, rotuloTipo } from "@/lib/visitas";
 import { equipesDaVisita, rotaDaVisita } from "@/lib/regras-visita";
@@ -61,9 +63,46 @@ async function Conteudo() {
     );
   }
 
-  const [clientes, todasEquipes] = await Promise.all([listarParaCheckin(), listarEquipes()]);
+  // Convites para visitas conjuntas abertas por outros técnicos: o convidado faz o próprio check-in para entrar.
+  const convites = await convitesPendentes(usuario.id);
+  if (convites.length) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-xl font-semibold">Olá, {usuario.nome.split(" ")[0]}</h1>
+        {convites.map((c) => (
+          <Card key={c.id} className="border-primary/40 bg-primary/5">
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                <Users className="size-4" />
+                Convite para visita conjunta
+              </div>
+              <div>
+                <div className="text-lg font-semibold">
+                  {c.clienteNome}
+                  <span className="font-normal text-muted-foreground"> · {c.sistemaNome}</span>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {c.unidadeNome} · {rotuloTipo(c.tipo)}
+                </div>
+                <div className="mt-1 text-sm text-muted-foreground">Aberta por {c.tecnicoNome} às {formatarDataHora(c.entrada)}</div>
+              </div>
+              <Button nativeButton={false} render={<Link href={`/tecnico/visita/${c.id}/entrar`} />} className="h-11 w-full text-base">
+                Entrar na visita
+                <ArrowRight />
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+        <p className="text-center text-xs text-muted-foreground">Entre na visita para registrar a sua chegada. Você não pode abrir outra enquanto tiver um convite aberto.</p>
+      </div>
+    );
+  }
+
+  const [clientes, todasEquipes, tecnicos] = await Promise.all([listarParaCheckin(), listarEquipes(), listarComPermissao(PERMISSOES.tecnico)]);
   // Equipes que o técnico pode marcar no check-in (as mesmas que a visita aceita depois).
   const equipes = equipesDaVisita(todasEquipes, []).map(({ id, nome }) => ({ id, nome }));
+  // Outros técnicos que podem ser convidados para uma visita conjunta.
+  const outrosTecnicos = tecnicos.filter((t) => t.id !== usuario.id).map(({ id, nome }) => ({ id, nome }));
   // O que ainda falta do cronograma de implantação nos estabelecimentos desses contratos (sem a observação interna).
   const hoje = dataLocal(await horaDoServidor());
   const cronograma = (await listarPendentesDosContratos(clientes.flatMap((c) => c.contratos.map((x) => x.id)), hoje)).map((i) => ({
@@ -84,7 +123,7 @@ async function Conteudo() {
         <h1 className="text-xl font-semibold">Novo check-in</h1>
         <p className="text-sm text-muted-foreground">Registre a chegada ao cliente.</p>
       </div>
-      <CheckinForm clientes={clientes} equipes={equipes} cronograma={cronograma} porCep={localizacaoPorCep()} carimbo={carimboFoto()} />
+      <CheckinForm clientes={clientes} equipes={equipes} tecnicos={outrosTecnicos} cronograma={cronograma} porCep={localizacaoPorCep()} carimbo={carimboFoto()} />
     </div>
   );
 }

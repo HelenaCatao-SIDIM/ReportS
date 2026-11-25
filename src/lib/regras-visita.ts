@@ -21,6 +21,10 @@ export const exigeLoginNaPresenca = (nivel: NivelComprovacao | null | undefined,
 /** Tipos em que o check-out exige ao menos um participante na lista. */
 export const exigeParticipantes = (tipo: TipoVisita) => tipo === "treinamento" || tipo === "treinamento_online";
 
+/** O técnico faz parte da visita (principal ou convidado) — numa visita conjunta, qualquer membro acessa e edita o que é comum. */
+export const ehMembroDaVisita = (v: { tecnicoId: string; tecnicos?: { tecnicoId: string }[] }, tecnicoId: string) =>
+  v.tecnicoId === tecnicoId || !!v.tecnicos?.some((t) => t.tecnicoId === tecnicoId);
+
 /**
  * Tipos em que, logo depois do check-in, o aparelho vai para a tela de presença (os participantes buscam o próprio nome e
  * assinam enquanto o técnico apresenta). Nos outros tipos, a visita abre direto na tela de temas e anotações.
@@ -57,7 +61,9 @@ export const CAMPOS_ANOTACAO = [
 ] as const;
 
 /** Chave do rascunho do check-out guardado no aparelho. */
-export const chaveRascunho = (visitaId: string) => `checkout-rascunho:${visitaId}`;
+// Rascunho das anotações/check-out: por visita **e por técnico** — numa visita conjunta, cada técnico tem as suas,
+// e dois técnicos no mesmo navegador (um saiu, outro entrou) não misturam nem sobrescrevem o texto um do outro.
+export const chaveRascunho = (visitaId: string, tecnicoId: string) => `checkout-rascunho:${visitaId}:${tecnicoId}`;
 
 /** Rascunho do check-in (cliente, sistema, estabelecimento, equipes, tipo e link); a foto e a localização não são guardadas. */
 export const chaveRascunhoCheckin = "checkin-rascunho";

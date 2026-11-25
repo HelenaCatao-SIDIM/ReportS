@@ -333,6 +333,8 @@ export function arquivosDaVersao(v: VersaoRelatorio): Set<string> {
   for (const vis of v.conteudo?.visitas ?? []) {
     for (const f of [vis.fotoAmbiente, vis.printTela, ...vis.fotosExtras]) if (f) urls.add(f.url);
     for (const p of vis.presencas) if (p.assinatura) urls.add(p.assinatura);
+    // Visita conjunta: fotos (chegada e extras) de cada técnico.
+    for (const t of vis.tecnicos ?? []) for (const f of [t.fotoAmbiente, t.printTela, ...t.fotosExtras]) if (f) urls.add(f.url);
   }
   return urls;
 }

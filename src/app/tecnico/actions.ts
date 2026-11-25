@@ -11,8 +11,9 @@ import { equipesDaVisita, rotaDaVisita, sugereTemasPorEquipe } from "@/lib/regra
 import { buscarCliente, buscarUnidade, criarUnidade } from "@/lib/repo/clientes";
 import { listarEquipes } from "@/lib/repo/equipes";
 import { buscarContrato, listarParaCheckin } from "@/lib/repo/contratos";
+import { listarComPermissao } from "@/lib/repo/usuarios";
 import { salvarImagem } from "@/lib/repo/arquivos";
-import { abrirVisita, visitaAbertaDoTecnico } from "@/lib/repo/visitas";
+import { abrirVisita, tecnicosOcupados, visitaAbertaDoTecnico } from "@/lib/repo/visitas";
 import { registrarAuditoria, mudancasDe } from "@/lib/repo/auditoria";
 import { resolverCep } from "@/lib/cep";
 import { textoEndereco } from "@/lib/format";
@@ -21,7 +22,7 @@ import { lerLocal } from "@/lib/ler-local";
 import { converterDepois } from "@/lib/cep-visitas";
 
 export interface CheckinState {
-  erros?: Partial<Record<"cliente" | "contrato" | "unidade" | "equipes" | "tipo" | "gps" | "foto" | "print" | "link" | "geral", string>>;
+  erros?: Partial<Record<"cliente" | "contrato" | "unidade" | "equipes" | "tipo" | "gps" | "foto" | "print" | "link" | "convidados" | "geral", string>>;
 }
 
 const arquivo = (fd: FormData, nome: string) => {
@@ -63,6 +64,20 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
   }
   if (!ehMeio(meioLido)) erros.geral = "Não foi possível identificar o aparelho. Atualize a página e tente de novo.";
 
+  // Visita conjunta: valida os técnicos convidados (existem, têm a permissão, não são o próprio e estão livres).
+  let convidadoIds: string[] = [];
+  if (fd.get("conjunta") === "1") {
+    const escolhidos = [...new Set(fd.getAll("convidadoIds").map(String))].filter((id) => id && id !== tecnico.id);
+    const validos = new Set((await listarComPermissao(PERMISSOES.tecnico)).map((t) => t.id));
+    convidadoIds = escolhidos.filter((id) => validos.has(id));
+    if (!convidadoIds.length) {
+      erros.convidados = "Escolha ao menos um técnico para a visita conjunta.";
+    } else {
+      const ocupados = await tecnicosOcupados(convidadoIds);
+      if (ocupados.size) erros.convidados = "Um dos técnicos escolhidos já está em outra visita. Desmarque-o e tente de novo.";
+    }
+  }
+
   const presencial = ehPresencial(tipo);
   const checkin = presencial ? lerLocal(fd, `check-in do técnico ${tecnico.id}`) : null;
   const linkReuniao = String(fd.get("linkReuniao") ?? "").trim();
@@ -86,21 +101,30 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
       ? Math.round(distanciaMetros(checkin, { latitude: unidade.latitude, longitude: unidade.longitude }))
       : null;
 
-  const v = await abrirVisita({
-    tecnicoId: tecnico.id,
-    clienteId,
-    contratoId,
-    unidadeId,
-    tipo,
-    equipeIds,
-    checkin,
-    meio: meioLido as MeioRegistro,
-    distanciaCheckinM,
-    raioCheckinM: distanciaCheckinM === null ? null : unidade!.raioMetros,
-    fotoAmbiente: presencial ? foto : null,
-    printTela: presencial ? null : foto,
-    linkReuniao: presencial ? null : linkReuniao,
-  });
+  let v;
+  try {
+    v = await abrirVisita(
+      {
+        tecnicoId: tecnico.id,
+        clienteId,
+        contratoId,
+        unidadeId,
+        tipo,
+        equipeIds,
+        checkin,
+        meio: meioLido as MeioRegistro,
+        distanciaCheckinM,
+        raioCheckinM: distanciaCheckinM === null ? null : unidade!.raioMetros,
+        fotoAmbiente: presencial ? foto : null,
+        printTela: presencial ? null : foto,
+        linkReuniao: presencial ? null : linkReuniao,
+      },
+      convidadoIds,
+    );
+  } catch (erro) {
+    // Corrida: alguém já estava ocupado ou o técnico já tinha visita aberta. Mostra sem derrubar o check-in.
+    return { erros: { convidados: erro instanceof Error ? erro.message : "Não foi possível abrir a visita. Tente de novo." } };
+  }
   // Com a prévia já resolvida, o CEP é gravado na hora; senão, é calculado depois da resposta (o técnico não espera).
   await converterDepois(v.id, "checkin", v.checkin);
   revalidatePath("/tecnico", "layout");

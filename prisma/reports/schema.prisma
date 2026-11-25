@@ -178,6 +178,8 @@ model Visita {
   equipes                    VisitaEquipe[]
   presencas                  Presenca[]
   alteracoes                 AlteracaoVisita[]
+  /// Técnicos convidados (visita conjunta). O principal é `tecnicoId`; estes são os demais, cada um com os próprios dados.
+  tecnicos                   VisitaTecnico[]
 
   @@index([tecnicoId, status])
   @@index([contratoId, status])
@@ -229,6 +231,36 @@ model Presenca {
 
   @@unique([visitaId, participanteId])
   @@map("presencas")
+}
+
+/// Técnico convidado de uma visita conjunta (o principal fica em `visitas.tecnico_id`). Cada convidado tem o próprio
+/// check-in, check-out, foto e anotações: no fim é uma visita só, com os dados de todos. Solo = sem linhas aqui.
+model VisitaTecnico {
+  visitaId          String    @map("visita_id")
+  tecnicoId         BigInt    @map("tecnico_id")
+  /// Por ora só "convidado"; o principal não tem linha (fica na própria visita).
+  papel             String    @default("convidado")
+  /// "convidado" (ainda não fez check-in), "ativo" (na visita) ou "encerrado" (já fez o próprio check-out).
+  estado            String    @default("convidado")
+  convidadoEm       DateTime  @map("convidado_em")
+  entrada           DateTime?
+  saida             DateTime?
+  checkin           Json?
+  checkout          Json?
+  meio              String    @default("")
+  distanciaCheckinM Int?      @map("distancia_checkin_m")
+  raioCheckinM      Int?      @map("raio_checkin_m")
+  fotoAmbiente      Json?     @map("foto_ambiente")
+  printTela         Json?     @map("print_tela")
+  fotosExtras       Json      @default("[]") @map("fotos_extras")
+  observacoes       String    @default("")
+  pendencias        String    @default("")
+  proximosPassos    String    @default("") @map("proximos_passos")
+  visita            Visita    @relation(fields: [visitaId], references: [id], onDelete: Cascade)
+
+  @@id([visitaId, tecnicoId])
+  @@index([tecnicoId])
+  @@map("visita_tecnicos")
 }
 
 /// Histórico de alterações da visita pela administração (encerramento, cancelamento, correção).

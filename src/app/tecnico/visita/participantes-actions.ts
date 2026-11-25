@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { exigirPermissaoAcao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
 import { cpfValido, mascararCpf, normalizar, soDigitos } from "@/lib/format";
-import { exigeAssinaturaNaPresenca, exigeLoginNaPresenca, podeMostrarDonoDoCpf } from "@/lib/regras-visita";
+import { ehMembroDaVisita, exigeAssinaturaNaPresenca, exigeLoginNaPresenca, podeMostrarDonoDoCpf } from "@/lib/regras-visita";
 import { buscarContrato } from "@/lib/repo/contratos";
 import { buscarCbo } from "@/lib/repo/cbo";
 import { salvarImagem } from "@/lib/repo/arquivos";
@@ -17,7 +17,7 @@ import type { Cbo, EstadoParticipante, Participante } from "@/lib/types";
 async function contexto(visitaId: string) {
   const tecnico = await exigirPermissaoAcao(PERMISSOES.tecnico);
   const v = await buscarVisita(visitaId);
-  if (!v || v.tecnicoId !== tecnico.id) throw new Error("Visita não encontrada");
+  if (!v || !ehMembroDaVisita(v, tecnico.id)) throw new Error("Visita não encontrada");
   const contrato = await buscarContrato(v.contratoId);
   if (!contrato) throw new Error("Contrato não encontrado");
   // A forma de comprovação e o CPF seguem o contrato da visita. Assinatura só no presencial; treinamento online é sempre nominal.

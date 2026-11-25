@@ -110,7 +110,10 @@ function EmAndamento({ visitas, agora }: { visitas: VisitaDetalhada[]; agora: nu
               const alerta = horas >= HORAS_ALERTA;
               return (
                 <TableRow key={v.id}>
-                  <TableCell className="pl-4 font-medium">{v.tecnicoNome}</TableCell>
+                  <TableCell className="pl-4 font-medium">
+                    {v.tecnicoNome}
+                    {v.conjunta && v.tecnicos && <span className="font-normal text-muted-foreground"> +{v.tecnicos.length - 1}</span>}
+                  </TableCell>
                   <TableCell>
                     {v.clienteNome}
                     <span className="block text-xs text-muted-foreground">{v.sistemaNome} · {v.unidadeNome}</span>
@@ -249,7 +252,10 @@ async function Encerradas({ sp }: { sp: Record<string, string | string[] | undef
                     {v.clienteNome}
                     <span className="block text-xs text-muted-foreground">{v.sistemaNome} · {v.unidadeNome}</span>
                   </TableCell>
-                  <TableCell>{v.tecnicoNome}</TableCell>
+                  <TableCell>
+                    {v.tecnicoNome}
+                    {v.conjunta && v.tecnicos && <span className="text-xs text-muted-foreground"> +{v.tecnicos.length - 1}</span>}
+                  </TableCell>
                   <TableCell>{rotuloTipo(v.tipo)}</TableCell>
                   <TableCell className="whitespace-nowrap">
                     {formatarHora(v.entrada)}

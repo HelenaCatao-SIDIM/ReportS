@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { getUsuarioAtual } from "@/lib/dal";
 import { buscarVisita } from "@/lib/repo/visitas";
 import { ehPresencial, rotuloAtendidos, rotuloTipo } from "@/lib/visitas";
-import { exigeParticipantes } from "@/lib/regras-visita";
+import { ehMembroDaVisita, exigeParticipantes } from "@/lib/regras-visita";
 import { localizacaoPorCep } from "@/lib/config";
 import { CheckoutForm } from "./checkout-form";
 
@@ -20,8 +20,12 @@ export default function CheckoutPage({ params }: PageProps<"/tecnico/visita/[id]
 async function Conteudo({ params }: Pick<PageProps<"/tecnico/visita/[id]/checkout">, "params">) {
   const [{ id }, usuario] = await Promise.all([params, getUsuarioAtual()]);
   const v = await buscarVisita(id);
-  if (!v || !usuario || v.tecnicoId !== usuario.id) notFound();
+  if (!v || !usuario || !ehMembroDaVisita(v, usuario.id)) notFound();
   if (v.status !== "em_andamento") redirect(`/tecnico/visita/${id}`);
+  // Cada técnico faz o próprio check-out: parte das anotações dele.
+  const minha = v.tecnicos?.find((t) => t.tecnicoId === usuario.id);
+  if (minha?.saida) redirect(`/tecnico/visita/${id}`);
+  const anotacoes = minha ?? v;
 
   return (
     <div className="space-y-4">
@@ -35,10 +39,11 @@ async function Conteudo({ params }: Pick<PageProps<"/tecnico/visita/[id]/checkou
       </div>
       <CheckoutForm
         visitaId={id}
+        tecnicoId={usuario.id}
         entrada={v.entrada}
         presencial={ehPresencial(v.tipo)}
         faltaParticipantes={exigeParticipantes(v.tipo) && v.presencas.length === 0}
-        inicial={{ observacoes: v.observacoes, pendencias: v.pendencias, proximosPassos: v.proximosPassos }}
+        inicial={{ observacoes: anotacoes.observacoes, pendencias: anotacoes.pendencias, proximosPassos: anotacoes.proximosPassos }}
         porCep={localizacaoPorCep()}
         resumo={{
           clienteNome: v.clienteNome,
