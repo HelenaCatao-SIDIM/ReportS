@@ -34,6 +34,8 @@ async function carregarImagensDeVisitas(visitas: VisitaDetalhada[]): Promise<Ima
   for (const v of visitas) {
     for (const f of [v.fotoAmbiente, v.printTela, ...v.fotosExtras]) if (f) urls.add(f.url);
     for (const p of v.presencas) if (p.assinatura) urls.add(p.assinatura);
+    // Visita conjunta: as fotos (chegada e extras) de cada técnico.
+    for (const t of v.tecnicos ?? []) for (const f of [t.fotoAmbiente, t.printTela, ...t.fotosExtras]) if (f) urls.add(f.url);
   }
   const mapa: ImagensPdf = new Map();
   await Promise.all(

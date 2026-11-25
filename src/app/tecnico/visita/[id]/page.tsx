@@ -2,7 +2,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CheckCircle2, LogOut, MapPin, Timer } from "lucide-react";
+import { ArrowLeft, CheckCircle2, LogOut, MapPin, Timer, Users } from "lucide-react";
 import { getUsuarioAtual } from "@/lib/dal";
 import { buscarVisita, type VisitaDetalhada } from "@/lib/repo/visitas";
 import { listarTemas } from "@/lib/repo/temas";
@@ -15,6 +15,7 @@ import {
   chaveRascunhoCheckin,
   chaveRascunhoParticipante,
   chaveRascunhoTema,
+  ehMembroDaVisita,
   equipesDaVisita,
   exigeAssinaturaNaPresenca,
   exigeLoginNaPresenca,
@@ -50,13 +51,13 @@ export default function VisitaTecnicoPage({ params, searchParams }: PageProps<"/
 async function Conteudo({ params, searchParams }: Pick<PageProps<"/tecnico/visita/[id]">, "params" | "searchParams">) {
   const [{ id }, sp, usuario] = await Promise.all([params, searchParams, getUsuarioAtual()]);
   const v = await buscarVisita(id);
-  // O técnico só vê as próprias visitas.
-  if (!v || !usuario || v.tecnicoId !== usuario.id) notFound();
+  // Qualquer técnico da visita (principal ou convidado) acessa; os demais, não.
+  if (!v || !usuario || !ehMembroDaVisita(v, usuario.id)) notFound();
   agendarCepPendente(v, await horaDoServidor());
   return (
     <>
       <AtualizarEnquantoPendente pendente={cepEmAndamento(v)} />
-      {v.status === "em_andamento" ? <EmAndamento v={v} /> : <Leitura v={v} acabouDeEncerrar={sp.ok === "encerrada"} />}
+      {v.status === "em_andamento" ? <EmAndamento v={v} tecnicoId={usuario.id} /> : <Leitura v={v} tecnicoId={usuario.id} acabouDeEncerrar={sp.ok === "encerrada"} />}
     </>
   );
 }
@@ -97,7 +98,10 @@ function Cabecalho({ v }: { v: VisitaDetalhada }) {
   );
 }
 
-async function EmAndamento({ v }: { v: VisitaDetalhada }) {
+async function EmAndamento({ v, tecnicoId }: { v: VisitaDetalhada; tecnicoId: string }) {
+  const minha = v.tecnicos?.find((t) => t.tecnicoId === tecnicoId) ?? null;
+  const outros = (v.tecnicos ?? []).filter((t) => t.tecnicoId !== tecnicoId);
+  const anotacoes = minha ?? { observacoes: v.observacoes, pendencias: v.pendencias, proximosPassos: v.proximosPassos };
   const [todosTemas, contrato, equipes] = await Promise.all([
     listarTemas(),
     buscarContrato(v.contratoId),
@@ -124,9 +128,29 @@ async function EmAndamento({ v }: { v: VisitaDetalhada }) {
         Início
       </Link>
       <Cabecalho v={v} />
+      {v.conjunta && (
+        <Card className="gap-1 border-primary/30 bg-primary/5 py-3">
+          <div className="flex items-center gap-1.5 px-4 text-sm font-medium text-primary">
+            <Users className="size-4" />
+            Visita conjunta
+          </div>
+          <p className="px-4 text-xs">
+            Você está preenchendo como <span className="font-semibold text-primary">{minha?.nome ?? "—"}</span>.
+          </p>
+          <ul className="space-y-0.5 px-4 text-xs text-muted-foreground">
+            {outros.map((t) => (
+              <li key={t.tecnicoId}>
+                {t.nome} ·{" "}
+                {t.estado === "convidado" ? "ainda não fez check-in" : t.estado === "encerrado" ? "já fez o check-out" : "na visita"}
+              </li>
+            ))}
+          </ul>
+          <p className="px-4 text-xs text-muted-foreground">Temas e participantes são compartilhados; as suas anotações e fotos extras são só suas.</p>
+        </Card>
+      )}
       <TemasVisita visitaId={v.id} temas={temas} inicial={v.temaIds} adicionalInicial={v.temaAdicional} porEquipe={porEquipe} />
-      <AnotacoesVisita visitaId={v.id} inicial={{ observacoes: v.observacoes, pendencias: v.pendencias, proximosPassos: v.proximosPassos }} />
-      <FotosExtras visitaId={v.id} fotos={v.fotosExtras} />
+      <AnotacoesVisita visitaId={v.id} tecnicoId={tecnicoId} inicial={{ observacoes: anotacoes.observacoes, pendencias: anotacoes.pendencias, proximosPassos: anotacoes.proximosPassos }} />
+      <FotosExtras visitaId={v.id} fotos={minha?.fotosExtras ?? v.fotosExtras} />
       <ParticipantesVisita
         visitaId={v.id}
         presencas={v.presencas}
@@ -135,22 +159,30 @@ async function EmAndamento({ v }: { v: VisitaDetalhada }) {
         semLoginHref={semLoginHref}
       />
       <div className="space-y-2 pb-2">
-        <Button nativeButton={false} render={<Link href={`/tecnico/visita/${v.id}/checkout`} />} className="h-12 w-full text-base">
-          <LogOut />
-          Fazer check-out
-        </Button>
-        {exigeParticipantes(v.tipo) && v.presencas.length === 0 && (
-          <p className="text-center text-xs text-amber-700">Registre ao menos um participante antes do check-out.</p>
+        {minha && minha.saida ? (
+          <p className="rounded-lg border bg-muted/40 p-3 text-center text-sm text-muted-foreground">
+            Você já fez o seu check-out. A visita encerra quando o último técnico sair.
+          </p>
+        ) : (
+          <>
+            <Button nativeButton={false} render={<Link href={`/tecnico/visita/${v.id}/checkout`} />} className="h-12 w-full text-base">
+              <LogOut />
+              Fazer check-out
+            </Button>
+            {exigeParticipantes(v.tipo) && v.presencas.length === 0 && (
+              <p className="text-center text-xs text-amber-700">Registre ao menos um participante antes do check-out.</p>
+            )}
+          </>
         )}
       </div>
     </div>
   );
 }
 
-function Leitura({ v, acabouDeEncerrar }: { v: VisitaDetalhada; acabouDeEncerrar: boolean }) {
+function Leitura({ v, tecnicoId, acabouDeEncerrar }: { v: VisitaDetalhada; tecnicoId: string; acabouDeEncerrar: boolean }) {
   return (
     <div className="space-y-4">
-      <LimparRascunho chave={[chaveRascunho(v.id), chaveRascunhoParticipante(v.id), chaveRascunhoTema(v.id)]} />
+      <LimparRascunho chave={[chaveRascunho(v.id, tecnicoId), chaveRascunhoParticipante(v.id), chaveRascunhoTema(v.id)]} />
       {acabouDeEncerrar && (
         <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
           <CheckCircle2 />

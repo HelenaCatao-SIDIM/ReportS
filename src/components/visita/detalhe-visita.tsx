@@ -52,15 +52,15 @@ function DistanciaCheckin({ v }: { v: Pick<VisitaDetalhada, "distanciaCheckinM" 
   );
 }
 
-function Fotos({ titulo, fotos }: { titulo: string; fotos: Foto[] }) {
+function Fotos({ titulo, fotos }: { titulo?: string; fotos: Foto[] }) {
   if (!fotos.length) return null;
   return (
     <div>
-      <div className="mb-2 text-xs text-muted-foreground">{titulo}</div>
+      {titulo && <div className="mb-2 text-xs text-muted-foreground">{titulo}</div>}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
         {fotos.map((f) => (
           <a key={f.id} href={f.url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border">
-            <img src={f.url} alt={titulo} className="aspect-[4/3] w-full object-cover" />
+            <img src={f.url} alt={titulo ?? "Foto"} className="aspect-[4/3] w-full object-cover" />
           </a>
         ))}
       </div>
@@ -97,6 +97,9 @@ export function DetalheVisita({
   const presencial = ehPresencial(v.tipo);
   // Com a localização por CEP ligada, a coordenada nunca aparece (nem para o aprovador do cliente).
   const porCep = localizacaoPorCep();
+  // Fotos da visita (solo): a de check-in de um lado, as extras do outro. A foto da lista de presença é parte de participantes.
+  const fotoCheckin = v.fotoAmbiente ?? v.printTela;
+  const extras = v.fotosExtras.filter((f) => f.legenda !== "lista_presenca");
 
   return (
     <div className="space-y-4">
@@ -113,7 +116,12 @@ export function DetalheVisita({
             <Item rotulo="Entrada">{formatarHora(v.entrada)}</Item>
             <Item rotulo="Saída">{v.saida ? formatarHora(v.saida) : "—"}</Item>
             <Item rotulo="Duração">{v.saida ? formatarDuracao(v.entrada, v.saida) : "—"}</Item>
-            <Item rotulo="Técnico">{v.tecnicoNome}</Item>
+            <Item rotulo={v.conjunta ? "Técnicos" : "Técnico"}>
+              {v.tecnicoNome}
+              {v.conjunta && v.tecnicos && v.tecnicos.length > 1 && (
+                <span className="text-muted-foreground"> +{v.tecnicos.length - 1}</span>
+              )}
+            </Item>
             <Item rotulo="Registrado por">{ROTULO_MEIO[v.meio]}</Item>
             {presencial ? (
               <>
@@ -143,6 +151,62 @@ export function DetalheVisita({
         </CardContent>
       </Card>
 
+      {v.conjunta && v.tecnicos && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Técnicos da visita ({v.tecnicos.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {v.tecnicos.map((t) => {
+              const chegada = t.fotoAmbiente ?? t.printTela;
+              return (
+              <div key={t.tecnicoId} className="space-y-2 rounded-lg border p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium">{t.nome}</span>
+                  <Badge variant={t.papel === "principal" ? "default" : "secondary"}>{t.papel === "principal" ? "Principal" : "Convidado"}</Badge>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {t.estado === "convidado"
+                    ? "Convidado — não fez check-in."
+                    : `Entrada ${t.entrada ? formatarHora(t.entrada) : "—"} · Saída ${t.saida ? formatarHora(t.saida) : "—"}${
+                        t.entrada && t.saida ? ` · ${formatarDuracao(t.entrada, t.saida)}` : ""
+                      }`}
+                </div>
+                {controle && presencial && t.estado !== "convidado" && (
+                  <div className="text-xs">
+                    <DistanciaCheckin v={t} />
+                  </div>
+                )}
+                {chegada && (
+                  <div>
+                    <div className="mb-1 text-xs text-muted-foreground">Foto do check-in</div>
+                    <a href={chegada.url} target="_blank" rel="noreferrer" className="block w-28 overflow-hidden rounded-lg border">
+                      <img src={chegada.url} alt={`Check-in de ${t.nome}`} className="h-20 w-28 object-cover" />
+                    </a>
+                  </div>
+                )}
+                {t.fotosExtras.length > 0 && (
+                  <div>
+                    <div className="mb-1 text-xs text-muted-foreground">Fotos extras</div>
+                    <div className="flex flex-wrap gap-2">
+                      {t.fotosExtras.map((f) => (
+                        <a key={f.id} href={f.url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border">
+                          <img src={f.url} alt={`Foto extra de ${t.nome}`} className="h-20 w-28 object-cover" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <Texto rotulo="Observações" valor={t.observacoes} />
+                <Texto rotulo="Pendências" valor={t.pendencias} />
+                <Texto rotulo="Próximos passos" valor={t.proximosPassos} />
+              </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -168,16 +232,18 @@ export function DetalheVisita({
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Encerramento</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Texto rotulo="Observações" valor={v.observacoes} />
-            <Texto rotulo="Pendências" valor={v.pendencias} />
-            <Texto rotulo="Próximos passos" valor={v.proximosPassos} />
-          </CardContent>
-        </Card>
+        {!v.conjunta && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Encerramento</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Texto rotulo="Observações" valor={v.observacoes} />
+              <Texto rotulo="Pendências" valor={v.pendencias} />
+              <Texto rotulo="Próximos passos" valor={v.proximosPassos} />
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <Card className="gap-0 pb-0">
@@ -239,18 +305,43 @@ export function DetalheVisita({
         )}
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Fotos</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Fotos titulo="Foto do ambiente (check-in)" fotos={v.fotoAmbiente ? [v.fotoAmbiente] : []} />
-          <Fotos titulo="Print da tela (treinamento online)" fotos={v.printTela ? [v.printTela] : []} />
-          <Fotos titulo="Lista de presença (foto)" fotos={fotosDaLista(v)} />
-          <Fotos titulo="Fotos extras" fotos={v.fotosExtras.filter((f) => f.legenda !== "lista_presenca")} />
-          {!v.fotoAmbiente && !v.printTela && !v.fotosExtras.length && <p className="text-sm text-muted-foreground">Nenhuma foto.</p>}
-        </CardContent>
-      </Card>
+      {/* Fotos separadas por momento. Na visita conjunta, a chegada e as extras de cada técnico ficam no cartão "Técnicos". */}
+      {v.conjunta ? (
+        fotosDaLista(v).length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Lista de presença (foto)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Fotos fotos={fotosDaLista(v)} />
+            </CardContent>
+          </Card>
+        )
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Foto do check-in</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {fotoCheckin ? (
+                <Fotos titulo={v.fotoAmbiente ? "Foto do ambiente" : "Print da tela (treinamento online)"} fotos={[fotoCheckin]} />
+              ) : (
+                <p className="text-sm text-muted-foreground">Sem foto de check-in.</p>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Fotos extras</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {extras.length ? <Fotos titulo="Tiradas durante a visita" fotos={extras} /> : <p className="text-sm text-muted-foreground">Nenhuma foto extra.</p>}
+              <Fotos titulo="Lista de presença (foto)" fotos={fotosDaLista(v)} />
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

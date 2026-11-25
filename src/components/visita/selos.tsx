@@ -1,4 +1,4 @@
-import { Lock, MapPinCheck, MapPinOff } from "lucide-react";
+import { Lock, MapPinCheck, MapPinOff, Users } from "lucide-react";
 import type { VisitaDetalhada } from "@/lib/repo/visitas";
 import { dentroDoRaio, foraDoRaio } from "@/lib/distancia";
 import { Badge } from "@/components/ui/badge";
@@ -11,12 +11,18 @@ export function SelosVisita({
   visita,
   alertaRaio = false,
 }: {
-  visita: Pick<VisitaDetalhada, "status" | "encerradaPelaAdministracao" | "historico" | "travada" | "distanciaCheckinM" | "raioCheckinM"> & { meio?: VisitaDetalhada["meio"] };
+  visita: Pick<VisitaDetalhada, "status" | "encerradaPelaAdministracao" | "historico" | "travada" | "distanciaCheckinM" | "raioCheckinM"> & { meio?: VisitaDetalhada["meio"]; conjunta?: boolean };
   alertaRaio?: boolean;
 }) {
   const corrigida = visita.historico.some((h) => h.acao === "correcao");
   return (
     <span className="inline-flex flex-wrap gap-1">
+      {visita.conjunta && (
+        <Badge variant="outline" className="border-primary/40 bg-primary/5 text-primary">
+          <Users />
+          Conjunta
+        </Badge>
+      )}
       {visita.status === "em_andamento" && <Badge>Em andamento</Badge>}
       {visita.status === "encerrada" && <Badge variant="outline">Encerrada</Badge>}
       {visita.status === "cancelada" && <Badge variant="destructive">Cancelada</Badge>}

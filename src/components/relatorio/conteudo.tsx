@@ -106,7 +106,8 @@ export function ConteudoRelatorio({ c, tituloVisitas, linkVisitas }: { c: DadosC
                   )}
                 </div>
                 <div className="truncate text-xs text-muted-foreground">
-                  {v.unidadeNome} · {rotuloAtendidos(v)} · {v.tecnicoNome} · {formatarHora(v.entrada)}–{v.saida ? formatarHora(v.saida) : "—"} (
+                  {v.unidadeNome} · {rotuloAtendidos(v)} · {v.tecnicoNome}
+                  {v.conjunta && v.tecnicos ? ` +${v.tecnicos.length - 1}` : ""} · {formatarHora(v.entrada)}–{v.saida ? formatarHora(v.saida) : "—"} (
                   {v.saida ? formatarDuracao(v.entrada, v.saida) : "—"}) · {v.presencas.length || !fotosDaLista(v).length ? `${v.presencas.length} participante(s)` : "lista de presença em foto"}
                 </div>
               </div>

@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getUsuarioAtual } from "@/lib/dal";
 import { buscarVisita } from "@/lib/repo/visitas";
 import { buscarContrato } from "@/lib/repo/contratos";
-import { chaveRascunhoParticipante, exigeAssinaturaNaPresenca, exigeLoginNaPresenca, exigeParticipantes } from "@/lib/regras-visita";
+import { chaveRascunhoParticipante, ehMembroDaVisita, exigeAssinaturaNaPresenca, exigeLoginNaPresenca, exigeParticipantes } from "@/lib/regras-visita";
 import { configLoginDoSistema } from "@/lib/repo/presenca-login";
 import { conferirProva } from "@/lib/saude-login";
 import { LimparRascunho } from "@/components/tecnico/limpar-rascunho";
@@ -20,8 +20,8 @@ export default function PresencaPage({ params, searchParams }: PageProps<"/tecni
 async function Conteudo({ params, searchParams }: Pick<PageProps<"/tecnico/visita/[id]/presenca">, "params" | "searchParams">) {
   const [{ id }, sp, usuario] = await Promise.all([params, searchParams, getUsuarioAtual()]);
   const v = await buscarVisita(id);
-  // O técnico só vê as próprias visitas; encerrada não recebe mais presença.
-  if (!v || !usuario || v.tecnicoId !== usuario.id) notFound();
+  // Qualquer técnico da visita (principal ou convidado) registra presença; encerrada não recebe mais.
+  if (!v || !usuario || !ehMembroDaVisita(v, usuario.id)) notFound();
   if (v.status !== "em_andamento") redirect(`/tecnico/visita/${id}`);
   const contrato = await buscarContrato(v.contratoId);
   // Login do participante no Saúde: só quando o contrato marca "login" (e o sistema tem login). O técnico abre o "modo sem login" por um link com token assinado.

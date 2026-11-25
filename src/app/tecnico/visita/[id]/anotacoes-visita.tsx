@@ -15,7 +15,7 @@ type Situacao = "parado" | "salvando" | "salvo" | { erro: string };
  * Anotações da visita, escritas enquanto ela acontece. Salvam sozinhas (logo depois de parar de digitar e ao sair do campo) e o
  * check-out parte delas: nada se perde se o técnico só fechar a tela.
  */
-export function AnotacoesVisita({ visitaId, inicial }: { visitaId: string; inicial: Valores }) {
+export function AnotacoesVisita({ visitaId, tecnicoId, inicial }: { visitaId: string; tecnicoId: string; inicial: Valores }) {
   const [valores, setValores] = useState<Valores>(inicial);
   const [situacao, setSituacao] = useState<Situacao>("parado");
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -27,7 +27,7 @@ export function AnotacoesVisita({ visitaId, inicial }: { visitaId: string; inici
     setSituacao("salvando");
     // O check-out guarda o rascunho no aparelho com os mesmos campos: mantém os dois iguais.
     try {
-      localStorage.setItem(chaveRascunho(visitaId), JSON.stringify(v));
+      localStorage.setItem(chaveRascunho(visitaId, tecnicoId), JSON.stringify(v));
     } catch {}
     const erro = await salvarAnotacoes(visitaId, v);
     setSituacao(erro ? { erro } : "salvo");

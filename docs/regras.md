@@ -151,19 +151,32 @@ Onde: `src/lib/visitas.ts` (`TIPOS_VISITA`), `src/lib/regras-visita.ts` (`exigeP
 - **Raio do estabelecimento**: o check-in presencial grava a **distância medida** até o estabelecimento e o raio da época. Fora do raio, a Administração vê o selo "Fora do raio" e a distância; dentro, "Dentro do raio". É **só alerta, nunca bloqueia**, e o técnico, o aprovador e o PDF não veem. Só mede estabelecimentos com latitude e longitude.
 - A localização é lida uma única vez, no check-in e no check-out. Não há rastreamento contínuo. O navegador só libera o GPS em `https` ou `localhost`.
 - Opcional (`LOCALIZACAO_POR_CEP`): a coordenada vira **CEP e endereço**, e o CEP aparece no lugar da latitude e da longitude nas telas; a coordenada continua gravada. A falha das APIs nunca bloqueia o check-in: o CEP pendente é buscado depois, pelo timer a cada 30 minutos (até 200 por vez, 1 consulta por segundo). Com `CARIMBO_FOTO`, data, hora e CEP vão no rodapé da foto do ambiente.
-- O que o técnico está digitando fica guardado no aparelho (`localStorage`) até cumprir o papel: o check-in (cliente, estabelecimento, equipes, tipo e link; a foto e a localização são pedidas de novo), o tema adicional, o cadastro de novo participante (a assinatura não é guardada) e o check-out.
+- O que o técnico está digitando fica guardado no aparelho (`localStorage`) até cumprir o papel: o check-in (cliente, estabelecimento, equipes, tipo e link; a foto e a localização são pedidas de novo), o tema adicional, o cadastro de novo participante (a assinatura não é guardada) e o check-out. O rascunho das anotações/check-out é **por visita e por técnico**, para que numa [visita conjunta](#visita-conjunta-dois-ou-mais-técnicos) (ou dois técnicos no mesmo aparelho) um não sobrescreva o texto do outro.
 
 Onde: `src/app/tecnico/actions.ts`, `src/components/tecnico/use-gps.ts`, `src/lib/repo/visitas.ts` (`abrirVisita`), `src/lib/regras-visita.ts`.
 
+### Visita conjunta (dois ou mais técnicos)
+
+Às vezes dois técnicos trabalham juntos na mesma visita. No fim é **uma visita só**, com os dados de todos e quem participou.
+
+- **No check-in**, quem abre pode marcar **"Visita conjunta"** e escolher o(s) outro(s) **técnico(s)** (só quem tem a permissão de técnico; não dá para convidar quem já está em outra visita). Quem abriu é o **principal**; os escolhidos entram como **convite pendente**. Só o principal monta a dupla, e só no check-in — depois não muda.
+- O **convidado** vê o convite na tela inicial do app ("Convite para visita conjunta → Entrar na visita") e faz o **próprio check-in** (localização + foto no presencial; print no online), com o próprio alerta de raio. Enquanto tem um convite aberto, ele **não pode** abrir outra visita.
+- **Um técnico só fica em uma visita aberta por vez** (como principal ou convidado); o banco garante com um índice único parcial, como no principal.
+- **Compartilhado** entre todos (qualquer técnico ativo edita): **temas, equipes treinadas e participantes** (lista de presença). **Por técnico**: as **anotações** (observações, pendências, próximos passos), as **fotos extras** e o **check-out** (cada um registra a própria saída e localização). Depois do próprio check-out, o técnico não edita mais.
+- A **visita só encerra** quando o **principal já saiu e nenhum convidado ativo resta**. Convite que nunca virou check-in não trava o encerramento (é cancelado ao fechar).
+- **Indicador:** selo **"Conjunta"** nas telas de visita e nas listas da Administração; no detalhe e no relatório (PDF), aparecem **todos os técnicos** (com entrada/saída de cada um), as **anotações** e as **fotos** (chegada e extras) **de cada um**, rotuladas. Visita **solo** segue igual a antes.
+
+Onde: `src/app/tecnico/visita/[id]/entrar/` (entrada do convidado), `visita_tecnicos` em `prisma/reports/schema.prisma`, `abrirVisita`/`entrarComoConvidado`/`encerrarPeloTecnico`/`membroAtivoDe` em `src/lib/repo/visitas.ts`, `ehMembroDaVisita` em `src/lib/regras-visita.ts`.
+
 ### Durante a visita
 
-Só o próprio técnico altera a visita, e só enquanto ela está em andamento:
+Enquanto a visita está em andamento, o técnico altera o que segue (numa [visita conjunta](#visita-conjunta-dois-ou-mais-técnicos), qualquer técnico ativo mexe no que é compartilhado; as anotações são de cada um):
 
 - **Temas**: marca os temas ativos **do sistema do contrato** da visita (ou os que já estavam marcados, mesmo inativados depois);
 - **Equipes treinadas** (só na implantação, no treinamento e no treinamento online): já vêm marcadas as do check-in, e o técnico **acrescenta ou tira** até o check-out. Aparecem **todas as equipes ativas** (e as já marcadas, mesmo inativadas depois), num cartão próprio, separado dos temas; o tema mínimo não é exigido para a equipe aparecer. O ReportS mostra os **temas mínimos** delas que são do sistema do contrato, como sugestão; o técnico marca os que trabalhou, e os demais temas continuam em "Outros temas". Marcar a equipe não marca nenhum tema sozinho. As equipes treinadas aparecem no detalhe da visita, no relatório (PDF) e na página do aprovador;
 - **Tema adicional**: texto livre de até 300 caracteres;
-- **Fotos extras**: adiciona e remove;
-- **Anotações** (observações, pendências e próximos passos): o técnico vai anotando **durante a visita** e o texto é salvo sozinho (logo depois de parar de digitar e ao sair do campo), com até 4.000 caracteres cada. O check-out parte dessas anotações, e dá para completá-las ali.
+- **Fotos extras**: adiciona e remove (numa visita conjunta, **cada técnico as suas**);
+- **Anotações** (observações, pendências e próximos passos): o técnico vai anotando **durante a visita** e o texto é salvo sozinho (logo depois de parar de digitar e ao sair do campo), com até 4.000 caracteres cada. O check-out parte dessas anotações, e dá para completá-las ali. Numa visita conjunta, **cada técnico escreve as suas**.
 
 Onde: `src/app/tecnico/visita/actions.ts`.
 
@@ -192,6 +205,7 @@ Onde: `src/app/tecnico/visita/participantes-actions.ts`, `src/app/tecnico/visita
 - Observações, pendências e próximos passos são opcionais, com até 4.000 caracteres cada, e já vêm preenchidos com o que o técnico anotou durante a visita.
 - O resumo do check-out lista as equipes.
 - A hora de saída é a **hora do servidor**. Depois do check-out, o técnico **não altera mais** a visita.
+- Na [visita conjunta](#visita-conjunta-dois-ou-mais-técnicos), **cada técnico faz o próprio check-out** (sua saída, localização e anotações); a visita só encerra quando o último sai.
 
 Onde: `src/app/tecnico/visita/checkout-actions.ts`, `src/app/tecnico/visita/[id]/checkout/checkout-form.tsx`.
 

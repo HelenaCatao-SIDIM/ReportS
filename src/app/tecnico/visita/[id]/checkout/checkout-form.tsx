@@ -30,6 +30,7 @@ interface Resumo {
 
 export function CheckoutForm({
   visitaId,
+  tecnicoId,
   entrada,
   presencial,
   resumo,
@@ -38,6 +39,7 @@ export function CheckoutForm({
   porCep = false,
 }: {
   visitaId: string;
+  tecnicoId: string;
   entrada: string;
   presencial: boolean;
   resumo: Resumo;
@@ -68,18 +70,18 @@ export function CheckoutForm({
   // Rascunho guardado no celular: recupera ao abrir.
   useEffect(() => {
     try {
-      const salvo = JSON.parse(localStorage.getItem(chaveRascunho(visitaId)) ?? "{}") as Record<string, string>;
+      const salvo = JSON.parse(localStorage.getItem(chaveRascunho(visitaId, tecnicoId)) ?? "{}") as Record<string, string>;
       for (const c of CAMPOS) {
         const campo = form.current?.elements.namedItem(c.nome) as HTMLTextAreaElement | null;
         if (campo && salvo[c.nome]) campo.value = salvo[c.nome];
       }
     } catch {}
-  }, [visitaId]);
+  }, [visitaId, tecnicoId]);
 
   function guardarRascunho() {
     try {
       const fd = new FormData(form.current!);
-      localStorage.setItem(chaveRascunho(visitaId), JSON.stringify(Object.fromEntries(CAMPOS.map((c) => [c.nome, fd.get(c.nome)]))));
+      localStorage.setItem(chaveRascunho(visitaId, tecnicoId), JSON.stringify(Object.fromEntries(CAMPOS.map((c) => [c.nome, fd.get(c.nome)]))));
     } catch {}
   }
 

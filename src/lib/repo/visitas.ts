@@ -4,7 +4,7 @@ import { idPlataforma, idTexto, plataforma, reports } from "@/lib/db";
 import { formatarDataHora } from "@/lib/datas";
 import { rotuloTipo } from "@/lib/visitas";
 import type {
-  AlteracaoVisita, EnderecoVisita, EstadoParticipante, Foto, LocalVisita, MeioRegistro, MudancaCampo, PresencaVisita, StatusVisita, TipoVisita,
+  AlteracaoVisita, ContribuicaoTecnico, EnderecoVisita, EstadoParticipante, EstadoTecnico, Foto, LocalVisita, MeioRegistro, MudancaCampo, PresencaVisita, StatusVisita, TipoVisita,
   UsuarioPublico, Visita, VisitaDetalhada,
 } from "@/lib/types";
 import { nomesDosClientes } from "./clientes";
@@ -26,6 +26,7 @@ const INCLUIR = {
   equipes: { select: { equipeId: true } },
   presencas: { orderBy: { ordem: "asc" } },
   alteracoes: { orderBy: { em: "asc" } },
+  tecnicos: { orderBy: { convidadoEm: "asc" } },
   estabelecimento: { select: { nome: true } },
   contrato: { select: { sistemaDoClienteId: true } },
   relatorio: { select: { status: true } },
@@ -88,11 +89,55 @@ const paraVisita = (v: Linha): Visita => ({
   historico: v.alteracoes.map(paraAlteracao),
 });
 
+/** Contribuição do técnico principal, a partir das colunas da própria visita. */
+const contribuicaoPrincipal = (v: Visita, nome: string): ContribuicaoTecnico => ({
+  tecnicoId: v.tecnicoId,
+  nome,
+  papel: "principal",
+  // Já fez o próprio check-out quando tem saída (mesmo que a visita siga aberta esperando um convidado).
+  estado: v.status === "em_andamento" ? (v.saida ? "encerrado" : "ativo") : "encerrado",
+  entrada: v.entrada,
+  saida: v.saida,
+  checkin: v.checkin,
+  checkout: v.checkout,
+  meio: v.meio,
+  fotoAmbiente: v.fotoAmbiente,
+  printTela: v.printTela,
+  // As fotos da lista de presença são compartilhadas (aparecem à parte); as extras do principal ficam com ele.
+  fotosExtras: v.fotosExtras.filter((f) => f.legenda !== "lista_presenca"),
+  distanciaCheckinM: v.distanciaCheckinM,
+  raioCheckinM: v.raioCheckinM,
+  observacoes: v.observacoes,
+  pendencias: v.pendencias,
+  proximosPassos: v.proximosPassos,
+});
+
+/** Contribuição de um técnico convidado, a partir da linha de `visita_tecnicos`. */
+const contribuicaoConvidado = (t: Linha["tecnicos"][number], nome: string): ContribuicaoTecnico => ({
+  tecnicoId: idTexto(t.tecnicoId),
+  nome,
+  papel: "convidado",
+  estado: t.estado as EstadoTecnico,
+  entrada: t.entrada?.toISOString() ?? null,
+  saida: t.saida?.toISOString() ?? null,
+  checkin: t.checkin as unknown as LocalVisita | null,
+  checkout: t.checkout as unknown as LocalVisita | null,
+  meio: (t.meio || null) as MeioRegistro | null,
+  fotoAmbiente: t.fotoAmbiente as unknown as Foto | null,
+  printTela: t.printTela as unknown as Foto | null,
+  fotosExtras: (t.fotosExtras as unknown as Foto[]) ?? [],
+  distanciaCheckinM: t.distanciaCheckinM,
+  raioCheckinM: t.raioCheckinM,
+  observacoes: t.observacoes,
+  pendencias: t.pendencias,
+  proximosPassos: t.proximosPassos,
+});
+
 /** Resolve os nomes de várias visitas com uma consulta por cadastro. */
 async function detalharTodas(linhas: Linha[]): Promise<VisitaDetalhada[]> {
   if (!linhas.length) return [];
   const [tecnicos, clientes, sistemas, nomeDoSistema, temas, equipes] = await Promise.all([
-    nomesDosUsuarios(linhas.map((v) => idTexto(v.tecnicoId))),
+    nomesDosUsuarios(linhas.flatMap((v) => [idTexto(v.tecnicoId), ...v.tecnicos.map((t) => idTexto(t.tecnicoId))])),
     nomesDosClientes(linhas.map((v) => idTexto(v.clienteId))),
     plataforma.clients.findMany({ where: { id: { in: [...new Set(linhas.map((v) => v.contrato.sistemaDoClienteId))] } }, select: { id: true, sistema: true } }),
     nomesDosSistemas(),
@@ -103,9 +148,10 @@ async function detalharTodas(linhas: Linha[]): Promise<VisitaDetalhada[]> {
   return linhas.map((linha) => {
     const v = paraVisita(linha);
     const sistema = sistemaDe.get(linha.contrato.sistemaDoClienteId) ?? "";
+    const principalNome = tecnicos.get(v.tecnicoId) ?? "—";
     return {
       ...v,
-      tecnicoNome: tecnicos.get(v.tecnicoId) ?? "—",
+      tecnicoNome: principalNome,
       clienteNome: clientes.get(v.clienteId) ?? "—",
       sistema,
       sistemaNome: sistema ? nomeDoSistema(sistema) : "—",
@@ -113,6 +159,11 @@ async function detalharTodas(linhas: Linha[]): Promise<VisitaDetalhada[]> {
       equipes: v.equipeIds.map((id) => equipes.get(id) ?? "—").sort((a, b) => a.localeCompare(b, "pt-BR")),
       temas: temas.filter((t) => v.temaIds.includes(t.id)),
       travada: linha.relatorio?.status === "aprovado",
+      conjunta: linha.tecnicos.length > 0,
+      tecnicos: [
+        contribuicaoPrincipal(v, principalNome),
+        ...linha.tecnicos.map((t) => contribuicaoConvidado(t, tecnicos.get(idTexto(t.tecnicoId)) ?? "—")),
+      ],
     };
   });
 }
@@ -187,6 +238,8 @@ async function sairDeEmAndamento(
     const { count } = await tx.visita.updateMany({ where: { id, status: "em_andamento" }, data: dados });
     if (!count) throw new Error("Visita não está em andamento");
     await tx.alteracaoVisita.create({ data: alteracao });
+    // Encerrou ou cancelou a visita pela Administração: fecha os vínculos de convidado ainda abertos, para liberar os técnicos.
+    await tx.visitaTecnico.updateMany({ where: { visitaId: id, saida: null }, data: { saida: new Date(), estado: "encerrado" } });
   });
 }
 
@@ -302,9 +355,44 @@ export async function corrigirPelaAdministracao(id: string, c: CorrecaoVisita, a
 
 // ---------- App do Técnico ----------
 
-/** A visita em andamento do técnico, se houver (só pode existir uma). */
+/**
+ * A visita em andamento do técnico, se houver. Vale como **principal** que ainda não saiu, ou como **convidado ativo**
+ * (já fez o próprio check-in). Convite pendente (ainda sem check-in) não entra aqui — ver `convitesPendentes`.
+ */
 export async function visitaAbertaDoTecnico(tecnicoId: string): Promise<VisitaDetalhada | null> {
-  return detalhar(await reports.visita.findFirst({ where: { tecnicoId: porIdPlataforma(tecnicoId), status: "em_andamento" }, include: INCLUIR }));
+  const chave = porIdPlataforma(tecnicoId);
+  return detalhar(
+    await reports.visita.findFirst({
+      where: {
+        status: "em_andamento",
+        OR: [{ tecnicoId: chave, saida: null }, { tecnicos: { some: { tecnicoId: chave, estado: "ativo" } } }],
+      },
+      include: INCLUIR,
+    }),
+  );
+}
+
+/** Visitas em andamento para as quais o técnico foi convidado e ainda não fez o próprio check-in. */
+export async function convitesPendentes(tecnicoId: string): Promise<VisitaDetalhada[]> {
+  const chave = porIdPlataforma(tecnicoId);
+  return detalharTodas(
+    await reports.visita.findMany({
+      where: { status: "em_andamento", tecnicos: { some: { tecnicoId: chave, estado: "convidado" } } },
+      include: INCLUIR,
+      orderBy: { entrada: "desc" },
+    }),
+  );
+}
+
+/** Dos técnicos informados, os que já estão ocupados (visita aberta como principal ou vínculo aberto como convidado). */
+export async function tecnicosOcupados(tecnicoIds: string[]): Promise<Set<string>> {
+  const chaves = tecnicoIds.map((id) => idPlataforma(id)).filter((x): x is bigint => x !== null);
+  if (!chaves.length) return new Set();
+  const [principais, vinculados] = await Promise.all([
+    reports.visita.findMany({ where: { tecnicoId: { in: chaves }, status: "em_andamento" }, select: { tecnicoId: true } }),
+    reports.visitaTecnico.findMany({ where: { tecnicoId: { in: chaves }, saida: null }, select: { tecnicoId: true } }),
+  ]);
+  return new Set([...principais, ...vinculados].map((r) => idTexto(r.tecnicoId)));
 }
 
 export type DadosCheckin = Pick<
@@ -406,52 +494,119 @@ export async function lancarVisitaRetroativa(d: DadosRetroativa, autor: UsuarioP
   return id;
 }
 
-/** Abre a visita com a hora do servidor. Recusa se o técnico já tem uma visita aberta. */
-export async function abrirVisita(d: DadosCheckin): Promise<Visita> {
+const CONVIDADO_OCUPADO = "Um dos técnicos convidados já está em outra visita";
+
+/**
+ * Abre a visita com a hora do servidor. Recusa se o técnico já tem uma visita aberta (como principal ou convidado).
+ * `convidadoIds`: visita conjunta — cada convidado entra como convite pendente e faz o próprio check-in depois.
+ */
+export async function abrirVisita(d: DadosCheckin, convidadoIds: string[] = []): Promise<Visita> {
   const tecnicoId = idPlataforma(d.tecnicoId);
   const clienteId = idPlataforma(d.clienteId);
   if (tecnicoId === null || clienteId === null) throw new Error("Técnico ou cliente inválido");
+  // Não pode já ser principal de outra aberta nem estar vinculado a uma (convite ou convidado ativo).
   if (await reports.visita.count({ where: { tecnicoId, status: "em_andamento" } })) throw new Error(JA_TEM_ABERTA);
+  if (await reports.visitaTecnico.count({ where: { tecnicoId, saida: null } })) throw new Error(JA_TEM_ABERTA);
+
+  const convidados = [...new Set(convidadoIds)]
+    .map((id) => idPlataforma(id))
+    .filter((x): x is bigint => x !== null && x !== tecnicoId);
+
+  const id = crypto.randomUUID();
   try {
-    const v = await reports.visita.create({
-      data: {
-        id: crypto.randomUUID(),
-        tecnicoId,
-        clienteId,
-        contratoId: d.contratoId,
-        estabelecimentoId: d.unidadeId,
-        tipo: d.tipo,
-        status: "em_andamento",
-        entrada: new Date(),
-        checkin: json(d.checkin),
-        meio: d.meio,
-        distanciaCheckinM: d.distanciaCheckinM,
-        raioCheckinM: d.raioCheckinM,
-        fotoAmbiente: json(d.fotoAmbiente),
-        printTela: json(d.printTela),
-        linkReuniao: d.linkReuniao,
-        equipes: { create: [...new Set(d.equipeIds)].map((equipeId) => ({ equipeId })) },
-      },
-      include: INCLUIR,
+    await reports.$transaction(async (tx) => {
+      if (convidados.length) {
+        const ocupados =
+          (await tx.visita.count({ where: { tecnicoId: { in: convidados }, status: "em_andamento" } })) +
+          (await tx.visitaTecnico.count({ where: { tecnicoId: { in: convidados }, saida: null } }));
+        if (ocupados) throw new Error(CONVIDADO_OCUPADO);
+      }
+      await tx.visita.create({
+        data: {
+          id,
+          tecnicoId,
+          clienteId,
+          contratoId: d.contratoId,
+          estabelecimentoId: d.unidadeId,
+          tipo: d.tipo,
+          status: "em_andamento",
+          entrada: new Date(),
+          checkin: json(d.checkin),
+          meio: d.meio,
+          distanciaCheckinM: d.distanciaCheckinM,
+          raioCheckinM: d.raioCheckinM,
+          fotoAmbiente: json(d.fotoAmbiente),
+          printTela: json(d.printTela),
+          linkReuniao: d.linkReuniao,
+          equipes: { create: [...new Set(d.equipeIds)].map((equipeId) => ({ equipeId })) },
+          tecnicos: {
+            create: convidados.map((cid) => ({ tecnicoId: cid, papel: "convidado", estado: "convidado", convidadoEm: new Date() })),
+          },
+        },
+      });
     });
-    return paraVisita(v);
+    return paraVisita(await reports.visita.findUniqueOrThrow({ where: { id }, include: INCLUIR }));
   } catch (e) {
-    // Dois check-ins ao mesmo tempo: o índice único parcial recusa o segundo.
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") throw new Error(JA_TEM_ABERTA);
+    // Dois check-ins/convites ao mesmo tempo: os índices únicos parciais recusam o segundo.
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") throw new Error(CONVIDADO_OCUPADO);
     throw e;
   }
 }
 
-/** Visita em andamento do próprio técnico (para alterações durante a visita). */
-async function abertaDe(id: string, tecnicoId: string) {
-  const v = await reports.visita.findUnique({ where: { id }, select: { id: true, tecnicoId: true, status: true, fotosExtras: true } });
-  if (!v || idTexto(v.tecnicoId) !== tecnicoId) throw new Error("Visita não encontrada");
+export interface DadosEntradaConvidado {
+  checkin: LocalVisita | null;
+  meio: MeioRegistro;
+  distanciaCheckinM: number | null;
+  raioCheckinM: number | null;
+  fotoAmbiente: Foto | null;
+  printTela: Foto | null;
+}
+
+/** Check-in do técnico convidado: passa de convite pendente a ativo, com os próprios local, foto e aparelho. */
+export async function entrarComoConvidado(visitaId: string, tecnicoId: string, d: DadosEntradaConvidado): Promise<void> {
+  const chave = idPlataforma(tecnicoId);
+  if (chave === null) throw new Error("Técnico inválido");
+  const visita = await reports.visita.findUnique({ where: { id: visitaId }, select: { status: true } });
+  if (!visita || visita.status !== "em_andamento") throw new Error("A visita já foi encerrada");
+  const { count } = await reports.visitaTecnico.updateMany({
+    where: { visitaId, tecnicoId: chave, estado: "convidado" },
+    data: {
+      estado: "ativo",
+      entrada: new Date(),
+      checkin: json(d.checkin),
+      meio: d.meio,
+      distanciaCheckinM: d.distanciaCheckinM,
+      raioCheckinM: d.raioCheckinM,
+      fotoAmbiente: json(d.fotoAmbiente),
+      printTela: json(d.printTela),
+    },
+  });
+  if (!count) throw new Error("Convite não encontrado ou já usado");
+}
+
+/**
+ * Visita em andamento em que o técnico é **membro ativo** (principal que ainda não saiu ou convidado que fez check-in).
+ * Devolve o papel, para as ações por técnico (anotações, check-out) saberem onde gravar. As edições compartilhadas
+ * (temas, equipes, fotos, presenças) valem para qualquer membro ativo.
+ */
+async function membroAtivoDe(id: string, tecnicoId: string): Promise<{ papel: "principal" | "convidado" }> {
+  const chave = idPlataforma(tecnicoId) ?? BigInt(-1);
+  const v = await reports.visita.findUnique({
+    where: { id },
+    select: { tecnicoId: true, status: true, saida: true, tecnicos: { where: { tecnicoId: chave }, select: { estado: true } } },
+  });
+  if (!v) throw new Error("Visita não encontrada");
   if (v.status !== "em_andamento") throw new Error("A visita já foi encerrada");
-  return v;
+  if (v.tecnicoId === chave) {
+    if (v.saida !== null) throw new Error("Você já fez o check-out desta visita");
+    return { papel: "principal" };
+  }
+  if (v.tecnicos[0]?.estado === "ativo") return { papel: "convidado" };
+  throw new Error("Você não está nesta visita");
 }
 
 export async function definirTemas(id: string, tecnicoId: string, temaIds: string[]) {
-  await abertaDe(id, tecnicoId);
+  await membroAtivoDe(id, tecnicoId);
   await reports.$transaction([
     reports.visitaTema.deleteMany({ where: { visitaId: id } }),
     reports.visitaTema.createMany({ data: [...new Set(temaIds)].map((temaId) => ({ visitaId: id, temaId })) }),
@@ -459,7 +614,7 @@ export async function definirTemas(id: string, tecnicoId: string, temaIds: strin
 }
 
 export async function definirEquipes(id: string, tecnicoId: string, equipeIds: string[]) {
-  await abertaDe(id, tecnicoId);
+  await membroAtivoDe(id, tecnicoId);
   await reports.$transaction([
     reports.visitaEquipe.deleteMany({ where: { visitaId: id } }),
     reports.visitaEquipe.createMany({ data: [...new Set(equipeIds)].map((equipeId) => ({ visitaId: id, equipeId })) }),
@@ -467,32 +622,51 @@ export async function definirEquipes(id: string, tecnicoId: string, equipeIds: s
 }
 
 export async function definirTemaAdicional(id: string, tecnicoId: string, texto: string) {
-  await abertaDe(id, tecnicoId);
+  await membroAtivoDe(id, tecnicoId);
   await reports.visita.update({ where: { id }, data: { temaAdicional: texto } });
 }
 
-/** Anotações da visita, guardadas enquanto o técnico escreve; o check-out parte delas. */
+/** Anotações da visita, guardadas enquanto o técnico escreve; o check-out parte delas. Cada técnico escreve as suas. */
 export async function definirAnotacoes(id: string, tecnicoId: string, a: { observacoes: string; pendencias: string; proximosPassos: string }) {
-  await abertaDe(id, tecnicoId);
-  await reports.visita.update({ where: { id }, data: { observacoes: a.observacoes, pendencias: a.pendencias, proximosPassos: a.proximosPassos } });
+  const { papel } = await membroAtivoDe(id, tecnicoId);
+  if (papel === "principal") {
+    await reports.visita.update({ where: { id }, data: { observacoes: a.observacoes, pendencias: a.pendencias, proximosPassos: a.proximosPassos } });
+  } else {
+    await reports.visitaTecnico.update({
+      where: { visitaId_tecnicoId: { visitaId: id, tecnicoId: idPlataforma(tecnicoId)! } },
+      data: { observacoes: a.observacoes, pendencias: a.pendencias, proximosPassos: a.proximosPassos },
+    });
+  }
 }
 
+/** Fotos extras são por técnico: o principal grava na visita; o convidado, na própria linha. Append no banco para dois envios não se sobrescreverem. */
 export async function adicionarFotoExtra(id: string, tecnicoId: string, foto: Foto) {
-  await abertaDe(id, tecnicoId);
-  // Acrescenta no próprio banco: dois envios ao mesmo tempo não se sobrescrevem.
-  await reports.$executeRaw`UPDATE visitas SET fotos_extras = fotos_extras || ${JSON.stringify([foto])}::jsonb WHERE id = ${id}`;
+  const { papel } = await membroAtivoDe(id, tecnicoId);
+  const valor = JSON.stringify([foto]);
+  if (papel === "principal") {
+    await reports.$executeRaw`UPDATE visitas SET fotos_extras = fotos_extras || ${valor}::jsonb WHERE id = ${id}`;
+  } else {
+    await reports.$executeRaw`UPDATE visita_tecnicos SET fotos_extras = fotos_extras || ${valor}::jsonb WHERE visita_id = ${id} AND tecnico_id = ${idPlataforma(tecnicoId)!}`;
+  }
 }
 
 export async function removerFotoExtra(id: string, tecnicoId: string, fotoId: string) {
-  await abertaDe(id, tecnicoId);
-  await reports.$executeRaw`
-    UPDATE visitas
-    SET fotos_extras = COALESCE((SELECT jsonb_agg(f) FROM jsonb_array_elements(fotos_extras) f WHERE f->>'id' <> ${fotoId}), '[]'::jsonb)
-    WHERE id = ${id}`;
+  const { papel } = await membroAtivoDe(id, tecnicoId);
+  if (papel === "principal") {
+    await reports.$executeRaw`
+      UPDATE visitas
+      SET fotos_extras = COALESCE((SELECT jsonb_agg(f) FROM jsonb_array_elements(fotos_extras) f WHERE f->>'id' <> ${fotoId}), '[]'::jsonb)
+      WHERE id = ${id}`;
+  } else {
+    await reports.$executeRaw`
+      UPDATE visita_tecnicos
+      SET fotos_extras = COALESCE((SELECT jsonb_agg(f) FROM jsonb_array_elements(fotos_extras) f WHERE f->>'id' <> ${fotoId}), '[]'::jsonb)
+      WHERE visita_id = ${id} AND tecnico_id = ${idPlataforma(tecnicoId)!}`;
+  }
 }
 
 export async function adicionarPresenca(id: string, tecnicoId: string, p: PresencaVisita) {
-  await abertaDe(id, tecnicoId);
+  await membroAtivoDe(id, tecnicoId);
   const participanteId = idPlataforma(p.participanteId);
   if (participanteId === null) throw new Error("Participante inválido");
   const ultima = await reports.presenca.aggregate({ where: { visitaId: id }, _max: { ordem: true } });
@@ -520,7 +694,7 @@ export async function adicionarPresenca(id: string, tecnicoId: string, p: Presen
 }
 
 export async function removerPresenca(id: string, tecnicoId: string, participanteId: string) {
-  await abertaDe(id, tecnicoId);
+  await membroAtivoDe(id, tecnicoId);
   const chave = idPlataforma(participanteId);
   if (chave !== null) await reports.presenca.deleteMany({ where: { visitaId: id, participanteId: chave } });
 }
@@ -560,13 +734,35 @@ export interface DadosCheckout {
 }
 
 /** Check-out pelo técnico: saída com a hora do servidor; depois disso a visita não é mais editável por ele. */
+/**
+ * Check-out de um técnico. Cada um faz o seu: grava o próprio local e textos. A visita só é **encerrada** quando o
+ * principal já saiu e nenhum convidado ativo resta (convites sem check-in são cancelados no fecho e não travam).
+ */
 export async function encerrarPeloTecnico(id: string, tecnicoId: string, d: DadosCheckout): Promise<Visita> {
-  await abertaDe(id, tecnicoId);
-  const { count } = await reports.visita.updateMany({
-    where: { id, status: "em_andamento" },
-    data: { checkout: json(d.checkout), observacoes: d.observacoes, pendencias: d.pendencias, proximosPassos: d.proximosPassos, status: "encerrada", saida: new Date() },
+  const { papel } = await membroAtivoDe(id, tecnicoId);
+  const chave = idPlataforma(tecnicoId)!;
+  await reports.$transaction(async (tx) => {
+    if (papel === "principal") {
+      const { count } = await tx.visita.updateMany({
+        where: { id, status: "em_andamento", saida: null },
+        data: { checkout: json(d.checkout), observacoes: d.observacoes, pendencias: d.pendencias, proximosPassos: d.proximosPassos, saida: new Date() },
+      });
+      if (!count) throw new Error("A visita já foi encerrada");
+    } else {
+      const { count } = await tx.visitaTecnico.updateMany({
+        where: { visitaId: id, tecnicoId: chave, estado: "ativo" },
+        data: { checkout: json(d.checkout), observacoes: d.observacoes, pendencias: d.pendencias, proximosPassos: d.proximosPassos, saida: new Date(), estado: "encerrado" },
+      });
+      if (!count) throw new Error("A visita já foi encerrada");
+    }
+    const atual = await tx.visita.findUniqueOrThrow({ where: { id }, select: { saida: true, status: true } });
+    const aindaDentro = await tx.visitaTecnico.count({ where: { visitaId: id, estado: "ativo" } });
+    if (atual.status === "em_andamento" && atual.saida !== null && aindaDentro === 0) {
+      await tx.visita.update({ where: { id }, data: { status: "encerrada" } });
+      // Convites que nunca viraram check-in são cancelados ao fechar.
+      await tx.visitaTecnico.updateMany({ where: { visitaId: id, estado: "convidado" }, data: { estado: "encerrado" } });
+    }
   });
-  if (!count) throw new Error("A visita já foi encerrada");
   return paraVisita(await reports.visita.findUniqueOrThrow({ where: { id }, include: INCLUIR }));
 }
 

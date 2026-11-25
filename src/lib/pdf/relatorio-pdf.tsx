@@ -117,7 +117,10 @@ function Texto({ rotulo, valor }: { rotulo: string; valor: string }) {
 }
 
 function PaginaVisita({ v, outroPeriodo, clienteNome, imagens, rodapeTexto, marca }: { v: VisitaDetalhada; outroPeriodo: boolean; clienteNome?: string; imagens: ImagensPdf; rodapeTexto: string; marca?: MarcaPdf }) {
-  const fotos = [v.fotoAmbiente, v.printTela, ...v.fotosExtras].filter((f): f is NonNullable<typeof f> => !!f && imagens.has(f.url));
+  // Fotos separadas por momento. Na visita conjunta, a chegada e as extras de cada técnico saem na seção "Técnicos"; aqui fica a lista de presença.
+  const fotoCheckin = v.fotoAmbiente ?? v.printTela;
+  const extrasPdf = v.fotosExtras.filter((f) => f.legenda !== "lista_presenca" && imagens.has(f.url));
+  const listaPdf = v.fotosExtras.filter((f) => f.legenda === "lista_presenca" && imagens.has(f.url));
   const temas = [...v.temas.map((t) => `${t.nome} (${t.sistemaNome} / ${t.modulo})`), ...(v.temaAdicional ? [`${v.temaAdicional} (adicional)`] : [])];
 
   return (
@@ -135,7 +138,7 @@ function PaginaVisita({ v, outroPeriodo, clienteNome, imagens, rodapeTexto, marc
         <View style={s.grade}>
           <Campo rotulo="Estabelecimento" valor={v.unidadeNome} />
           <Campo rotulo={tituloAtendidos()} valor={rotuloAtendidos(v)} />
-          <Campo rotulo="Técnico" valor={v.tecnicoNome} />
+          <Campo rotulo={v.conjunta ? "Técnicos" : "Técnico"} valor={v.conjunta && v.tecnicos ? `${v.tecnicoNome} +${v.tecnicos.length - 1}` : v.tecnicoNome} />
           <Campo rotulo="Registrado por" valor={ROTULO_MEIO[v.meio]} />
           <Campo rotulo="Entrada" valor={formatarHora(v.entrada)} />
           <Campo rotulo="Saída" valor={v.saida ? formatarHora(v.saida) : ""} />
@@ -150,9 +153,44 @@ function PaginaVisita({ v, outroPeriodo, clienteNome, imagens, rodapeTexto, marc
         {temas.length ? temas.map((t) => <Text key={t} style={s.texto}>• {t}</Text>) : <Text style={s.vazio}>Nenhum tema registrado.</Text>}
       </View>
 
-      <Texto rotulo="Observações" valor={v.observacoes} />
-      <Texto rotulo="Pendências" valor={v.pendencias} />
-      <Texto rotulo="Próximos passos" valor={v.proximosPassos} />
+      {v.conjunta && v.tecnicos ? (
+        <>
+          <Text style={s.secao}>Técnicos ({v.tecnicos.length})</Text>
+          {v.tecnicos.map((t) => {
+            const fotosT = [t.fotoAmbiente, t.printTela, ...t.fotosExtras].filter((f): f is NonNullable<typeof f> => !!f && imagens.has(f.url));
+            return (
+              <View key={t.tecnicoId} style={[s.caixa, { marginBottom: 8 }]}>
+                <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", marginBottom: 1 }}>
+                  {t.nome} <Text style={{ fontFamily: "Helvetica", color: CINZA }}>· {t.papel === "principal" ? "principal" : "convidado"}</Text>
+                </Text>
+                <Text style={[s.vazio, { marginBottom: 4 }]}>
+                  {t.estado === "convidado"
+                    ? "Não fez check-in"
+                    : `${t.entrada ? formatarHora(t.entrada) : "—"}–${t.saida ? formatarHora(t.saida) : "—"}${t.entrada && t.saida ? ` · ${formatarDuracao(t.entrada, t.saida)}` : ""}`}
+                </Text>
+                <Texto rotulo="Observações" valor={t.observacoes} />
+                <Texto rotulo="Pendências" valor={t.pendencias} />
+                <Texto rotulo="Próximos passos" valor={t.proximosPassos} />
+                {fotosT.length > 0 && (
+                  <View style={[s.fotos, { marginTop: 4 }]}>
+                    {fotosT.map((f) => (
+                      <View key={f.id} style={s.foto} wrap={false}>
+                        <Image src={imagens.get(f.url)!} style={s.imagem} />
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </>
+      ) : (
+        <>
+          <Texto rotulo="Observações" valor={v.observacoes} />
+          <Texto rotulo="Pendências" valor={v.pendencias} />
+          <Texto rotulo="Próximos passos" valor={v.proximosPassos} />
+        </>
+      )}
 
       <Text style={s.secao}>Participantes ({v.presencas.length})</Text>
       {v.presencas.length ? (
@@ -185,17 +223,56 @@ function PaginaVisita({ v, outroPeriodo, clienteNome, imagens, rodapeTexto, marc
         </Text>
       )}
 
-      <Text style={s.secao}>Fotos ({fotos.length})</Text>
-      {fotos.length ? (
-        <View style={s.fotos}>
-          {fotos.map((f) => (
-            <View key={f.id} style={s.foto} wrap={false}>
-              <Image src={imagens.get(f.url)!} style={s.imagem} />
+      {v.conjunta ? (
+        listaPdf.length > 0 && (
+          <>
+            <Text style={s.secao}>Lista de presença (foto)</Text>
+            <View style={s.fotos}>
+              {listaPdf.map((f) => (
+                <View key={f.id} style={s.foto} wrap={false}>
+                  <Image src={imagens.get(f.url)!} style={s.imagem} />
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
+          </>
+        )
       ) : (
-        <Text style={s.vazio}>Nenhuma foto.</Text>
+        <>
+          <Text style={s.secao}>Foto do check-in</Text>
+          {fotoCheckin && imagens.has(fotoCheckin.url) ? (
+            <View style={s.fotos}>
+              <View style={s.foto} wrap={false}>
+                <Image src={imagens.get(fotoCheckin.url)!} style={s.imagem} />
+              </View>
+            </View>
+          ) : (
+            <Text style={s.vazio}>Sem foto de check-in.</Text>
+          )}
+          <Text style={s.secao}>Fotos extras ({extrasPdf.length})</Text>
+          {extrasPdf.length ? (
+            <View style={s.fotos}>
+              {extrasPdf.map((f) => (
+                <View key={f.id} style={s.foto} wrap={false}>
+                  <Image src={imagens.get(f.url)!} style={s.imagem} />
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={s.vazio}>Nenhuma foto extra.</Text>
+          )}
+          {listaPdf.length > 0 && (
+            <>
+              <Text style={s.secao}>Lista de presença (foto)</Text>
+              <View style={s.fotos}>
+                {listaPdf.map((f) => (
+                  <View key={f.id} style={s.foto} wrap={false}>
+                    <Image src={imagens.get(f.url)!} style={s.imagem} />
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
+        </>
       )}
       <RodapeFixo texto={rodapeTexto} />
     </Page>

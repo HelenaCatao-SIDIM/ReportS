@@ -363,6 +363,34 @@ export interface VersaoRelatorio {
   decisao: DecisaoRelatorio | null;
 }
 
+/** Como cada técnico aparece numa visita (solo = só o principal; conjunta = principal + convidados). */
+export type PapelTecnico = "principal" | "convidado";
+/** "convidado" (ainda não fez check-in), "ativo" (na visita) ou "encerrado" (já fez o próprio check-out). */
+export type EstadoTecnico = "convidado" | "ativo" | "encerrado";
+
+/** Contribuição de um técnico numa visita: a entrada/saída, o local e os textos dele. O principal vem das colunas da própria visita. */
+export interface ContribuicaoTecnico {
+  tecnicoId: string;
+  nome: string;
+  papel: PapelTecnico;
+  estado: EstadoTecnico;
+  /** Entrada do técnico (check-in). Convidado ainda sem check-in: null. */
+  entrada: string | null;
+  saida: string | null;
+  checkin: LocalVisita | null;
+  checkout: LocalVisita | null;
+  meio: MeioRegistro | null;
+  fotoAmbiente: Foto | null;
+  printTela: Foto | null;
+  /** Fotos extras do técnico (cada um tem as suas). */
+  fotosExtras: Foto[];
+  distanciaCheckinM: number | null;
+  raioCheckinM: number | null;
+  observacoes: string;
+  pendencias: string;
+  proximosPassos: string;
+}
+
 /** Visita com os nomes resolvidos (cliente, técnico, estabelecimento, temas). */
 export interface VisitaDetalhada extends Visita {
   tecnicoNome: string;
@@ -376,6 +404,10 @@ export interface VisitaDetalhada extends Visita {
   temas: Tema[];
   /** Incluída em relatório aprovado: ninguém altera. */
   travada: boolean;
+  /** Visita conjunta: tem ao menos um técnico convidado além do principal. */
+  conjunta: boolean;
+  /** Todos os técnicos da visita (principal primeiro). Solo: um só. Opcional nas versões de relatório emitidas antes das visitas conjuntas. */
+  tecnicos?: ContribuicaoTecnico[];
 }
 
 export interface ContagemSuporte {

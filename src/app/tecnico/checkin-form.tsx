@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { AlertCircle, Check, Clock, Loader2, LocateFixed, MapPin, Monitor, Plus, X } from "lucide-react";
+import { AlertCircle, Check, Clock, Loader2, LocateFixed, MapPin, Monitor, Plus, Users, X } from "lucide-react";
 import type { ClienteCheckin } from "@/lib/repo/contratos";
 import type { MeioRegistro, TipoVisita } from "@/lib/types";
 import { detectarMeio } from "@/lib/meio";
@@ -72,6 +72,7 @@ function linhasCarimbo(cep: string | null, cidade: string | null, uf: string | n
 export function CheckinForm({
   clientes,
   equipes = [],
+  tecnicos = [],
   cronograma = [],
   porCep = false,
   carimbo = false,
@@ -79,6 +80,8 @@ export function CheckinForm({
   clientes: ClienteCheckin[];
   /** Equipes ativas, que podem ser marcadas. */
   equipes?: { id: string; nome: string }[];
+  /** Outros técnicos que podem ser convidados para uma visita conjunta. */
+  tecnicos?: { id: string; nome: string }[];
   cronograma?: PendenciaCronograma[];
   porCep?: boolean;
   carimbo?: boolean;
@@ -98,6 +101,11 @@ export function CheckinForm({
   const { estado: gps, capturar } = useGps();
   const meio = useSyncExternalStore(semAssinatura, meioNoNavegador, meioNoServidor);
   const restaurado = useRef(false);
+
+  // Visita conjunta: o principal marca e escolhe o(s) outro(s) técnico(s), que depois fazem o próprio check-in.
+  const [conjunta, setConjunta] = useState(false);
+  const [convidadoIds, setConvidadoIds] = useState<string[]>([]);
+  const alternarConvidado = (id: string) => setConvidadoIds((atual) => (atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id]));
 
   // Cadastro de estabelecimento que não está na lista: nome + GPS do local (o técnico está ali).
   const { estado: gpsNovo, capturar: capturarNovo } = useGps();
@@ -529,8 +537,60 @@ export function CheckinForm({
         </Secao>
       )}
 
+      {tecnicos.length > 0 && (
+        <Card>
+          <CardContent className="space-y-3">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={conjunta}
+                onChange={(ev) => {
+                  setConjunta(ev.target.checked);
+                  if (!ev.target.checked) setConvidadoIds([]);
+                }}
+                className="mt-0.5 size-4 accent-primary"
+              />
+              <span>
+                <span className="flex items-center gap-1.5 text-sm font-semibold">
+                  <Users className="size-4" />
+                  Visita conjunta
+                </span>
+                <span className="text-xs text-muted-foreground">Marque se outro(s) técnico(s) vão trabalhar nesta visita com você.</span>
+              </span>
+            </label>
+            {conjunta && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Escolha quem mais vai participar. Cada um vê a visita no próprio app e faz o próprio check-in ao chegar.
+                </p>
+                <input type="hidden" name="conjunta" value="1" />
+                <div className="grid gap-2">
+                  {tecnicos.map((t) => {
+                    const marcado = convidadoIds.includes(t.id);
+                    return (
+                      <label
+                        key={t.id}
+                        className={cn(
+                          "flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 text-sm transition-colors",
+                          marcado ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted/50",
+                        )}
+                      >
+                        <input type="checkbox" name="convidadoIds" value={t.id} checked={marcado} onChange={() => alternarConvidado(t.id)} className="size-4 accent-primary" />
+                        {t.nome}
+                      </label>
+                    );
+                  })}
+                </div>
+                {convidadoIds.length === 0 && <p className="text-xs text-amber-700">Escolha ao menos um técnico ou desmarque “Visita conjunta”.</p>}
+                <Erro msg={e.convidados} />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="space-y-2 pb-2">
-        <Button type="submit" disabled={!pronto || pending} className="h-12 w-full text-base">
+        <Button type="submit" disabled={!pronto || (conjunta && convidadoIds.length === 0) || pending} className="h-12 w-full text-base">
           {pending ? <Loader2 className="animate-spin" /> : <Clock />}
           Fazer check-in
         </Button>
