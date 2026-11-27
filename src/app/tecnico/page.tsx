@@ -9,7 +9,7 @@ import { listarComPermissao } from "@/lib/repo/usuarios";
 import { horaDoServidor } from "@/lib/agora";
 import { convitesPendentes, visitaAbertaDoTecnico } from "@/lib/repo/visitas";
 import { dataLocal, formatarDataHora } from "@/lib/datas";
-import { rotuloAtendidos, rotuloTipo } from "@/lib/visitas";
+import { rotuloAtendidos, rotuloTipos } from "@/lib/visitas";
 import { equipesDaVisita, rotaDaVisita } from "@/lib/regras-visita";
 import { listarEquipes } from "@/lib/repo/equipes";
 import { Button } from "@/components/ui/button";
@@ -49,7 +49,7 @@ async function Conteudo() {
                 {aberta.unidadeNome} · {rotuloAtendidos(aberta)}
               </div>
               <div className="mt-1 text-sm text-muted-foreground">
-                {rotuloTipo(aberta.tipo)} · entrada {formatarDataHora(aberta.entrada)}
+                {rotuloTipos(aberta.tipos)} · entrada {formatarDataHora(aberta.entrada)}
               </div>
             </div>
             <Button nativeButton={false} render={<Link href={rotaDaVisita(aberta)} />} className="h-11 w-full text-base">
@@ -82,7 +82,7 @@ async function Conteudo() {
                   <span className="font-normal text-muted-foreground"> · {c.sistemaNome}</span>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  {c.unidadeNome} · {rotuloTipo(c.tipo)}
+                  {c.unidadeNome} · {rotuloTipos(c.tipos)}
                 </div>
                 <div className="mt-1 text-sm text-muted-foreground">Aberta por {c.tecnicoNome} às {formatarDataHora(c.entrada)}</div>
               </div>

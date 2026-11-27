@@ -306,7 +306,10 @@ export interface Visita {
   /** Contrato escolhido no check-in: dele saem o sistema, a forma de comprovação, o CPF e os aprovadores. */
   contratoId: string;
   unidadeId: string;
+  /** Tipo principal (o primeiro escolhido); mantido por compatibilidade. Prefira `tipos`. */
   tipo: TipoVisita;
+  /** Tipos da visita (pode ser mais de um: visita técnica + treinamento). Nunca vazio. */
+  tipos: TipoVisita[];
   status: StatusVisita;
   /** Data e hora do servidor (ISO, UTC). */
   entrada: string;

@@ -4,7 +4,7 @@ import { CheckCircle2, ChevronDown, Download, History, Info, LinkIcon, MessageSq
 import { buscarPorLink } from "@/lib/repo/relatorios";
 import { formatarData, formatarDataHora, formatarDuracao, formatarHora } from "@/lib/datas";
 import { formatarCnpj } from "@/lib/format";
-import { formatarDataCurta, formatarMinutos, rotuloAtendidos, rotuloTipo } from "@/lib/visitas";
+import { formatarDataCurta, formatarMinutos, rotuloAtendidos, rotuloTipos } from "@/lib/visitas";
 import type { Foto, VisitaDetalhada } from "@/lib/types";
 import { DetalheVisita } from "@/components/visita/detalhe-visita";
 import { Badge } from "@/components/ui/badge";
@@ -199,7 +199,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/aprovacao/[to
               <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-not-open:-rotate-90" />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                  {formatarData(v.entrada)} · {rotuloTipo(v.tipo)}
+                  {formatarData(v.entrada)} · {rotuloTipos(v.tipos ?? [v.tipo])}
                   {c.deOutroPeriodo.includes(v.id) && (
                     <Badge variant="secondary">
                       <History />

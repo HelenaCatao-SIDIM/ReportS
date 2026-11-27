@@ -6,7 +6,7 @@ import { formatarTempo, indicadores, linhaDoAtendimento, ordenarPorAbertura, tab
 import { formatarData, formatarDataHora, formatarDuracao, formatarHora } from "@/lib/datas";
 import { formatarCbo, formatarCnpj, mascararCpf } from "@/lib/format";
 import { ROTULO_MEIO } from "@/lib/meio";
-import { ehPresencial, formatarDataCurta, formatarMinutos, fotosDaLista, rotuloAtendidos, tituloAtendidos, rotuloTipo } from "@/lib/visitas";
+import { ehPresencialVisita, formatarDataCurta, formatarMinutos, fotosDaLista, rotuloAtendidos, tituloAtendidos, rotuloTipo, rotuloTipos } from "@/lib/visitas";
 import { ROTULO_SITUACAO_RELATORIO, equipesDoItem, resumoCronograma, situacaoNoRelatorio } from "@/lib/cronograma";
 import { ASSINANTE, ASSINATURA, LOGO, linhasDaEmpresa } from "@/lib/sidim";
 import { nomeDoRelatorio } from "@/lib/nome-pdf";
@@ -127,7 +127,7 @@ function PaginaVisita({ v, outroPeriodo, clienteNome, imagens, rodapeTexto, marc
     <Page size="A4" style={s.pagina}>
       {marca && <Image src={marca.logo} style={{ ...tamanhoLogo(20), marginBottom: 10 }} />}
       <Text style={s.visitaTitulo}>
-        {formatarData(v.entrada)} · {rotuloTipo(v.tipo)}
+        {formatarData(v.entrada)} · {rotuloTipos(v.tipos ?? [v.tipo])}
       </Text>
       <Text style={[s.subtitulo, { marginBottom: 12 }]}>
         {clienteNome ? `${clienteNome} · ` : ""}{v.unidadeNome} · {rotuloAtendidos(v)}
@@ -143,7 +143,7 @@ function PaginaVisita({ v, outroPeriodo, clienteNome, imagens, rodapeTexto, marc
           <Campo rotulo="Entrada" valor={formatarHora(v.entrada)} />
           <Campo rotulo="Saída" valor={v.saida ? formatarHora(v.saida) : ""} />
           <Campo rotulo="Duração" valor={v.saida ? formatarDuracao(v.entrada, v.saida) : ""} />
-          {!ehPresencial(v.tipo) && <Campo rotulo="Link da reunião" valor={v.linkReuniao ?? ""} largura="100%" />}
+          {!ehPresencialVisita(v.tipos ?? [v.tipo]) && <Campo rotulo="Link da reunião" valor={v.linkReuniao ?? ""} largura="100%" />}
         </View>
       </View>
 
@@ -499,7 +499,7 @@ export function RelatorioPdf({
             {c.visitas.map((v) => (
               <View key={v.id} style={s.linha} wrap={false}>
                 <Text style={{ width: "14%" }}>{formatarData(v.entrada)}</Text>
-                <Text style={{ width: "22%" }}>{rotuloTipo(v.tipo)}</Text>
+                <Text style={{ width: "22%" }}>{rotuloTipos(v.tipos ?? [v.tipo])}</Text>
                 <Text style={{ width: "30%" }}>
                   {v.unidadeNome} · {rotuloAtendidos(v)}
                 </Text>
@@ -545,8 +545,8 @@ export function RelatorioVisitasPdf({
   imagens: ImagensPdf;
   marca?: MarcaPdf;
 }) {
-  const presenciais = visitas.filter((v) => ehPresencial(v.tipo)).reduce((soma, v) => soma + minutosDaVisita(v), 0);
-  const online = visitas.filter((v) => !ehPresencial(v.tipo)).reduce((soma, v) => soma + minutosDaVisita(v), 0);
+  const presenciais = visitas.filter((v) => ehPresencialVisita(v.tipos ?? [v.tipo])).reduce((soma, v) => soma + minutosDaVisita(v), 0);
+  const online = visitas.filter((v) => !ehPresencialVisita(v.tipos ?? [v.tipo])).reduce((soma, v) => soma + minutosDaVisita(v), 0);
   const clientes = [...new Set(visitas.map((v) => v.clienteNome))];
   const tecnicos = [...new Set(visitas.map((v) => v.tecnicoNome))];
   const de = visitas[0]?.entrada;
@@ -603,7 +603,7 @@ export function RelatorioVisitasPdf({
             <View key={v.id} style={s.linha} wrap={false}>
               <Text style={{ width: "12%" }}>{formatarData(v.entrada)}</Text>
               <Text style={{ width: "26%" }}>{v.clienteNome}</Text>
-              <Text style={{ width: "20%" }}>{rotuloTipo(v.tipo)}</Text>
+              <Text style={{ width: "20%" }}>{rotuloTipos(v.tipos ?? [v.tipo])}</Text>
               <Text style={{ width: "24%" }}>{v.unidadeNome}</Text>
               <Text style={{ width: "18%" }}>
                 {formatarHora(v.entrada)}–{v.saida ? formatarHora(v.saida) : "—"}

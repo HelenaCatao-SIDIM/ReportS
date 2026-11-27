@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getUsuarioAtual } from "@/lib/dal";
 import { buscarVisita } from "@/lib/repo/visitas";
-import { ehPresencial, rotuloAtendidos, rotuloTipo } from "@/lib/visitas";
+import { ehPresencialVisita, rotuloAtendidos, rotuloTipos } from "@/lib/visitas";
 import { ehMembroDaVisita, exigeParticipantes } from "@/lib/regras-visita";
 import { localizacaoPorCep } from "@/lib/config";
 import { CheckoutForm } from "./checkout-form";
@@ -41,14 +41,14 @@ async function Conteudo({ params }: Pick<PageProps<"/tecnico/visita/[id]/checkou
         visitaId={id}
         tecnicoId={usuario.id}
         entrada={v.entrada}
-        presencial={ehPresencial(v.tipo)}
-        faltaParticipantes={exigeParticipantes(v.tipo) && v.presencas.length === 0}
+        presencial={ehPresencialVisita(v.tipos)}
+        faltaParticipantes={exigeParticipantes(v.tipos) && v.presencas.length === 0}
         inicial={{ observacoes: anotacoes.observacoes, pendencias: anotacoes.pendencias, proximosPassos: anotacoes.proximosPassos }}
         porCep={localizacaoPorCep()}
         resumo={{
           clienteNome: v.clienteNome,
           local: `${v.unidadeNome} · ${rotuloAtendidos(v)}`,
-          tipo: rotuloTipo(v.tipo),
+          tipo: rotuloTipos(v.tipos),
           temas: v.temas.length + (v.temaAdicional ? 1 : 0),
           fotos: v.fotosExtras.length,
           participantes: v.presencas.length,

@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { exigirPermissaoAcao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
 import { deInputLocal } from "@/lib/datas";
-import { TIPOS_VISITA } from "@/lib/visitas";
+import { TIPO_ONLINE, TIPOS_VISITA } from "@/lib/visitas";
 import { equipesDaVisita, sugereTemasPorEquipe } from "@/lib/regras-visita";
 import { buscarUnidade } from "@/lib/repo/clientes";
 import { listarEquipes } from "@/lib/repo/equipes";
@@ -13,7 +13,6 @@ import { listarTemas } from "@/lib/repo/temas";
 import { buscarVisita, cancelarPelaAdministracao, corrigirPelaAdministracao, encerrarPelaAdministracao, excluirVisita } from "@/lib/repo/visitas";
 import { registrarAuditoria } from "@/lib/repo/auditoria";
 import { formatarData } from "@/lib/datas";
-import type { TipoVisita } from "@/lib/types";
 
 /** Rótulo da visita para a auditoria (cliente · técnico · data). */
 const rotuloVisita = (v: { clienteNome: string; tecnicoNome: string; entrada: string }) =>
@@ -73,7 +72,7 @@ export async function cancelarVisita(id: string, _: AcaoVisitaState, fd: FormDat
 // ---------- Corrigir (visita encerrada) ----------
 
 export interface CorrecaoState {
-  erros?: Partial<Record<"entrada" | "saida" | "unidade" | "motivo" | "geral", string>>;
+  erros?: Partial<Record<"entrada" | "saida" | "tipo" | "unidade" | "motivo" | "geral", string>>;
 }
 
 export async function corrigirVisita(id: string, _: CorrecaoState, fd: FormData): Promise<CorrecaoState> {
@@ -84,7 +83,8 @@ export async function corrigirVisita(id: string, _: CorrecaoState, fd: FormData)
 
   const entrada = deInputLocal(String(fd.get("entrada") ?? ""));
   const saida = deInputLocal(String(fd.get("saida") ?? ""));
-  const tipo = String(fd.get("tipo") ?? "") as TipoVisita;
+  const marcados = fd.getAll("tipos").map(String);
+  const tipos = TIPOS_VISITA.map((t) => t.valor).filter((t) => marcados.includes(t));
   const unidadeId = String(fd.get("unidadeId") ?? "");
   const motivo = String(fd.get("motivo") ?? "").trim();
 
@@ -93,6 +93,8 @@ export async function corrigirVisita(id: string, _: CorrecaoState, fd: FormData)
   if (!saida) erros.saida = "Data e hora inválidas.";
   else if (entrada && saida <= entrada) erros.saida = "A saída precisa ser depois da entrada.";
   else if (new Date(saida).getTime() > Date.now()) erros.saida = "A saída não pode estar no futuro.";
+  if (!tipos.length) erros.tipo = "Escolha ao menos um tipo de visita.";
+  else if (tipos.includes(TIPO_ONLINE) && tipos.length > 1) erros.tipo = "“Treinamento online” não combina com os tipos presenciais.";
 
   const unidade = await buscarUnidade(unidadeId);
   if (!unidade || unidade.clienteId !== v.clienteId) erros.unidade = "Escolha um estabelecimento do cliente.";
@@ -103,7 +105,6 @@ export async function corrigirVisita(id: string, _: CorrecaoState, fd: FormData)
   // Só temas do sistema do contrato da visita (os que já estavam marcados continuam aceitos).
   const permitidos = new Set(temas.filter((t) => t.sistema === v.sistema && (t.ativo || v.temaIds.includes(t.id))).map((t) => t.id));
   // Equipes: só nos tipos que registram equipes, entre as que a visita aceita; com outro tipo, elas saem da visita.
-  const tipoFinal = TIPOS_VISITA.some((t) => t.valor === tipo) ? tipo : v.tipo;
   const equipesPermitidas = new Set(equipesDaVisita(equipes, v.equipeIds).map((e) => e.id));
 
   const mudancas = await corrigirPelaAdministracao(
@@ -111,9 +112,9 @@ export async function corrigirVisita(id: string, _: CorrecaoState, fd: FormData)
     {
       entrada: entrada!,
       saida: saida!,
-      tipo: tipoFinal,
+      tipos,
       unidadeId,
-      equipeIds: sugereTemasPorEquipe(tipoFinal) ? fd.getAll("equipeIds").map(String).filter((id) => equipesPermitidas.has(id)) : [],
+      equipeIds: sugereTemasPorEquipe(tipos) ? fd.getAll("equipeIds").map(String).filter((id) => equipesPermitidas.has(id)) : [],
       temaIds: fd.getAll("temaIds").map(String).filter((id) => permitidos.has(id)),
       temaAdicional: String(fd.get("temaAdicional") ?? "").trim(),
       observacoes: String(fd.get("observacoes") ?? "").trim(),

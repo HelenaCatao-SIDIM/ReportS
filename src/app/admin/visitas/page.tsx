@@ -8,7 +8,7 @@ import { PERMISSOES } from "@/lib/permissoes";
 import { fimDoDia, formatarData, formatarDataHora, formatarDuracao, formatarHora, inicioDoDia } from "@/lib/datas";
 import { horaDoServidor } from "@/lib/agora";
 import { dentroDoRaio, foraDoRaio, formatarDistancia } from "@/lib/distancia";
-import { rotuloTipo } from "@/lib/visitas";
+import { rotuloTipos } from "@/lib/visitas";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/shell/placeholder";
 import { selectClass } from "@/components/form/campo";
@@ -130,7 +130,7 @@ function EmAndamento({ visitas, agora }: { visitas: VisitaDetalhada[]; agora: nu
                       </span>
                     )}
                   </TableCell>
-                  <TableCell>{rotuloTipo(v.tipo)}</TableCell>
+                  <TableCell>{rotuloTipos(v.tipos)}</TableCell>
                   <TableCell className="whitespace-nowrap">{formatarDataHora(v.entrada)}</TableCell>
                   <TableCell className="whitespace-nowrap">
                     <span className={cn(alerta && "font-medium text-amber-700")}>
@@ -179,7 +179,7 @@ async function Encerradas({ sp }: { sp: Record<string, string | string[] | undef
       clienteNome: v.clienteNome,
       sistemaNome: v.sistemaNome,
       unidadeNome: v.unidadeNome,
-      tipo: rotuloTipo(v.tipo),
+      tipo: rotuloTipos(v.tipos),
       horario: v.saida ? `${formatarHora(v.entrada)} – ${formatarHora(v.saida)}` : formatarHora(v.entrada),
     }));
 
@@ -256,7 +256,7 @@ async function Encerradas({ sp }: { sp: Record<string, string | string[] | undef
                     {v.tecnicoNome}
                     {v.conjunta && v.tecnicos && <span className="text-xs text-muted-foreground"> +{v.tecnicos.length - 1}</span>}
                   </TableCell>
-                  <TableCell>{rotuloTipo(v.tipo)}</TableCell>
+                  <TableCell>{rotuloTipos(v.tipos)}</TableCell>
                   <TableCell className="whitespace-nowrap">
                     {formatarHora(v.entrada)}
                     {v.saida && (

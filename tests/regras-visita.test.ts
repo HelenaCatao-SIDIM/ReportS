@@ -23,9 +23,12 @@ test("equipe já marcada continua na visita, mesmo inativada", () => {
 
 test("só implantação e treinamentos registram equipes", () => {
   assert.deepEqual(
-    (["implantacao", "treinamento", "treinamento_online", "suporte_presencial", "reuniao", "visita_tecnica"] as const).filter(sugereTemasPorEquipe),
+    (["implantacao", "treinamento", "treinamento_online", "suporte_presencial", "reuniao", "visita_tecnica"] as const).filter((t) => sugereTemasPorEquipe([t])),
     ["implantacao", "treinamento", "treinamento_online"],
   );
+  // Multi-tipo: basta um tipo que registra equipes.
+  assert.equal(sugereTemasPorEquipe(["visita_tecnica", "treinamento"]), true);
+  assert.equal(sugereTemasPorEquipe(["visita_tecnica", "reuniao"]), false);
 });
 
 test("quem a visita atendeu: as equipes treinadas", () => {
@@ -36,11 +39,11 @@ test("quem a visita atendeu: as equipes treinadas", () => {
 });
 
 test("a visita abre pela presença nos tipos com participantes, e a tela da visita só depois de alguém assinar", () => {
-  for (const t of ["treinamento", "treinamento_online", "implantacao"] as const) assert.equal(abrePelaPresenca(t), true, t);
-  for (const t of ["suporte_presencial", "reuniao", "visita_tecnica"] as const) assert.equal(abrePelaPresenca(t), false, t);
-  assert.equal(rotaDaVisita({ id: "v1", tipo: "treinamento", presencas: [] }), "/tecnico/visita/v1/presenca");
-  assert.equal(rotaDaVisita({ id: "v1", tipo: "treinamento", presencas: [{}] }), "/tecnico/visita/v1", "já houve assinatura: vai para temas e anotações");
-  assert.equal(rotaDaVisita({ id: "v2", tipo: "reuniao", presencas: [] }), "/tecnico/visita/v2", "tipos sem participantes abrem direto na visita");
+  for (const t of ["treinamento", "treinamento_online", "implantacao"] as const) assert.equal(abrePelaPresenca([t]), true, t);
+  for (const t of ["suporte_presencial", "reuniao", "visita_tecnica"] as const) assert.equal(abrePelaPresenca([t]), false, t);
+  assert.equal(rotaDaVisita({ id: "v1", tipos: ["treinamento"], presencas: [] }), "/tecnico/visita/v1/presenca");
+  assert.equal(rotaDaVisita({ id: "v1", tipos: ["treinamento"], presencas: [{}] }), "/tecnico/visita/v1", "já houve assinatura: vai para temas e anotações");
+  assert.equal(rotaDaVisita({ id: "v2", tipos: ["reuniao"], presencas: [] }), "/tecnico/visita/v2", "tipos sem participantes abrem direto na visita");
 });
 
 test("CPF que já é de alguém: o nome do dono só aparece se for parecido com o de quem assina (a tela passa de mão em mão)", () => {
@@ -52,25 +55,27 @@ test("CPF que já é de alguém: o nome do dono só aparece se for parecido com 
 });
 
 test("assinatura na presença: só em contrato assinado, visita presencial e fora da análise de ambiente", () => {
-  assert.equal(exigeAssinaturaNaPresenca("assinado", "treinamento"), true);
-  assert.equal(exigeAssinaturaNaPresenca("assinado", "visita_tecnica"), true);
-  assert.equal(exigeAssinaturaNaPresenca("assinado", "analise_ambiente"), false, "análise de ambiente não exige assinatura");
-  assert.equal(exigeAssinaturaNaPresenca("assinado", "treinamento_online"), false, "online é sempre nominal");
-  assert.equal(exigeAssinaturaNaPresenca("nominal", "treinamento"), false);
-  assert.equal(exigeAssinaturaNaPresenca(undefined, "treinamento"), false);
+  assert.equal(exigeAssinaturaNaPresenca("assinado", ["treinamento"]), true);
+  assert.equal(exigeAssinaturaNaPresenca("assinado", ["visita_tecnica"]), true);
+  assert.equal(exigeAssinaturaNaPresenca("assinado", ["analise_ambiente"]), false, "análise de ambiente não exige assinatura");
+  assert.equal(exigeAssinaturaNaPresenca("assinado", ["treinamento_online"]), false, "online é sempre nominal");
+  assert.equal(exigeAssinaturaNaPresenca("nominal", ["treinamento"]), false);
+  assert.equal(exigeAssinaturaNaPresenca(undefined, ["treinamento"]), false);
   // Login é o nível, não assinatura: um exclui o outro.
-  assert.equal(exigeAssinaturaNaPresenca("login", "treinamento"), false, "contrato login não pede assinatura");
+  assert.equal(exigeAssinaturaNaPresenca("login", ["treinamento"]), false, "contrato login não pede assinatura");
+  // Multi-tipo: análise de ambiente junto com treinamento vale a regra do treinamento.
+  assert.equal(exigeAssinaturaNaPresenca("assinado", ["analise_ambiente", "treinamento"]), true);
 });
 
 test("login na presença: só em contrato login, visita presencial e fora da análise de ambiente", () => {
-  assert.equal(exigeLoginNaPresenca("login", "treinamento"), true);
-  assert.equal(exigeLoginNaPresenca("login", "visita_tecnica"), true);
-  assert.equal(exigeLoginNaPresenca("login", "analise_ambiente"), false, "análise de ambiente não exige login");
-  assert.equal(exigeLoginNaPresenca("login", "treinamento_online"), false, "online é sempre nominal");
-  assert.equal(exigeLoginNaPresenca("assinado", "treinamento"), false, "contrato assinado não pede login");
-  assert.equal(exigeLoginNaPresenca("nominal", "treinamento"), false);
-  assert.equal(exigeLoginNaPresenca(undefined, "treinamento"), false);
+  assert.equal(exigeLoginNaPresenca("login", ["treinamento"]), true);
+  assert.equal(exigeLoginNaPresenca("login", ["visita_tecnica"]), true);
+  assert.equal(exigeLoginNaPresenca("login", ["analise_ambiente"]), false, "análise de ambiente não exige login");
+  assert.equal(exigeLoginNaPresenca("login", ["treinamento_online"]), false, "online é sempre nominal");
+  assert.equal(exigeLoginNaPresenca("assinado", ["treinamento"]), false, "contrato assinado não pede login");
+  assert.equal(exigeLoginNaPresenca("nominal", ["treinamento"]), false);
+  assert.equal(exigeLoginNaPresenca(undefined, ["treinamento"]), false);
   // Nunca os dois ao mesmo tempo: o contrato marca um nível só.
   const niveis = ["nominal", "assinado", "login"] as const;
-  for (const n of niveis) assert.equal(exigeAssinaturaNaPresenca(n, "treinamento") && exigeLoginNaPresenca(n, "treinamento"), false, "assinatura e login nunca juntos");
+  for (const n of niveis) assert.equal(exigeAssinaturaNaPresenca(n, ["treinamento"]) && exigeLoginNaPresenca(n, ["treinamento"]), false, "assinatura e login nunca juntos");
 });

@@ -48,7 +48,7 @@ export async function salvarTemas(visitaId: string, temaIds: string[]): Promise<
 export async function salvarEquipes(visitaId: string, equipeIds: string[]): Promise<Resultado> {
   const { tecnico, v, erro } = await visitaAberta(visitaId);
   if (erro) return erro;
-  if (!sugereTemasPorEquipe(v.tipo)) return "Este tipo de visita não registra equipes.";
+  if (!sugereTemasPorEquipe(v.tipos)) return "Este tipo de visita não registra equipes.";
   // As mesmas equipes que a tela mostra: as ativas, ou já marcadas.
   const validas = new Set(equipesDaVisita(await listarEquipes(), v.equipeIds).map((e) => e.id));
   await definirEquipes(visitaId, tecnico.id, equipeIds.filter((id) => validas.has(id)));

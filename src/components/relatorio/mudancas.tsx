@@ -1,7 +1,7 @@
 import { GitCompareArrows } from "lucide-react";
 import type { VisitaDetalhada } from "@/lib/types";
 import { formatarData } from "@/lib/datas";
-import { rotuloTipo } from "@/lib/visitas";
+import { rotuloTipos } from "@/lib/visitas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 /**
@@ -24,7 +24,7 @@ export function Mudancas({
   desde: string;
   ate?: string;
 }) {
-  const nome = (v: VisitaDetalhada) => `${formatarData(v.entrada)} · ${rotuloTipo(v.tipo)} · ${v.unidadeNome}`;
+  const nome = (v: VisitaDetalhada) => `${formatarData(v.entrada)} · ${rotuloTipos(v.tipos ?? [v.tipo])} · ${v.unidadeNome}`;
   const entraram = visitas.filter((v) => !idsAnteriores.includes(v.id));
   const sairam = visitasAnteriores.filter((v) => !visitas.some((x) => x.id === v.id));
   const corrigidas = visitas

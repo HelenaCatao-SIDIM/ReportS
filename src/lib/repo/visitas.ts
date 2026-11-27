@@ -2,7 +2,7 @@ import "server-only";
 import { Prisma } from "@/generated/reports/client";
 import { idPlataforma, idTexto, plataforma, reports } from "@/lib/db";
 import { formatarDataHora } from "@/lib/datas";
-import { rotuloTipo } from "@/lib/visitas";
+import { rotuloTipos } from "@/lib/visitas";
 import type {
   AlteracaoVisita, ContribuicaoTecnico, EnderecoVisita, EstadoParticipante, EstadoTecnico, Foto, LocalVisita, MeioRegistro, MudancaCampo, PresencaVisita, StatusVisita, TipoVisita,
   UsuarioPublico, Visita, VisitaDetalhada,
@@ -65,6 +65,8 @@ const paraVisita = (v: Linha): Visita => ({
   contratoId: v.contratoId,
   unidadeId: v.estabelecimentoId,
   tipo: v.tipo as TipoVisita,
+  // Visitas antigas (antes do multi-tipo) podem ter `tipos` vazio: cai no tipo principal.
+  tipos: (v.tipos.length ? v.tipos : [v.tipo]) as TipoVisita[],
   status: v.status as StatusVisita,
   entrada: v.entrada.toISOString(),
   saida: v.saida?.toISOString() ?? null,
@@ -264,7 +266,7 @@ export async function cancelarPelaAdministracao(id: string, autor: UsuarioPublic
 export interface CorrecaoVisita {
   entrada: string;
   saida: string;
-  tipo: TipoVisita;
+  tipos: TipoVisita[];
   unidadeId: string;
   /** Equipes treinadas; vazio quando o tipo não registra equipes. */
   equipeIds: string[];
@@ -302,7 +304,7 @@ export async function corrigirPelaAdministracao(id: string, c: CorrecaoVisita, a
 
   comparar("Entrada", formatarDataHora(v.entrada), formatarDataHora(c.entrada));
   comparar("Saída", v.saida ? formatarDataHora(v.saida) : "", formatarDataHora(c.saida));
-  comparar("Tipo", rotuloTipo(v.tipo), rotuloTipo(c.tipo));
+  comparar("Tipos", rotuloTipos(v.tipos), rotuloTipos(c.tipos));
   comparar("Estabelecimento", nomeUnidade(v.unidadeId), nomeUnidade(c.unidadeId));
   comparar("Equipes treinadas", nomeEquipes(v.equipeIds), nomeEquipes(c.equipeIds));
   comparar("Temas", nomeTemas(v.temaIds), nomeTemas(c.temaIds));
@@ -331,7 +333,8 @@ export async function corrigirPelaAdministracao(id: string, c: CorrecaoVisita, a
       data: {
         entrada: new Date(c.entrada),
         saida: new Date(c.saida),
-        tipo: c.tipo,
+        tipo: c.tipos[0],
+        tipos: c.tipos,
         estabelecimentoId: c.unidadeId,
         temaAdicional: c.temaAdicional,
         observacoes: c.observacoes,
@@ -397,7 +400,7 @@ export async function tecnicosOcupados(tecnicoIds: string[]): Promise<Set<string
 
 export type DadosCheckin = Pick<
   Visita,
-  | "tecnicoId" | "clienteId" | "contratoId" | "unidadeId" | "tipo" | "checkin" | "meio" | "distanciaCheckinM" | "raioCheckinM"
+  | "tecnicoId" | "clienteId" | "contratoId" | "unidadeId" | "tipo" | "tipos" | "checkin" | "meio" | "distanciaCheckinM" | "raioCheckinM"
   | "fotoAmbiente" | "printTela" | "linkReuniao" | "equipeIds"
 >;
 
@@ -420,6 +423,7 @@ export interface DadosRetroativa {
   contratoId: string;
   unidadeId: string;
   tipo: TipoVisita;
+  tipos: TipoVisita[];
   entrada: string;
   saida: string;
   linkReuniao: string | null;
@@ -452,6 +456,7 @@ export async function lancarVisitaRetroativa(d: DadosRetroativa, autor: UsuarioP
         contratoId: d.contratoId,
         estabelecimentoId: d.unidadeId,
         tipo: d.tipo,
+        tipos: d.tipos,
         status: "encerrada",
         entrada: new Date(d.entrada),
         saida: new Date(d.saida),
@@ -529,6 +534,7 @@ export async function abrirVisita(d: DadosCheckin, convidadoIds: string[] = []):
           contratoId: d.contratoId,
           estabelecimentoId: d.unidadeId,
           tipo: d.tipo,
+          tipos: d.tipos,
           status: "em_andamento",
           entrada: new Date(),
           checkin: json(d.checkin),

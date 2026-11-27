@@ -7,7 +7,7 @@ import { AlertCircle, Loader2 } from "lucide-react";
 import type { VisitaDetalhada } from "@/lib/repo/visitas";
 import type { Equipe, Tema, TipoVisita, Unidade } from "@/lib/types";
 import { paraInputLocal } from "@/lib/datas";
-import { TIPOS_VISITA } from "@/lib/visitas";
+import { TIPO_ONLINE, TIPOS_VISITA } from "@/lib/visitas";
 import { sugereTemasPorEquipe } from "@/lib/regras-visita";
 import { cn } from "@/lib/utils";
 import { corrigirVisita, type CorrecaoState } from "../../actions";
@@ -33,8 +33,12 @@ export function CorrecaoForm({
 }) {
   const [state, onSubmit, pending] = useAcao<CorrecaoState>(corrigirVisita.bind(null, v.id), {});
   const e = state.erros ?? {};
-  const [tipo, setTipo] = useState<TipoVisita>(v.tipo);
-  const registraEquipes = sugereTemasPorEquipe(tipo);
+  const [tipos, setTipos] = useState<TipoVisita[]>(v.tipos);
+  const alternarTipo = (t: TipoVisita) =>
+    setTipos((atuais) =>
+      atuais.includes(t) ? atuais.filter((x) => x !== t) : t === TIPO_ONLINE ? [t] : [...atuais.filter((x) => x !== TIPO_ONLINE), t],
+    );
+  const registraEquipes = sugereTemasPorEquipe(tipos);
   const [unidadeId, setUnidadeId] = useState(v.unidadeId);
 
   // Só temas do sistema do contrato da visita, agrupados; inativos só aparecem se já estavam marcados.
@@ -62,14 +66,21 @@ export function CorrecaoForm({
           <Campo id="saida" label="Saída" erro={e.saida}>
             <Input id="saida" name="saida" type="datetime-local" defaultValue={v.saida ? paraInputLocal(v.saida) : ""} className="h-9" aria-invalid={!!e.saida} />
           </Campo>
-          <Campo id="tipo" label="Tipo de visita">
-            <select id="tipo" name="tipo" value={tipo} onChange={(ev) => setTipo(ev.target.value as TipoVisita)} className={selectClass}>
+          <Campo id="tipos" label="Tipo de visita (pode marcar vários)" erro={e.tipo}>
+            <div className="grid grid-cols-2 gap-1.5">
               {TIPOS_VISITA.map((t) => (
-                <option key={t.valor} value={t.valor}>
+                <label
+                  key={t.valor}
+                  className={cn(
+                    "flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border px-2.5 text-sm transition-colors",
+                    tipos.includes(t.valor) ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted/50",
+                  )}
+                >
+                  <input type="checkbox" name="tipos" value={t.valor} checked={tipos.includes(t.valor)} onChange={() => alternarTipo(t.valor)} className="size-4 accent-primary" />
                   {t.label}
-                </option>
+                </label>
               ))}
-            </select>
+            </div>
           </Campo>
           <Campo id="unidadeId" label="Estabelecimento" erro={e.unidade}>
             <select id="unidadeId" name="unidadeId" value={unidadeId} onChange={(ev) => setUnidadeId(ev.target.value)} className={selectClass}>

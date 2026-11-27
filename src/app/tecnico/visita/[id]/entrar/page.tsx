@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Users } from "lucide-react";
 import { getUsuarioAtual } from "@/lib/dal";
 import { buscarVisita } from "@/lib/repo/visitas";
-import { ehPresencial, rotuloTipo } from "@/lib/visitas";
+import { ehPresencialVisita, rotuloTipos } from "@/lib/visitas";
 import { formatarDataHora } from "@/lib/datas";
 import { localizacaoPorCep } from "@/lib/config";
 import { Card, CardContent } from "@/components/ui/card";
@@ -50,12 +50,12 @@ async function Conteudo({ params }: Pick<PageProps<"/tecnico/visita/[id]/entrar"
             <span className="font-normal text-muted-foreground"> · {v.sistemaNome}</span>
           </div>
           <div className="text-sm text-muted-foreground">
-            {v.unidadeNome} · {rotuloTipo(v.tipo)}
+            {v.unidadeNome} · {rotuloTipos(v.tipos)}
           </div>
           <div className="text-xs text-muted-foreground">Aberta por {v.tecnicoNome} às {formatarDataHora(v.entrada)}</div>
         </CardContent>
       </Card>
-      <EntrarForm visitaId={id} presencial={ehPresencial(v.tipo)} porCep={localizacaoPorCep()} />
+      <EntrarForm visitaId={id} presencial={ehPresencialVisita(v.tipos)} porCep={localizacaoPorCep()} />
     </div>
   );
 }

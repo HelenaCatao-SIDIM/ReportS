@@ -6,7 +6,7 @@ import { exigirPermissaoAcao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
 import { deInputLocal } from "@/lib/datas";
 import { mascararCpf, normalizar } from "@/lib/format";
-import { ehPresencial, TIPOS_VISITA } from "@/lib/visitas";
+import { ehPresencialVisita, rotuloTipos, TIPO_ONLINE, TIPOS_VISITA } from "@/lib/visitas";
 import { equipesDaVisita, exigeParticipantes, sugereTemasPorEquipe } from "@/lib/regras-visita";
 import { buscarUnidade } from "@/lib/repo/clientes";
 import { buscarContrato } from "@/lib/repo/contratos";
@@ -17,7 +17,7 @@ import { buscarParticipante, listarParticipantes } from "@/lib/repo/participante
 import { salvarImagem } from "@/lib/repo/arquivos";
 import { lancarVisitaRetroativa, tecnicoOcupadoNoHorario } from "@/lib/repo/visitas";
 import { registrarAuditoria } from "@/lib/repo/auditoria";
-import type { Foto, PresencaVisita, TipoVisita } from "@/lib/types";
+import type { Foto, PresencaVisita } from "@/lib/types";
 
 /*
  * Lançamento retroativo: a Administração registra uma visita que já aconteceu. Igual a uma visita normal, menos o que
@@ -63,7 +63,8 @@ export async function lancarRetroativa(_: RetroativaState, fd: FormData): Promis
   const contratoId = texto("contratoId");
   const unidadeId = texto("unidadeId");
   const tecnicoId = texto("tecnicoId");
-  const tipo = texto("tipo") as TipoVisita;
+  const marcados = fd.getAll("tipos").map(String);
+  const tipos = TIPOS_VISITA.map((t) => t.valor).filter((t) => marcados.includes(t));
   const data = texto("data");
   const motivo = texto("motivo");
   const erros: NonNullable<RetroativaState["erros"]> = {};
@@ -74,7 +75,8 @@ export async function lancarRetroativa(_: RetroativaState, fd: FormData): Promis
   if (!unidade || (contrato && unidade.clienteId !== contrato.clienteId)) erros.unidade = "Escolha um estabelecimento do cliente.";
   const tecnicos = await listarComPermissao(PERMISSOES.tecnico);
   if (!tecnicos.some((t) => t.id === tecnicoId)) erros.tecnico = "Escolha o técnico que fez a visita.";
-  if (!TIPOS_VISITA.some((t) => t.valor === tipo)) erros.tipo = "Escolha o tipo de visita.";
+  if (!tipos.length) erros.tipo = "Escolha ao menos um tipo de visita.";
+  else if (tipos.includes(TIPO_ONLINE) && tipos.length > 1) erros.tipo = "“Treinamento online” não combina com os tipos presenciais.";
 
   // Horários de Brasília: a data e as horas de entrada e saída.
   const entrada = /^\d{4}-\d{2}-\d{2}$/.test(data) ? deInputLocal(`${data}T${texto("horaEntrada")}`) : null;
@@ -89,7 +91,7 @@ export async function lancarRetroativa(_: RetroativaState, fd: FormData): Promis
 
   // Equipes: as mesmas regras do check-in (implantação e treinamentos; obrigatórias quando há equipe ativa).
   let equipeIds: string[] = [];
-  if (sugereTemasPorEquipe(tipo)) {
+  if (sugereTemasPorEquipe(tipos)) {
     const validas = new Set(equipesDaVisita(await listarEquipes(), []).map((e) => e.id));
     equipeIds = [...new Set(fd.getAll("equipeIds").map(String))].filter((id) => validas.has(id));
     if (validas.size && !equipeIds.length) erros.equipes = "Marque as equipes treinadas.";
@@ -106,7 +108,7 @@ export async function lancarRetroativa(_: RetroativaState, fd: FormData): Promis
   }
   // A presença pode vir dos nomes marcados, da foto da lista em papel, ou dos dois.
   const listaArquivos = arquivos(fd, "listaPresenca");
-  if (TIPOS_VISITA.some((t) => t.valor === tipo) && exigeParticipantes(tipo) && !presencas.length && !listaArquivos.length)
+  if (exigeParticipantes(tipos) && !presencas.length && !listaArquivos.length)
     erros.participantes = "Treinamento precisa de participantes: marque ao menos um ou anexe a foto da lista de presença.";
 
   const fotosArquivos = arquivos(fd, "fotos");
@@ -135,10 +137,11 @@ export async function lancarRetroativa(_: RetroativaState, fd: FormData): Promis
       clienteId: contrato!.clienteId,
       contratoId: contrato!.id,
       unidadeId,
-      tipo,
+      tipo: tipos[0],
+      tipos,
       entrada: entrada!,
       saida: saida!,
-      linkReuniao: ehPresencial(tipo) ? null : texto("linkReuniao") || null,
+      linkReuniao: ehPresencialVisita(tipos) ? null : texto("linkReuniao") || null,
       equipeIds,
       temaIds: fd.getAll("temaIds").map(String).filter((t) => permitidos.has(t)),
       temaAdicional: texto("temaAdicional"),
@@ -156,7 +159,7 @@ export async function lancarRetroativa(_: RetroativaState, fd: FormData): Promis
     autor, entidade: "visita", entidadeId: id, rotulo: `${unidade?.nome ?? "—"} · ${tecnicoNome} · ${data}`, acao: "lancar",
     mudancas: [
       { campo: "Motivo", antes: "—", depois: motivo },
-      { campo: "Tipo", antes: "—", depois: tipo },
+      { campo: "Tipos", antes: "—", depois: rotuloTipos(tipos) },
     ],
   });
   revalidatePath("/admin/visitas", "layout");

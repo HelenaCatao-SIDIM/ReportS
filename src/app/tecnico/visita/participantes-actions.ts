@@ -21,9 +21,9 @@ async function contexto(visitaId: string) {
   const contrato = await buscarContrato(v.contratoId);
   if (!contrato) throw new Error("Contrato não encontrado");
   // A forma de comprovação e o CPF seguem o contrato da visita. Assinatura só no presencial; treinamento online é sempre nominal.
-  const exigeAssinatura = exigeAssinaturaNaPresenca(contrato.nivel, v.tipo);
+  const exigeAssinatura = exigeAssinaturaNaPresenca(contrato.nivel, v.tipos);
   // Login é alternativa à assinatura: só quando o contrato marca "login" e o sistema tem login configurado.
-  const exigeLogin = exigeLoginNaPresenca(contrato.nivel, v.tipo) && !!(await configLoginDoSistema(contrato.sistemaDoClienteId));
+  const exigeLogin = exigeLoginNaPresenca(contrato.nivel, v.tipos) && !!(await configLoginDoSistema(contrato.sistemaDoClienteId));
   // Os participantes são do sistema do cliente do contrato (a mesma pessoa pode ter cadastros diferentes em cada sistema).
   return { tecnico, v, sistemaDoClienteId: contrato.sistemaDoClienteId, exigeAssinatura, exigeLogin, exigeCpf: contrato.exigeCpf };
 }

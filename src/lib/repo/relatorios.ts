@@ -2,7 +2,7 @@ import "server-only";
 import { Prisma } from "@/generated/reports/client";
 import { idPlataforma, idTexto, reports } from "@/lib/db";
 import { fimDoDia, inicioDoDia } from "@/lib/datas";
-import { ehPresencial } from "@/lib/visitas";
+import { ehPresencialVisita } from "@/lib/visitas";
 import { podeAtualizarRelatorio, podeEnviarRelatorio } from "@/lib/regras-relatorio";
 import type { Cliente, ConteudoCongelado, DecisaoRelatorio, Relatorio, StatusRelatorio, TokenAprovacao, VersaoRelatorio } from "@/lib/types";
 import { buscarCliente } from "./clientes";
@@ -186,8 +186,8 @@ export async function montarConteudo(id: string): Promise<ConteudoRelatorio | nu
     contrato,
     visitas,
     deOutroPeriodo: new Set(visitas.filter((v) => v.entrada < inicio).map((v) => v.id)),
-    minutosPresenciais: visitas.filter((v) => ehPresencial(v.tipo)).reduce((s, v) => s + minutos(v), 0),
-    minutosOnline: visitas.filter((v) => !ehPresencial(v.tipo)).reduce((s, v) => s + minutos(v), 0),
+    minutosPresenciais: visitas.filter((v) => ehPresencialVisita(v.tipos)).reduce((s, v) => s + minutos(v), 0),
+    minutosOnline: visitas.filter((v) => !ehPresencialVisita(v.tipos)).reduce((s, v) => s + minutos(v), 0),
   };
 }
 
