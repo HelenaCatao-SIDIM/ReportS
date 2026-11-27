@@ -23,7 +23,7 @@ const item = (o: Partial<ItemCronograma> = {}): ItemCronograma => ({
   id: "i1", clienteId: "1", contratoId: "c1", unidadeId: "u1", equipeIds: ["medica"], tipo: "treinamento", prazo: "2026-11-20", horario: "", observacao: "", cancelado: false, ...o,
 });
 const visita = (o: Partial<VisitaParaCronograma> = {}): VisitaParaCronograma => ({
-  contratoId: "c1", unidadeId: "u1", equipeIds: ["medica"], tipo: "treinamento", entrada: "2026-11-10T13:00:00.000Z", ...o,
+  contratoId: "c1", unidadeId: "u1", equipeIds: ["medica"], tipos: ["treinamento"], entrada: "2026-11-10T13:00:00.000Z", ...o,
 });
 
 test("sem visita, só o prazo decide: no prazo, a vencer e atrasado", () => {
@@ -94,7 +94,7 @@ test("vale a primeira visita que bate", () => {
 });
 
 test("outro estabelecimento, contrato ou tipo de visita não cumpre", () => {
-  for (const v of [visita({ unidadeId: "u2" }), visita({ contratoId: "c2" }), visita({ tipo: "implantacao" }), visita({ tipo: "treinamento_online" })]) {
+  for (const v of [visita({ unidadeId: "u2" }), visita({ contratoId: "c2" }), visita({ tipos: ["implantacao"] }), visita({ tipos: ["treinamento_online"] })]) {
     assert.equal(calcularSituacao(item(), [v], "2026-11-12").situacao, "no_prazo");
   }
 });

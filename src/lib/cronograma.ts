@@ -48,7 +48,8 @@ export interface VisitaParaCronograma {
   unidadeId: string;
   /** Equipes marcadas como treinadas na visita. */
   equipeIds: string[];
-  tipo: TipoVisita;
+  /** Tipos da visita (uma visita multi-tipo cumpre o item de cada um dos seus tipos). */
+  tipos: TipoVisita[];
   /** ISO (UTC). */
   entrada: string;
 }
@@ -70,7 +71,7 @@ export const diasEntre = (de: string, ate: string) => Math.round((Date.parse(`${
 export const visitaCumpre = (item: ItemCronograma, v: VisitaParaCronograma) =>
   v.contratoId === item.contratoId &&
   v.unidadeId === item.unidadeId &&
-  v.tipo === item.tipo &&
+  v.tipos.includes(item.tipo) &&
   item.equipeIds.every((id) => v.equipeIds.includes(id));
 
 /** Mesmas equipes, sem importar a ordem nem repetição (para achar item repetido). */

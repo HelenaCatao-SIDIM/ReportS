@@ -25,7 +25,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/tecnico/visit
   if (v.status !== "em_andamento") redirect(`/tecnico/visita/${id}`);
   const contrato = await buscarContrato(v.contratoId);
   // Login do participante no Saúde: só quando o contrato marca "login" (e o sistema tem login). O técnico abre o "modo sem login" por um link com token assinado.
-  const exigeLogin = !!contrato && exigeLoginNaPresenca(contrato.nivel, v.tipo) && !!(await configLoginDoSistema(contrato.sistemaDoClienteId));
+  const exigeLogin = !!contrato && exigeLoginNaPresenca(contrato.nivel, v.tipos) && !!(await configLoginDoSistema(contrato.sistemaDoClienteId));
   const token = typeof sp.tecnico === "string" ? sp.tecnico : "";
   const modoTecnico = exigeLogin && (await conferirProva(token, { finalidade: "sem_login", visitaId: id }));
   return (
@@ -34,10 +34,10 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/tecnico/visit
       <LimparRascunho chave={chaveRascunhoParticipante(id)} />
       <PresencaAutoatendimento
         visitaId={id}
-        exigeAssinatura={exigeAssinaturaNaPresenca(contrato?.nivel, v.tipo)}
+        exigeAssinatura={exigeAssinaturaNaPresenca(contrato?.nivel, v.tipos)}
         exigeCpf={!!contrato?.exigeCpf}
         presentes={v.presencas.length}
-        exigeParticipantes={exigeParticipantes(v.tipo)}
+        exigeParticipantes={exigeParticipantes(v.tipos)}
         proximaRota={`/tecnico/visita/${id}`}
         exigeLogin={exigeLogin}
         modoTecnico={modoTecnico}

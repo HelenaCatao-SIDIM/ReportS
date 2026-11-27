@@ -7,7 +7,7 @@ import type { MeioRegistro, TipoVisita } from "@/lib/types";
 import { detectarMeio } from "@/lib/meio";
 import { chaveRascunhoCheckin, sugereTemasPorEquipe } from "@/lib/regras-visita";
 import type { PendenciaCronograma } from "@/lib/cronograma";
-import { ehPresencial, TIPOS_VISITA } from "@/lib/visitas";
+import { ehPresencial, ehPresencialVisita, TIPO_ONLINE, TIPOS_VISITA } from "@/lib/visitas";
 import { cn } from "@/lib/utils";
 import { fazerCheckin, criarEstabelecimentoNoLocal, type CheckinState } from "./actions";
 import { useAcao } from "@/components/form/use-acao";
@@ -40,7 +40,9 @@ interface RascunhoCheckin {
   unidadeId: string;
   /** Equipes marcadas. Rascunhos muito antigos podem não ter. */
   equipeIds?: string[];
-  tipo: TipoVisita | "";
+  /** Tipos marcados. Rascunhos antigos têm só `tipo`. */
+  tipos?: TipoVisita[];
+  tipo?: TipoVisita | "";
   link: string;
 }
 
@@ -93,7 +95,7 @@ export function CheckinForm({
   const [contratoId, setContratoId] = useState("");
   const [unidadeId, setUnidadeId] = useState("");
   const [equipeIds, setEquipeIds] = useState<string[]>([]);
-  const [tipo, setTipo] = useState<TipoVisita | "">("");
+  const [tipos, setTipos] = useState<TipoVisita[]>([]);
   /** Visita prevista no cronograma que o técnico escolheu (preenche a atividade e as equipes). */
   const [previstaId, setPrevistaId] = useState<string | null>(null);
   const [temFoto, setTemFoto] = useState(false);
@@ -125,14 +127,16 @@ export function CheckinForm({
         const u = c.unidades.find((x) => x.id === r.unidadeId);
         // Sistema com um só contrato já vem escolhido.
         const ct = c.contratos.find((x) => x.id === r.contratoId) ?? (c.contratos.length === 1 ? c.contratos[0] : undefined);
-        const tipoValido = TIPOS_VISITA.find((x) => x.valor === r.tipo);
+        // Rascunho novo tem `tipos`; o antigo, só `tipo`.
+        const brutos = r.tipos ?? (r.tipo ? [r.tipo] : []);
+        const tiposValidos = brutos.filter((t): t is TipoVisita => TIPOS_VISITA.some((x) => x.valor === t));
         setClienteId(c.id);
         setContratoId(ct?.id ?? "");
         setUnidadeId(u?.id ?? "");
         setEquipeIds((r.equipeIds ?? []).filter((id) => equipes.some((e) => e.id === id)));
-        if (tipoValido) {
-          setTipo(tipoValido.valor);
-          if (tipoValido.presencial) capturar();
+        if (tiposValidos.length) {
+          setTipos(tiposValidos);
+          if (ehPresencialVisita(tiposValidos)) capturar();
           else setLink(r.link);
         }
       }
@@ -144,8 +148,8 @@ export function CheckinForm({
   // Guarda as escolhas a cada mudança, só depois da recuperação (senão apagaria o rascunho ao abrir).
   useEffect(() => {
     if (!restaurado.current) return;
-    guardarRascunho(chaveRascunhoCheckin, { clienteId, contratoId, unidadeId, equipeIds, tipo, link } satisfies RascunhoCheckin);
-  }, [clienteId, contratoId, unidadeId, equipeIds, tipo, link]);
+    guardarRascunho(chaveRascunhoCheckin, { clienteId, contratoId, unidadeId, equipeIds, tipos, link } satisfies RascunhoCheckin);
+  }, [clienteId, contratoId, unidadeId, equipeIds, tipos, link]);
   const previa = usePreviaCep(gps, porCep);
   const p = previa.fase === "pronto" ? previa.previa : null;
 
@@ -153,22 +157,29 @@ export function CheckinForm({
   // Estabelecimentos do cliente + os que o técnico acabou de cadastrar no local.
   const unidadesDoCliente = cliente ? [...cliente.unidades, ...novasUnidades.filter((u) => u.clienteId === clienteId)] : [];
   const unidade = unidadesDoCliente.find((u) => u.id === unidadeId);
-  const presencial = tipo ? ehPresencial(tipo) : null;
+  const presencial = tipos.length ? ehPresencialVisita(tipos) : null;
 
   const contrato = cliente?.contratos.find((k) => k.id === contratoId);
   // As equipes que vão ser treinadas (implantação e treinamentos). Obrigatórias quando há equipe cadastrada.
-  const opcoesEquipe = contrato && tipo && sugereTemasPorEquipe(tipo) ? equipes : [];
+  const opcoesEquipe = contrato && sugereTemasPorEquipe(tipos) ? equipes : [];
   const equipesOk = !opcoesEquipe.length || equipeIds.some((id) => opcoesEquipe.some((e) => e.id === id));
   const localOk = !!clienteId && !!contratoId && !!unidadeId && equipesOk;
   const alternarEquipe = (id: string) => setEquipeIds((atual) => (atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id]));
   const comprovacaoOk = presencial === null ? false : presencial ? gps.fase === "ok" && temFoto : temFoto && !!link.trim();
   const pronto = localOk && comprovacaoOk;
 
-  function escolherTipo(t: TipoVisita) {
-    setTipo(t);
-    setTemFoto(false);
-    // Presencial: já pede a localização para ganhar tempo.
-    if (ehPresencial(t) && gps.fase === "parado") capturar();
+  /** Marca/desmarca um tipo. "Treinamento online" é exclusivo: ao marcá-lo, limpa os presenciais, e vice-versa. */
+  function alternarTipo(t: TipoVisita) {
+    const online = t === TIPO_ONLINE;
+    const novos = tipos.includes(t)
+      ? tipos.filter((x) => x !== t)
+      : online
+        ? [t]
+        : [...tipos.filter((x) => x !== TIPO_ONLINE), t];
+    setTipos(novos);
+    // Mudou presencial × online: a foto é pedida de novo (a comprovação é outra).
+    if (ehPresencialVisita(novos) !== ehPresencialVisita(tipos)) setTemFoto(false);
+    if (ehPresencial(t) && !novos.includes(TIPO_ONLINE) && gps.fase === "parado") capturar();
   }
 
   const previstasDe = (cId: string, uId: string) => cronograma.filter((i) => i.contratoId === cId && i.unidadeId === uId);
@@ -182,7 +193,7 @@ export function CheckinForm({
       if (anterior) setEquipeIds((atuais) => atuais.filter((id) => !anterior.equipeIds.includes(id)));
       return;
     }
-    if (tipo !== item.tipo) escolherTipo(item.tipo);
+    if (!tipos.includes(item.tipo)) alternarTipo(item.tipo);
     setEquipeIds(item.equipeIds.filter((id) => equipes.some((e) => e.id === id)));
   }
 
@@ -196,7 +207,7 @@ export function CheckinForm({
     setPrevistaId(null);
     if (anterior) setEquipeIds((atuais) => atuais.filter((id) => !anterior.equipeIds.includes(id)));
     const deHoje = previstasDe(cId, uId).filter((i) => i.diasParaPrazo === 0);
-    if (deHoje.length === 1 && (!tipo || anterior)) escolherPrevista(deHoje[0]);
+    if (deHoje.length === 1 && (!tipos.length || anterior)) escolherPrevista(deHoje[0]);
   }
 
   /** Cadastra, no local, o estabelecimento que não está na lista e já o deixa escolhido. */
@@ -409,18 +420,19 @@ export function CheckinForm({
       </Secao>
 
       <Secao numero={2} titulo="Tipo de visita">
+        <p className="text-xs text-muted-foreground">Pode marcar mais de um (ex.: visita técnica + treinamento). “Treinamento online” é à parte.</p>
         <div className="grid grid-cols-2 gap-2">
           {TIPOS_VISITA.map((t) => (
             <label
               key={t.valor}
               className={cn(
                 "flex min-h-12 cursor-pointer items-center justify-center rounded-lg border px-2 text-center text-sm transition-colors",
-                tipo === t.valor ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted/50",
+                tipos.includes(t.valor) ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted/50",
               )}
             >
-              <input type="radio" name="tipo" value={t.valor} checked={tipo === t.valor} onChange={() => {
-                  escolherTipo(t.valor);
-                  // Outra atividade: deixa de ser a visita prevista escolhida.
+              <input type="checkbox" name="tipos" value={t.valor} checked={tipos.includes(t.valor)} onChange={() => {
+                  alternarTipo(t.valor);
+                  // Marcou/desmarcou algo diferente da visita prevista: deixa de ser a prevista escolhida.
                   if (cronograma.find((i) => i.id === previstaId)?.tipo !== t.valor) setPrevistaId(null);
                 }} className="sr-only" />
               {t.label}
@@ -498,7 +510,7 @@ export function CheckinForm({
           <div>
             <div className="mb-1.5 text-sm font-medium">Foto do ambiente</div>
             <FotoCampo
-              key={`foto-${tipo}`}
+              key={`foto-${presencial}`}
               name="fotoAmbiente"
               rotulo="Foto do ambiente"
               invalido={!!e.foto}
@@ -531,7 +543,7 @@ export function CheckinForm({
           </div>
           <div>
             <div className="mb-1.5 text-sm font-medium">Print da tela</div>
-            <FotoCampo key={`print-${tipo}`} name="printTela" origem="galeria" rotulo="Print da tela" invalido={!!e.print} onMudar={setTemFoto} />
+            <FotoCampo key={`print-${presencial}`} name="printTela" origem="galeria" rotulo="Print da tela" invalido={!!e.print} onMudar={setTemFoto} />
             <Erro msg={e.print} />
           </div>
         </Secao>

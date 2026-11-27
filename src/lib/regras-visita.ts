@@ -1,25 +1,25 @@
 /** Regras de negócio da visita compartilhadas entre telas e servidor. */
 import { nomesParecidos } from "@/lib/similaridade";
-import { ehPresencial } from "@/lib/visitas";
+import { ehPresencialVisita } from "@/lib/visitas";
 import type { Equipe, NivelComprovacao, TipoVisita } from "@/lib/types";
 
 /**
- * A presença pede assinatura: contrato "assinado", visita presencial e tipo que não seja a análise de ambiente (nela a presença
- * é só nominal, mesmo em contrato assinado). Treinamento online é sempre nominal.
+ * A presença pede assinatura: contrato "assinado", visita presencial e **algum** tipo que não seja a análise de ambiente
+ * (nela a presença é só nominal; mas se a visita também for treinamento, vale a regra do treinamento). Online é sempre nominal.
  */
-export const exigeAssinaturaNaPresenca = (nivel: NivelComprovacao | null | undefined, tipo: TipoVisita) =>
-  nivel === "assinado" && ehPresencial(tipo) && tipo !== "analise_ambiente";
+export const exigeAssinaturaNaPresenca = (nivel: NivelComprovacao | null | undefined, tipos: TipoVisita[]) =>
+  nivel === "assinado" && ehPresencialVisita(tipos) && tipos.some((t) => t !== "analise_ambiente");
 
 /**
- * A presença pede login do participante no Saúde: contrato "login", visita presencial e tipo que não seja a análise de
- * ambiente (nela a presença é só nominal). É alternativa à assinatura — o contrato marca uma só. Depende ainda de o sistema
- * do cliente ter login configurado (ver `configLoginDoSistema`); sem isso, não dá para exigir.
+ * A presença pede login do participante no Saúde: contrato "login", visita presencial e **algum** tipo que não seja a análise
+ * de ambiente. É alternativa à assinatura — o contrato marca uma só. Depende ainda de o sistema do cliente ter login
+ * configurado (ver `configLoginDoSistema`); sem isso, não dá para exigir.
  */
-export const exigeLoginNaPresenca = (nivel: NivelComprovacao | null | undefined, tipo: TipoVisita) =>
-  nivel === "login" && ehPresencial(tipo) && tipo !== "analise_ambiente";
+export const exigeLoginNaPresenca = (nivel: NivelComprovacao | null | undefined, tipos: TipoVisita[]) =>
+  nivel === "login" && ehPresencialVisita(tipos) && tipos.some((t) => t !== "analise_ambiente");
 
-/** Tipos em que o check-out exige ao menos um participante na lista. */
-export const exigeParticipantes = (tipo: TipoVisita) => tipo === "treinamento" || tipo === "treinamento_online";
+/** A visita exige ao menos um participante no check-out quando **algum** tipo é treinamento (presencial ou online). */
+export const exigeParticipantes = (tipos: TipoVisita[]) => tipos.some((t) => t === "treinamento" || t === "treinamento_online");
 
 /** O técnico faz parte da visita (principal ou convidado) — numa visita conjunta, qualquer membro acessa e edita o que é comum. */
 export const ehMembroDaVisita = (v: { tecnicoId: string; tecnicos?: { tecnicoId: string }[] }, tecnicoId: string) =>
@@ -29,10 +29,10 @@ export const ehMembroDaVisita = (v: { tecnicoId: string; tecnicos?: { tecnicoId:
  * Tipos em que, logo depois do check-in, o aparelho vai para a tela de presença (os participantes buscam o próprio nome e
  * assinam enquanto o técnico apresenta). Nos outros tipos, a visita abre direto na tela de temas e anotações.
  */
-export const abrePelaPresenca = (tipo: TipoVisita) => tipo === "treinamento" || tipo === "treinamento_online" || tipo === "implantacao";
+export const abrePelaPresenca = (tipos: TipoVisita[]) => tipos.some((t) => t === "treinamento" || t === "treinamento_online" || t === "implantacao");
 
-/** Tipos em que o técnico marca as equipes treinadas e recebe os temas mínimos delas como sugestão. */
-export const sugereTemasPorEquipe = (tipo: TipoVisita) => tipo === "implantacao" || tipo === "treinamento" || tipo === "treinamento_online";
+/** A visita marca equipes treinadas (e recebe os temas mínimos delas) quando **algum** tipo é implantação ou treinamento. */
+export const sugereTemasPorEquipe = (tipos: TipoVisita[]) => tipos.some((t) => t === "implantacao" || t === "treinamento" || t === "treinamento_online");
 
 /**
  * Equipes que podem ser marcadas no check-in e na visita: todas as ativas (com ou sem tema mínimo), mais as que já estavam
@@ -43,8 +43,8 @@ export function equipesDaVisita<E extends Pick<Equipe, "id" | "ativo">>(equipes:
 }
 
 /** Para onde o técnico vai ao abrir a visita em andamento: a presença, enquanto ninguém assinou; depois, a tela da visita. */
-export const rotaDaVisita = (v: { id: string; tipo: TipoVisita; presencas: unknown[] }) =>
-  abrePelaPresenca(v.tipo) && v.presencas.length === 0 ? `/tecnico/visita/${v.id}/presenca` : `/tecnico/visita/${v.id}`;
+export const rotaDaVisita = (v: { id: string; tipos: TipoVisita[]; presencas: unknown[] }) =>
+  abrePelaPresenca(v.tipos) && v.presencas.length === 0 ? `/tecnico/visita/${v.id}/presenca` : `/tecnico/visita/${v.id}`;
 
 /**
  * O CPF digitado já é de alguém do cadastro. O nome do dono só aparece (para a pessoa tocar em "É esta pessoa") quando é

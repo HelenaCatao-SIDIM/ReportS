@@ -6,7 +6,8 @@ import { AlertCircle, Loader2, Plus, X } from "lucide-react";
 import type { ClienteCheckin } from "@/lib/repo/contratos";
 import type { TipoVisita } from "@/lib/types";
 import { comprimirImagem } from "@/lib/imagem";
-import { ehPresencial, TIPOS_VISITA } from "@/lib/visitas";
+import { cn } from "@/lib/utils";
+import { ehPresencialVisita, TIPO_ONLINE, TIPOS_VISITA } from "@/lib/visitas";
 import { exigeParticipantes, sugereTemasPorEquipe } from "@/lib/regras-visita";
 import { buscarParticipantesRetroativa, lancarRetroativa, type ParticipanteOpcao, type RetroativaState } from "./actions";
 import { Campo, selectClass } from "@/components/form/campo";
@@ -40,7 +41,11 @@ export function RetroativaForm({
 
   const [clienteId, setClienteId] = useState("");
   const [contratoId, setContratoId] = useState("");
-  const [tipo, setTipo] = useState<TipoVisita | "">("");
+  const [tipos, setTipos] = useState<TipoVisita[]>([]);
+  const alternarTipo = (t: TipoVisita) =>
+    setTipos((atuais) =>
+      atuais.includes(t) ? atuais.filter((x) => x !== t) : t === TIPO_ONLINE ? [t] : [...atuais.filter((x) => x !== TIPO_ONLINE), t],
+    );
   const [participantes, setParticipantes] = useState<ParticipanteOpcao[]>([]);
   const [busca, setBusca] = useState("");
   const [sugestoes, setSugestoes] = useState<ParticipanteOpcao[]>([]);
@@ -51,7 +56,7 @@ export function RetroativaForm({
   const cliente = clientes.find((c) => c.id === clienteId);
   const contrato = cliente?.contratos.find((k) => k.id === contratoId);
   const temasDoSistema = contrato ? temas.filter((t) => t.sistema === contrato.sistema) : [];
-  const registraEquipes = tipo !== "" && sugereTemasPorEquipe(tipo);
+  const registraEquipes = sugereTemasPorEquipe(tipos);
 
   // Busca de participantes do sistema do cliente (a partir de 2 letras).
   useEffect(() => {
@@ -169,15 +174,21 @@ export function RetroativaForm({
               ))}
             </select>
           </Campo>
-          <Campo id="tipo" label="Tipo de visita" erro={e.tipo}>
-            <select id="tipo" name="tipo" value={tipo} onChange={(ev) => setTipo(ev.target.value as TipoVisita)} className={selectClass}>
-              <option value="">Escolha o tipo</option>
+          <Campo id="tipos" label="Tipo de visita (pode marcar vários)" erro={e.tipo}>
+            <div className="grid grid-cols-2 gap-2">
               {TIPOS_VISITA.map((t) => (
-                <option key={t.valor} value={t.valor}>
+                <label
+                  key={t.valor}
+                  className={cn(
+                    "flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm transition-colors",
+                    tipos.includes(t.valor) ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted/50",
+                  )}
+                >
+                  <input type="checkbox" name="tipos" value={t.valor} checked={tipos.includes(t.valor)} onChange={() => alternarTipo(t.valor)} className="size-4 accent-primary" />
                   {t.label}
-                </option>
+                </label>
               ))}
-            </select>
+            </div>
           </Campo>
           <Campo id="data" label="Data" erro={e.data}>
             <Input id="data" name="data" type="date" max={hojeBrasilia()} className="h-9" />
@@ -190,7 +201,7 @@ export function RetroativaForm({
               <Input id="horaSaida" name="horaSaida" type="time" className="h-9" />
             </Campo>
           </div>
-          {tipo !== "" && !ehPresencial(tipo) && (
+          {tipos.length > 0 && !ehPresencialVisita(tipos) && (
             <Campo id="linkReuniao" label="Link da reunião (opcional)">
               <Input id="linkReuniao" name="linkReuniao" placeholder="https://" className="h-9" />
             </Campo>
@@ -253,7 +264,7 @@ export function RetroativaForm({
           <CardDescription>
             Marque quem participou, do cadastro do cliente, ou anexe a foto da lista de presença em papel (ou os dois). Sem assinatura: os
             nomes marcados ficam como confirmação nominal.
-            {tipo !== "" && exigeParticipantes(tipo) && " Treinamento precisa de um dos dois."}
+            {exigeParticipantes(tipos) && " Treinamento precisa de um dos dois."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">

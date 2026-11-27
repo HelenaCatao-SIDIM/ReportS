@@ -45,15 +45,19 @@ async function comSituacao(itens: ItemComNomes[], hoje: string): Promise<ItemCro
             status: "encerrada",
             contratoId: { in: [...new Set(ativos.map((i) => i.contratoId))] },
             estabelecimentoId: { in: [...new Set(ativos.map((i) => i.unidadeId))] },
-            tipo: { in: [...new Set(ativos.map((i) => i.tipo))] },
+            // Pega a visita se algum tipo dela é a atividade de algum item. O segundo ramo cobre linhas antigas (tipos vazio).
+            OR: [
+              { tipos: { hasSome: [...new Set(ativos.map((i) => i.tipo))] } },
+              { tipo: { in: [...new Set(ativos.map((i) => i.tipo))] } },
+            ],
           },
-          select: { contratoId: true, estabelecimentoId: true, tipo: true, entrada: true, equipes: { select: { equipeId: true } } },
+          select: { contratoId: true, estabelecimentoId: true, tipo: true, tipos: true, entrada: true, equipes: { select: { equipeId: true } } },
         })
       ).map((v) => ({
         contratoId: v.contratoId,
         unidadeId: v.estabelecimentoId,
         equipeIds: v.equipes.map((e) => e.equipeId),
-        tipo: v.tipo as TipoVisita,
+        tipos: (v.tipos.length ? v.tipos : [v.tipo]) as TipoVisita[],
         entrada: v.entrada.toISOString(),
       }))
     : [];

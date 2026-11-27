@@ -6,7 +6,7 @@ import { formatarData, formatarDuracao, formatarHora } from "@/lib/datas";
 import { foraDoRaio, formatarDistancia } from "@/lib/distancia";
 import { formatarCbo, formatarCpf, mascararCpf } from "@/lib/format";
 import { ROTULO_MEIO } from "@/lib/meio";
-import { ehPresencial, fotosDaLista, rotuloTipo } from "@/lib/visitas";
+import { ehPresencialVisita, fotosDaLista, rotuloTipos } from "@/lib/visitas";
 import { localizacaoPorCep } from "@/lib/config";
 import { LocalVisita } from "@/components/visita/local-visita";
 import { SeloParticipante } from "@/components/participante/selo-participante";
@@ -94,7 +94,7 @@ export function DetalheVisita({
   controle?: boolean;
   selos?: boolean;
 }) {
-  const presencial = ehPresencial(v.tipo);
+  const presencial = ehPresencialVisita(v.tipos ?? [v.tipo]);
   // Com a localização por CEP ligada, a coordenada nunca aparece (nem para o aprovador do cliente).
   const porCep = localizacaoPorCep();
   // Fotos da visita (solo): a de check-in de um lado, as extras do outro. A foto da lista de presença é parte de participantes.
@@ -110,7 +110,7 @@ export function DetalheVisita({
         <CardContent>
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Item rotulo="Data">{formatarData(v.entrada)}</Item>
-            <Item rotulo="Tipo">{rotuloTipo(v.tipo)}</Item>
+            <Item rotulo={(v.tipos ?? [v.tipo]).length > 1 ? "Tipos" : "Tipo"}>{rotuloTipos(v.tipos ?? [v.tipo])}</Item>
             <Item rotulo="Estabelecimento">{v.unidadeNome}</Item>
             <Item rotulo="Equipes">{v.equipes?.join(", ") || "—"}</Item>
             <Item rotulo="Entrada">{formatarHora(v.entrada)}</Item>

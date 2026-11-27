@@ -78,7 +78,7 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
 
   const checkin = () =>
     visitas.abrirVisita({
-      tecnicoId: tecnico.id, clienteId, contratoId, unidadeId: estabelecimentoId, tipo: "reuniao",
+      tecnicoId: tecnico.id, clienteId, contratoId, unidadeId: estabelecimentoId, tipo: "reuniao", tipos: ["reuniao"],
       checkin: { latitude: -22.9, longitude: -47.06 }, meio: "celular", distanciaCheckinM: 10, raioCheckinM: 50,
       fotoAmbiente: { id: "f1", url: "/arquivos/f1" }, printTela: null, linkReuniao: null, equipeIds: [],
     });
@@ -226,7 +226,7 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
   /** Treinamento aberto com as equipes do check-in. */
   const treinoNo = (equipeIds: string[] = []) =>
     visitas.abrirVisita({
-      tecnicoId: tecnico.id, clienteId, contratoId, unidadeId: estabelecimentoId, tipo: "treinamento",
+      tecnicoId: tecnico.id, clienteId, contratoId, unidadeId: estabelecimentoId, tipo: "treinamento", tipos: ["treinamento"],
       checkin: { latitude: -22.9, longitude: -47.06 }, meio: "celular", distanciaCheckinM: 10, raioCheckinM: 50,
       fotoAmbiente: { id: "f1", url: "/arquivos/f1" }, printTela: null, linkReuniao: null, equipeIds,
     });
@@ -279,7 +279,7 @@ describe("banco", { skip: !URL_TESTE && "defina REPORTS_TEST_DATABASE_URL" }, ()
     assert.equal(await visitas.tecnicoOcupadoNoHorario(tecnico.id, entrada, saida), false);
     const id = await visitas.lancarVisitaRetroativa(
       {
-        tecnicoId: tecnico.id, clienteId, contratoId, unidadeId: estabelecimentoId, tipo: "treinamento", entrada, saida, linkReuniao: null,
+        tecnicoId: tecnico.id, clienteId, contratoId, unidadeId: estabelecimentoId, tipo: "treinamento", tipos: ["treinamento"], entrada, saida, linkReuniao: null,
         equipeIds: [medica.id], temaIds: [t.id], temaAdicional: "", observacoes: "Treinamento feito antes do ReportS", pendencias: "", proximosPassos: "",
         fotos: [], presencas: [],
       },

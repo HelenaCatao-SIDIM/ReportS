@@ -5,7 +5,7 @@ import { ChamadosSuporte } from "@/components/relatorio/chamados-suporte";
 import { CronogramaRelatorio } from "@/components/cronograma/cronograma-relatorio";
 import { formatarData, formatarDuracao, formatarHora } from "@/lib/datas";
 import { formatarCnpj } from "@/lib/format";
-import { formatarDataCurta, formatarMinutos, fotosDaLista, rotuloAtendidos, rotuloTipo } from "@/lib/visitas";
+import { formatarDataCurta, formatarMinutos, fotosDaLista, rotuloAtendidos, rotuloTipos } from "@/lib/visitas";
 import { DetalheVisita } from "@/components/visita/detalhe-visita";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -97,7 +97,7 @@ export function ConteudoRelatorio({ c, tituloVisitas, linkVisitas }: { c: DadosC
               <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-not-open:-rotate-90" />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                  {formatarData(v.entrada)} · {rotuloTipo(v.tipo)}
+                  {formatarData(v.entrada)} · {rotuloTipos(v.tipos ?? [v.tipo])}
                   {c.deOutroPeriodo.includes(v.id) && (
                     <Badge variant="secondary">
                       <History />

@@ -23,6 +23,16 @@ export const fotosDaLista = <F extends { legenda?: string }>(v: { fotosExtras: F
 export const rotuloTipo = (t: TipoVisita) => TIPOS_VISITA.find((x) => x.valor === t)?.label ?? t;
 export const ehPresencial = (t: TipoVisita) => TIPOS_VISITA.find((x) => x.valor === t)?.presencial ?? true;
 
+/** "Treinamento online" é o único online e é exclusivo; por isso a visita é presencial a menos que ele esteja marcado. */
+export const TIPO_ONLINE: TipoVisita = "treinamento_online";
+export const ehPresencialVisita = (tipos: TipoVisita[]) => !tipos.includes(TIPO_ONLINE);
+
+/** Rótulo da visita com todos os tipos, na ordem do catálogo: "Visita técnica + Treinamento". */
+export const rotuloTipos = (tipos: TipoVisita[]) =>
+  TIPOS_VISITA.filter((x) => tipos.includes(x.valor))
+    .map((x) => x.label)
+    .join(" + ") || tipos.map(rotuloTipo).join(" + ");
+
 export const ROTULO_STATUS: Record<StatusVisita, string> = {
   em_andamento: "Em andamento",
   encerrada: "Encerrada",

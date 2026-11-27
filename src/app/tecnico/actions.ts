@@ -6,7 +6,7 @@ import { exigirPermissaoAcao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
 import { distanciaMetros, RAIO_PADRAO_METROS } from "@/lib/distancia";
 import { ehMeio } from "@/lib/meio";
-import { ehPresencial, TIPOS_VISITA } from "@/lib/visitas";
+import { ehPresencialVisita, TIPO_ONLINE, TIPOS_VISITA } from "@/lib/visitas";
 import { equipesDaVisita, rotaDaVisita, sugereTemasPorEquipe } from "@/lib/regras-visita";
 import { buscarCliente, buscarUnidade, criarUnidade } from "@/lib/repo/clientes";
 import { listarEquipes } from "@/lib/repo/equipes";
@@ -17,7 +17,7 @@ import { abrirVisita, tecnicosOcupados, visitaAbertaDoTecnico } from "@/lib/repo
 import { registrarAuditoria, mudancasDe } from "@/lib/repo/auditoria";
 import { resolverCep } from "@/lib/cep";
 import { textoEndereco } from "@/lib/format";
-import type { MeioRegistro, TipoVisita } from "@/lib/types";
+import type { MeioRegistro } from "@/lib/types";
 import { lerLocal } from "@/lib/ler-local";
 import { converterDepois } from "@/lib/cep-visitas";
 
@@ -40,7 +40,9 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
   const contratoId = String(fd.get("contratoId") ?? "");
   const unidadeId = String(fd.get("unidadeId") ?? "");
   const equipesMarcadas = [...new Set(fd.getAll("equipeIds").map(String))];
-  const tipo = String(fd.get("tipo") ?? "") as TipoVisita;
+  const marcados = fd.getAll("tipos").map(String);
+  // Na ordem do catálogo, só os válidos, sem repetir.
+  const tipos = TIPOS_VISITA.map((t) => t.valor).filter((t) => marcados.includes(t));
   const meioLido = String(fd.get("meio") ?? "");
 
   const erros: NonNullable<CheckinState["erros"]> = {};
@@ -52,12 +54,13 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
   const unidade = await buscarUnidade(unidadeId);
   if (!unidade || unidade.clienteId !== clienteId) erros.unidade = "Escolha o estabelecimento.";
 
-  if (!TIPOS_VISITA.some((t) => t.valor === tipo)) erros.tipo = "Escolha o tipo de visita.";
+  if (!tipos.length) erros.tipo = "Escolha ao menos um tipo de visita.";
+  else if (tipos.includes(TIPO_ONLINE) && tipos.length > 1) erros.tipo = "“Treinamento online” não combina com os tipos presenciais.";
 
   // Equipes: nos tipos que registram equipes, as que vão ser treinadas. São as mesmas "equipes
   // treinadas" da visita, que o técnico ajusta até o check-out. Obrigatórias quando há equipe ativa cadastrada.
   let equipeIds: string[] = [];
-  if (contrato && sugereTemasPorEquipe(tipo)) {
+  if (contrato && sugereTemasPorEquipe(tipos)) {
     const validas = new Set(equipesDaVisita(await listarEquipes(), []).map((e) => e.id));
     equipeIds = equipesMarcadas.filter((id) => validas.has(id));
     if (validas.size && !equipeIds.length) erros.equipes = "Marque as equipes que vão ser treinadas.";
@@ -78,7 +81,7 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
     }
   }
 
-  const presencial = ehPresencial(tipo);
+  const presencial = ehPresencialVisita(tipos);
   const checkin = presencial ? lerLocal(fd, `check-in do técnico ${tecnico.id}`) : null;
   const linkReuniao = String(fd.get("linkReuniao") ?? "").trim();
   const fotoArquivo = arquivo(fd, presencial ? "fotoAmbiente" : "printTela");
@@ -109,7 +112,8 @@ export async function fazerCheckin(_: CheckinState, fd: FormData): Promise<Check
         clienteId,
         contratoId,
         unidadeId,
-        tipo,
+        tipo: tipos[0],
+        tipos,
         equipeIds,
         checkin,
         meio: meioLido as MeioRegistro,

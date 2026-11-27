@@ -152,7 +152,10 @@ model Visita {
   clienteId                  BigInt           @map("cliente_id")
   contratoId                 String           @map("contrato_id")
   estabelecimentoId          String           @map("estabelecimento_id")
+  /// Tipo "principal" (o primeiro escolhido). Mantido junto de `tipos` por compatibilidade e pela CHECK.
   tipo                       String
+  /// Tipos da visita (uma visita pode ser mais de uma coisa: ex. visita técnica + treinamento). Nunca vazio.
+  tipos                      String[]
   status                     String
   entrada                    DateTime
   saida                      DateTime?

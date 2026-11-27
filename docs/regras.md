@@ -137,7 +137,9 @@ Onde: `src/lib/repo/cbo.ts`, `scripts/importar-cbo.ts`.
 
 A **Análise de ambiente** (16/11/2026) é presencial (GPS e foto no check-in, como as outras), não registra equipes e abre direto na tela da visita; quem participa entra na lista **sem assinar**, mesmo quando o contrato pede assinatura.
 
-Onde: `src/lib/visitas.ts` (`TIPOS_VISITA`), `src/lib/regras-visita.ts` (`exigeParticipantes`, `exigeAssinaturaNaPresenca`).
+**Vários tipos numa visita** (27/11/2026): uma visita pode ser **mais de um tipo** ao mesmo tempo (ex.: visita técnica **+** treinamento). No check-in (e no lançamento retroativo e na correção), os tipos são **caixas de seleção**; marca-se um ou mais. **"Treinamento online" é exclusivo**: marcá-lo limpa os presenciais e vice-versa (a comprovação é diferente — print+link × GPS+foto); os presenciais combinam à vontade. As regras passam a valer por **conjunto**: a visita é presencial se não for a online; pede **equipes** se algum tipo for implantação/treinamento; pede **participantes** se algum for treinamento (presencial ou online); **abre pela presença** se algum for treinamento/implantação; e **cumpre no cronograma** o item de **cada** um dos seus tipos. A assinatura/login valem se presencial e **algum** tipo não for análise de ambiente. No banco, a coluna `tipos` guarda a lista (e `tipo` segue como o principal, o primeiro marcado); visitas antigas, sem `tipos`, caem no `tipo`.
+
+Onde: `src/lib/visitas.ts` (`TIPOS_VISITA`, `ehPresencialVisita`, `rotuloTipos`), `src/lib/regras-visita.ts` (`exigeParticipantes`, `abrePelaPresenca`, `sugereTemasPorEquipe`, `exigeAssinaturaNaPresenca`, `exigeLoginNaPresenca` — todas por conjunto), `src/lib/cronograma.ts` (`visitaCumpre`).
 
 ### Check-in
 

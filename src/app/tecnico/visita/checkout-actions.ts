@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { exigirPermissaoAcao } from "@/lib/dal";
 import { PERMISSOES } from "@/lib/permissoes";
-import { ehPresencial } from "@/lib/visitas";
+import { ehPresencialVisita } from "@/lib/visitas";
 import { ehMembroDaVisita, exigeParticipantes } from "@/lib/regras-visita";
 import { buscarVisita, encerrarPeloTecnico } from "@/lib/repo/visitas";
 import { lerLocal } from "@/lib/ler-local";
@@ -23,12 +23,13 @@ export async function fazerCheckout(visitaId: string, _: CheckoutState, fd: Form
   if (v.status !== "em_andamento") return { erros: { geral: "Esta visita já foi encerrada." } };
 
   const erros: NonNullable<CheckoutState["erros"]> = {};
-  if (exigeParticipantes(v.tipo) && v.presencas.length === 0) {
+  if (exigeParticipantes(v.tipos) && v.presencas.length === 0) {
     erros.participantes = "Em treinamento, registre ao menos um participante antes do check-out.";
   }
 
-  const checkout = ehPresencial(v.tipo) ? lerLocal(fd, `check-out da visita ${visitaId}`) : null;
-  if (ehPresencial(v.tipo) && !checkout) erros.gps = "É preciso a localização do aparelho para o check-out presencial.";
+  const presencial = ehPresencialVisita(v.tipos);
+  const checkout = presencial ? lerLocal(fd, `check-out da visita ${visitaId}`) : null;
+  if (presencial && !checkout) erros.gps = "É preciso a localização do aparelho para o check-out presencial.";
   if (Object.keys(erros).length) return { erros };
 
   const texto = (nome: string) => String(fd.get(nome) ?? "").trim().slice(0, TAMANHO_TEXTO);

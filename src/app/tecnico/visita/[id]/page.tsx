@@ -9,7 +9,7 @@ import { listarTemas } from "@/lib/repo/temas";
 import { listarEquipes } from "@/lib/repo/equipes";
 import { buscarContrato } from "@/lib/repo/contratos";
 import { formatarData, formatarDataHora, formatarHora } from "@/lib/datas";
-import { rotuloAtendidos, rotuloTipo } from "@/lib/visitas";
+import { rotuloAtendidos, rotuloTipos } from "@/lib/visitas";
 import {
   chaveRascunho,
   chaveRascunhoCheckin,
@@ -80,7 +80,7 @@ function Cabecalho({ v }: { v: VisitaDetalhada }) {
           <div className="text-sm break-words text-muted-foreground">
             {v.unidadeNome} · {rotuloAtendidos(v)}
           </div>
-          <div className="text-sm text-muted-foreground">{rotuloTipo(v.tipo)}</div>
+          <div className="text-sm text-muted-foreground">{rotuloTipos(v.tipos)}</div>
           {v.checkin &&
             (localizacaoPorCep() ? (
               <div className="mt-0.5 flex text-[11px] text-muted-foreground">
@@ -110,14 +110,14 @@ async function EmAndamento({ v, tecnicoId }: { v: VisitaDetalhada; tecnicoId: st
   // Só os temas do sistema do contrato da visita.
   const temas = todosTemas.filter((t) => t.sistema === v.sistema && (t.ativo || v.temaIds.includes(t.id)));
   // Implantação e treinamentos: o técnico marca as equipes e recebe os temas mínimos delas (do sistema do contrato) como sugestão.
-  const porEquipe: PorEquipe | undefined = sugereTemasPorEquipe(v.tipo)
+  const porEquipe: PorEquipe | undefined = sugereTemasPorEquipe(v.tipos)
     ? {
         equipes: equipesDaVisita(equipes, v.equipeIds).map(({ id, nome, temaIds }) => ({ id, nome, temaIds })),
         inicial: v.equipeIds,
       }
     : undefined;
   // Login só quando o contrato marca "login" (e o sistema tem login). Aí o técnico tem o atalho "registrar sem login" (token assinado, 30 min).
-  const loginLigado = !!contrato && exigeLoginNaPresenca(contrato.nivel, v.tipo) && !!(await configLoginDoSistema(contrato.sistemaDoClienteId));
+  const loginLigado = !!contrato && exigeLoginNaPresenca(contrato.nivel, v.tipos) && !!(await configLoginDoSistema(contrato.sistemaDoClienteId));
   const semLoginHref = loginLigado ? `/tecnico/visita/${v.id}/presenca?tecnico=${await assinarProva({ finalidade: "sem_login", visitaId: v.id }, 30)}` : null;
   return (
     <div className="space-y-4">
@@ -154,8 +154,8 @@ async function EmAndamento({ v, tecnicoId }: { v: VisitaDetalhada; tecnicoId: st
       <ParticipantesVisita
         visitaId={v.id}
         presencas={v.presencas}
-        exigeAssinatura={exigeAssinaturaNaPresenca(contrato?.nivel, v.tipo)}
-        ehTreinamento={v.tipo === "treinamento" || v.tipo === "treinamento_online"}
+        exigeAssinatura={exigeAssinaturaNaPresenca(contrato?.nivel, v.tipos)}
+        ehTreinamento={v.tipos.includes("treinamento") || v.tipos.includes("treinamento_online")}
         semLoginHref={semLoginHref}
       />
       <div className="space-y-2 pb-2">
@@ -169,7 +169,7 @@ async function EmAndamento({ v, tecnicoId }: { v: VisitaDetalhada; tecnicoId: st
               <LogOut />
               Fazer check-out
             </Button>
-            {exigeParticipantes(v.tipo) && v.presencas.length === 0 && (
+            {exigeParticipantes(v.tipos) && v.presencas.length === 0 && (
               <p className="text-center text-xs text-amber-700">Registre ao menos um participante antes do check-out.</p>
             )}
           </>
